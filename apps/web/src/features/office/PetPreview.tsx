@@ -1,5 +1,14 @@
 import { useEffect, useRef } from "react";
+import styled from "styled-components";
 import { getPet, plotPet } from "./pets.ts";
+
+const Styled = {
+  Canvas: styled.canvas`
+    image-rendering: pixelated;
+    border: 1px solid #d5c8b5;
+    background: #f8f2e7;
+  `,
+};
 
 export function PetPreview({ petId, size = 56 }: { petId: string; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -20,7 +29,7 @@ export function PetPreview({ petId, size = 56 }: { petId: string; size?: number 
   }, [petId]);
 
   return (
-    <canvas
+    <Styled.Canvas
       ref={ref}
       width={54}
       height={54}

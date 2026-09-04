@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Application, Container, Graphics, Text, type Ticker } from "pixi.js";
 import { Popover } from "radix-ui";
-import type { Agent, Task, TaskStatus } from "../../../../../packages/domain/src/entities.ts";
+import styled, { keyframes } from "styled-components";
+import { Button } from "@ai-pixel-office/ui";
+import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { RUNTIME } from "../../shared/config/presentation.ts";
 import { getPet, plotPet } from "./pets.ts";
 
@@ -194,6 +196,324 @@ function drawMonitorGlyph(graphics: Graphics, model: Agent["model"]): void {
   for (const [px, py] of points) graphics.rect(59 + px! * 4, -16 + py! * 3, 4, 3).fill("#fffaf0");
 }
 
+const agentFloat = keyframes`
+  from {
+    transform: translateY(-1px);
+  }
+  to {
+    transform: translateY(1px);
+  }
+`;
+
+const Office = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 760 / 420;
+  overflow: hidden;
+  background: #ead8bd;
+  border: 3px solid #6d5347;
+  box-shadow: inset 0 0 0 3px #f8e9ce;
+  line-height: 0;
+`;
+
+const Stage = styled.div`
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, #f2dfbf 0 30%, #9f6d4e 30% 32%, #d6aa76 32% 100%);
+`;
+
+const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: #6f5c4c;
+  background: linear-gradient(to bottom, #f2dfbf 0 30%, #9f6d4e 30% 32%, #d6aa76 32% 100%);
+  font: 800 11px/1.4 monospace;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
+  visibility: ${({ $hidden }) => ($hidden ? "hidden" : "visible")};
+  transition:
+    opacity 0.16s ease-out,
+    visibility 0s linear ${({ $hidden }) => ($hidden ? "0.16s" : "0s")};
+
+  > span {
+    width: 42px;
+    padding: 6px 0;
+    border: 2px solid #6d5347;
+    background: #f8e9ce;
+    box-shadow: 3px 3px 0 #9f6d4e;
+    color: ${({ $error }) => ($error ? "#9b403d" : "#4e8874")};
+    text-align: center;
+    letter-spacing: 3px;
+  }
+`;
+
+const LabelLayer = styled.div<{ $ready: boolean }>`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  line-height: 1.2;
+  opacity: ${({ $ready }) => ($ready ? 1 : 0)};
+  transition: opacity 0.16s ease-out;
+`;
+
+const StatusLabel = styled.span<{ $hidden: boolean }>`
+  position: absolute;
+  left: -16.5%;
+  top: 0;
+  width: 133%;
+  height: 27%;
+  padding: 0 5%;
+  border: 2px solid #748c83;
+  border-radius: 7px;
+  background: #fffaf0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: clamp(5px, 0.82vw, 10px);
+  font-weight: 800;
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.18s ease-out;
+
+  ${({ $hidden }) =>
+    $hidden &&
+    `
+      opacity: 0;
+      transform: translateY(4px) scale(0.96);
+    `}
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
+const AgentName = styled.button<{ $hasTask: boolean }>`
+  position: absolute;
+  z-index: 2;
+  left: 3%;
+  bottom: -9%;
+  width: 94%;
+  min-height: 23%;
+  padding: 2% 4%;
+  border: 1px solid rgb(109 83 71 / 42%);
+  border-radius: 4px;
+  background: rgb(255 250 240 / 88%);
+  box-shadow: 0 2px 0 rgb(109 83 71 / 30%);
+  display: grid;
+  place-content: center;
+  color: #4b4541;
+  font: inherit;
+  line-height: 1.05;
+  pointer-events: auto;
+  cursor: pointer;
+
+  strong {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: clamp(6px, 1vw, 12px);
+  }
+
+  small {
+    margin-top: 2px;
+    color: #6f786e;
+    font-size: clamp(4px, 0.62vw, 7px);
+    font-weight: 800;
+  }
+
+  ${({ $hasTask }) =>
+    $hasTask &&
+    `
+      border-color: #628275;
+      background: rgb(239 248 240 / 94%);
+    `}
+
+  &:focus-visible {
+    outline: 2px dashed #426e60;
+    outline-offset: 2px;
+  }
+`;
+
+const RuntimeChip = styled.span`
+  position: absolute;
+  top: -22%;
+  right: -8%;
+  z-index: 3;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: #fff;
+  font: 800 clamp(5px, 0.6vw, 8px) monospace;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 25%);
+`;
+
+const AgentHitbox = styled.button`
+  position: absolute;
+  z-index: 1;
+  left: 12%;
+  top: 28%;
+  width: 76%;
+  height: 81%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px dashed #426e60;
+    outline-offset: 2px;
+  }
+`;
+
+const AgentSlot = styled.div`
+  position: absolute;
+  width: 16.05%;
+  color: #4b4541;
+  text-align: center;
+  font-family: Pretendard, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  animation: ${agentFloat} 1.5s ease-in-out infinite alternate;
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  &:hover ${AgentName}, &:focus-within ${AgentName} {
+    border-color: #426e60;
+  }
+
+  &[data-status="needs_review"]
+    ${AgentName},
+    &[data-status="needs_input"]
+    ${AgentName},
+    &[data-status="blocked"]
+    ${AgentName},
+    &[data-status="failed"]
+    ${AgentName} {
+    border-color: #8b68b5;
+    box-shadow: 0 2px 0 rgb(92 66 123 / 42%);
+  }
+`;
+
+const EmptyLabel = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 59%;
+  transform: translate(-50%, -50%);
+  color: #705b4e;
+  font-size: clamp(11px, 1.6vw, 18px);
+  font-weight: 800;
+`;
+
+const QuickPopover = styled(Popover.Content)`
+  z-index: 50;
+  width: min(320px, calc(100vw - 24px));
+  padding: 15px;
+  border: 2px solid #5a766c;
+  background: #fffaf0;
+  box-shadow: 5px 5px 0 #9eafa6;
+
+  small {
+    color: #7d6f65;
+    font-size: 9px;
+  }
+
+  form {
+    display: grid;
+    gap: 8px;
+  }
+
+  label {
+    color: #796b60;
+    font-size: 9px;
+    font-weight: 800;
+    display: grid;
+    gap: 4px;
+  }
+`;
+
+const PopoverHeading = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+`;
+
+const TaskListPopover = styled.div`
+  display: grid;
+  gap: 5px;
+  max-height: 180px;
+  margin-bottom: 10px;
+  overflow: auto;
+
+  button {
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid #d5c8b5;
+    background: #fffdfa;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+    color: #4b4541;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      border-color: #4c7b6b;
+      background: #eaf2ec;
+      outline: none;
+    }
+
+    > span,
+    > small {
+      color: #756960;
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    > strong {
+      overflow: hidden;
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+`;
+
+const PopoverArrow = styled(Popover.Arrow)`
+  fill: #5a766c;
+`;
+
+const Styled = {
+  Office,
+  Stage,
+  BootState,
+  LabelLayer,
+  AgentSlot,
+  StatusLabel,
+  AgentName,
+  RuntimeChip,
+  AgentHitbox,
+  EmptyLabel,
+  QuickPopover,
+  PopoverHeading,
+  TaskList: TaskListPopover,
+  PopoverArrow,
+};
+
 export function PixelOffice({
   agents,
   tasks,
@@ -351,17 +671,15 @@ export function PixelOffice({
     };
   });
   return (
-    <div
-      className="pixel-office"
+    <Styled.Office
       data-canvas-state={canvasState}
       style={{ aspectRatio: `${OFFICE_WIDTH} / ${roomHeight}` }}
       aria-label={`${agents.length}명의 에이전트가 있는 픽셀 오피스`}
     >
-      <div ref={host} className="office-stage" />
-      <div
-        className={`office-boot-state ${canvasState === "ready" ? "is-hidden" : ""} ${
-          canvasState === "error" ? "is-error" : ""
-        }`}
+      <Styled.Stage ref={host} />
+      <Styled.BootState
+        $hidden={canvasState === "ready"}
+        $error={canvasState === "error"}
         role="status"
         aria-live="polite"
       >
@@ -369,8 +687,8 @@ export function PixelOffice({
         {canvasState === "error"
           ? "픽셀 오피스를 불러오지 못했습니다."
           : "픽셀 오피스를 준비하는 중..."}
-      </div>
-      <div className="office-label-layer">
+      </Styled.BootState>
+      <Styled.LabelLayer $ready={canvasState === "ready"}>
         {labels.map(({ agent, message, tasks: agentTasks, status, left, top }) => (
           <AgentQuickAssign
             key={agent.id}
@@ -386,10 +704,10 @@ export function PixelOffice({
           />
         ))}
         {agents.length === 0 && (
-          <div className="office-empty-label">첫 번째 AI 동료를 만들어 주세요!</div>
+          <Styled.EmptyLabel>첫 번째 AI 동료를 만들어 주세요!</Styled.EmptyLabel>
         )}
-      </div>
-    </div>
+      </Styled.LabelLayer>
+    </Styled.Office>
   );
 }
 
@@ -428,31 +746,27 @@ function AgentQuickAssign({
   const runtime = RUNTIME[agent.model];
   const labelContents = (
     <>
-      <span
-        className="office-runtime-chip"
-        data-model={agent.model}
-        style={{ background: runtime.color }}
-      >
+      <Styled.RuntimeChip data-model={agent.model} style={{ background: runtime.color }}>
         {runtime.label}
-      </span>
+      </Styled.RuntimeChip>
       <strong>{agent.name}</strong>
       <small>{tasks.length > 0 ? `작업 ${tasks.length}개 보기` : "바로 맡기기 +"}</small>
     </>
   );
   const bubble = (
-    <span className={`office-status-label${message ? "" : " is-hidden"}`} aria-hidden={!message}>
+    <Styled.StatusLabel $hidden={!message} aria-hidden={!message}>
       {message ?? "대화 없음"}
-    </span>
+    </Styled.StatusLabel>
   );
 
   return (
-    <div className="office-agent-slot" style={{ left, top, height }} data-status={status}>
+    <Styled.AgentSlot style={{ left, top, height }} data-status={status}>
       {bubble}
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger asChild>
-          <button
+          <Styled.AgentName
             type="button"
-            className={`office-agent-name${tasks.length > 0 ? " has-task" : ""}`}
+            $hasTask={tasks.length > 0}
             title={
               tasks.length > 0
                 ? `${agent.name}의 작업 목록 열기`
@@ -465,11 +779,10 @@ function AgentQuickAssign({
             }
           >
             {labelContents}
-          </button>
+          </Styled.AgentName>
         </Popover.Trigger>
-        <button
+        <Styled.AgentHitbox
           type="button"
-          className="office-agent-hitbox"
           title={
             tasks.length > 0
               ? `${agent.name}의 작업 목록 열기`
@@ -483,19 +796,13 @@ function AgentQuickAssign({
           onClick={() => setOpen(true)}
         />
         <Popover.Portal>
-          <Popover.Content
-            className="office-quick-popover"
-            side="top"
-            align="center"
-            sideOffset={10}
-            collisionPadding={16}
-          >
-            <div className="office-popover-heading">
+          <Styled.QuickPopover side="top" align="center" sideOffset={10} collisionPadding={16}>
+            <Styled.PopoverHeading>
               <small>{tasks.length > 0 ? `진행할 작업 ${tasks.length}개` : "바로 맡기기"}</small>
               <strong>{agent.name}</strong>
-            </div>
+            </Styled.PopoverHeading>
             {tasks.length > 0 && (
-              <div className="office-task-list">
+              <Styled.TaskList>
                 {tasks.map((task) => (
                   <button
                     type="button"
@@ -510,7 +817,7 @@ function AgentQuickAssign({
                     <small>열기 →</small>
                   </button>
                 ))}
-              </div>
+              </Styled.TaskList>
             )}
             <form onSubmit={submit}>
               <label>
@@ -530,15 +837,15 @@ function AgentQuickAssign({
                   placeholder="비워도 괜찮아요"
                 />
               </label>
-              <button className="primary-button" disabled={!title.trim()}>
+              <Button $variant="primary" disabled={!title.trim()}>
                 작업 만들기
-              </button>
+              </Button>
             </form>
-            <Popover.Arrow className="office-popover-arrow" />
-          </Popover.Content>
+            <Styled.PopoverArrow />
+          </Styled.QuickPopover>
         </Popover.Portal>
       </Popover.Root>
-    </div>
+    </Styled.AgentSlot>
   );
 }
 

@@ -1,12 +1,14 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Workspace } from "../../../packages/domain/src/entities.ts";
+import styled from "styled-components";
+import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { systemApi } from "./features/system/api.ts";
 import { workspaceApi } from "./features/workspaces/api.ts";
 import { TaskNotifications } from "./features/notifications/TaskNotifications.tsx";
 import { messageOf } from "./shared/lib/errors.ts";
 import { FullScreenMessage } from "./shared/ui/common.tsx";
+import { Sidebar } from "./shared/ui/Sidebar.tsx";
 
 const TodayPage = lazy(() =>
   import("./features/dashboard/TodayPage.tsx").then((module) => ({ default: module.TodayPage })),
@@ -54,6 +56,22 @@ function useWorkspace() {
   });
 }
 
+const Styled = {
+  Shell: styled.div`
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 228px minmax(0, 1fr);
+
+    @media (max-width: 760px) {
+      display: block;
+    }
+  `,
+  Content: styled.main`
+    grid-column: 2;
+    min-width: 0;
+  `,
+};
+
 function useLiveUpdates(workspaceId: string) {
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -93,55 +111,11 @@ function AppShell({ workspace }: { workspace: Workspace }) {
     refetchOnWindowFocus: false,
   });
   return (
-    <div className="app-shell">
+    <Styled.Shell>
       <ScrollToTop />
       <TaskNotifications workspaceId={workspace.id} />
-      <aside className="sidebar">
-        <Link to="/" className="brand">
-          <span className="brand-mark">AO</span>
-          <span>AI Pixel Office</span>
-        </Link>
-        <div className="sidebar-runtimes" aria-label="실행 엔진 연결 상태">
-          <span
-            className={runtimeStatus.data?.codex.authenticated ? "connected" : ""}
-            title={`Codex · ${runtimeStatus.data?.codex.detail ?? "확인 중"}`}
-          >
-            <b>C</b>Codex
-          </span>
-          <span
-            className={runtimeStatus.data?.claude.authenticated ? "connected" : ""}
-            title={`Claude · ${runtimeStatus.data?.claude.detail ?? "확인 중"}`}
-          >
-            <b>A</b>Claude
-          </span>
-        </div>
-        <div className="workspace-chip">
-          <span className="online-dot" />
-          {workspace.name}
-        </div>
-        <nav>
-          <NavLink to="/" end>
-            <span>⌂</span> 사무실
-          </NavLink>
-          <NavLink to="/projects">
-            <span>▦</span> 프로젝트
-          </NavLink>
-          <NavLink to="/agents">
-            <span>♟</span> 에이전트
-          </NavLink>
-          <NavLink to="/skills">
-            <span>✦</span> 스킬
-          </NavLink>
-          <NavLink to="/settings">
-            <span>⚙</span> 설정
-          </NavLink>
-        </nav>
-        <div className="sidebar-note">
-          <strong>LOCAL FIRST</strong>
-          <span>내 컴퓨터에서 안전하게 실행됩니다.</span>
-        </div>
-      </aside>
-      <main className="main-content">
+      <Sidebar workspace={workspace} runtimeStatus={runtimeStatus.data} />
+      <Styled.Content>
         <Suspense fallback={<div className="page-loading">화면을 준비하는 중...</div>}>
           <Routes>
             <Route path="/" element={<TodayPage workspace={workspace} />} />
@@ -155,8 +129,8 @@ function AppShell({ workspace }: { workspace: Workspace }) {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
-      </main>
-    </div>
+      </Styled.Content>
+    </Styled.Shell>
   );
 }
 

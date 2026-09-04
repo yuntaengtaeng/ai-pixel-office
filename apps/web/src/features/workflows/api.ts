@@ -1,7 +1,4 @@
-import type {
-  TaskWorkflowStep,
-  WorkflowPreset,
-} from "../../../../../packages/domain/src/entities.ts";
+import type { TaskWorkflowStep, WorkflowPreset } from "@ai-pixel-office/domain/entities";
 import { post, request } from "../../shared/api/client.ts";
 
 export const workflowApi = {

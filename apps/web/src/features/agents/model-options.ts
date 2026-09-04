@@ -1,4 +1,4 @@
-import type { AgentModel } from "../../../../../packages/domain/src/entities.ts";
+import type { AgentModel } from "@ai-pixel-office/domain/entities";
 
 export const MODEL_OPTIONS: Record<AgentModel, Array<{ value: string; label: string }>> = {
   codex: [

@@ -1,4 +1,4 @@
-import type { Project } from "../../../../../packages/domain/src/entities.ts";
+import type { Project } from "@ai-pixel-office/domain/entities";
 
 export function projectStatusLabel(status: Project["status"]): string {
   if (status === "active") return "진행 중";

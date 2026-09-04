@@ -1,4 +1,4 @@
-import type { ActivityLog } from "../../../../../packages/domain/src/entities.ts";
+import type { ActivityLog } from "@ai-pixel-office/domain/entities";
 import { request } from "../../shared/api/client.ts";
 
 export const activityApi = {

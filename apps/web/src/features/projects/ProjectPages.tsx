@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Project, Workspace } from "../../../../../packages/domain/src/entities.ts";
+import styled from "styled-components";
+import { Button } from "@ai-pixel-office/ui";
+import type { Project, Workspace } from "@ai-pixel-office/domain/entities";
 import { agentApi } from "../agents/api.ts";
 import { taskApi } from "../tasks/api.ts";
 import { projectApi } from "./api.ts";
@@ -11,7 +13,245 @@ import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty, ErrorBanner, FullScreenMessage, PageHeader } from "../../shared/ui/common.tsx";
+import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
+
+const STATUS_COLORS: Record<
+  Project["status"],
+  { border: string; background: string; color: string }
+> = {
+  active: { border: "#739786", background: "#e2efe8", color: "#3b6b59" },
+  paused: { border: "#b89259", background: "#f5e8cf", color: "#815e31" },
+  done: { border: "#8b8990", background: "#e9e7eb", color: "#626068" },
+};
+
+const Styled = {
+  Layout: styled.div`
+    display: grid;
+    grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
+    gap: 20px;
+    align-items: start;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1fr;
+    }
+  `,
+  CreateForm: styled.form`
+    padding: 21px;
+    display: grid;
+    gap: 14px;
+    position: sticky;
+    top: 24px;
+
+    h2 {
+      margin: 5px 0 7px;
+      font-size: 20px;
+    }
+
+    > div:first-child p {
+      margin: 0;
+      color: ${({ theme }) => theme.colors.muted};
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 1100px) {
+      position: static;
+    }
+  `,
+  Board: styled.section`
+    > .section-heading {
+      margin-bottom: 12px;
+    }
+  `,
+  CardGrid: styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+
+    @media (max-width: 760px) {
+      grid-template-columns: 1fr;
+    }
+  `,
+  Card: styled(Link)`
+    min-width: 0;
+    min-height: 190px;
+    padding: 17px;
+    display: flex;
+    flex-direction: column;
+    color: inherit;
+
+    &:hover {
+      border-color: #56816f;
+      background: #fffdf8;
+      box-shadow: 4px 4px 0 #b7cbbf;
+      transform: translate(-1px, -1px);
+    }
+
+    > div:first-child {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    h3 {
+      margin: 13px 0 8px;
+      font-size: 16px;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: ${({ theme }) => theme.colors.muted};
+      font-size: 11px;
+      line-height: 1.55;
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    footer {
+      margin-top: auto;
+      padding-top: 11px;
+      border-top: 1px dashed #d6c8b6;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #776c63;
+      font-size: 9px;
+
+      strong {
+        margin-left: auto;
+        color: #3f705f;
+      }
+    }
+  `,
+  StatusBadge: styled.span<{ $status: Project["status"] }>`
+    width: fit-content;
+    padding: 4px 7px;
+    border: 1px solid ${({ $status }) => STATUS_COLORS[$status].border};
+    background: ${({ $status }) => STATUS_COLORS[$status].background};
+    color: ${({ $status }) => STATUS_COLORS[$status].color};
+    font: 800 9px monospace;
+  `,
+  FigmaBadge: styled.span`
+    color: #7b5791;
+    font: 900 8px monospace;
+  `,
+  DetailHeading: styled.div`
+    margin: 24px 0;
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+
+    h1 {
+      margin: 10px 0 6px;
+      font-size: 34px;
+    }
+
+    p {
+      max-width: 720px;
+      margin: 0;
+      color: ${({ theme }) => theme.colors.muted};
+      font-size: 12px;
+      line-height: 1.6;
+    }
+  `,
+  DetailLayout: styled.div`
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+    gap: 20px;
+    align-items: start;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1fr;
+    }
+  `,
+  MainColumn: styled.div`
+    display: grid;
+    gap: 18px;
+  `,
+  TaskCreateForm: styled.form`
+    padding: 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+
+    > .section-heading,
+    > .error-banner {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 760px) {
+      grid-template-columns: 1fr;
+    }
+  `,
+  TasksSection: styled.section`
+    padding: 20px;
+  `,
+  TaskList: styled.div`
+    display: grid;
+    gap: 7px;
+  `,
+  ContextForm: styled.form`
+    padding: 20px;
+    display: grid;
+    gap: 13px;
+
+    h2 {
+      margin: 0 0 3px;
+      font-size: 15px;
+    }
+  `,
+  FigmaLink: styled(Button).attrs({ $variant: "secondary" })`
+    text-align: center;
+  `,
+  Members: styled.div`
+    padding-top: 13px;
+    border-top: 1px dashed #d4c7b7;
+    display: grid;
+    gap: 8px;
+
+    > strong {
+      font-size: 11px;
+    }
+
+    > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    a {
+      padding: 4px 7px 4px 4px;
+      border: 1px solid #c9bcab;
+      background: #faf4e9;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    small {
+      margin: 0;
+      color: ${({ theme }) => theme.colors.muted};
+      font-size: 9px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+  `,
+  PathNote: styled.p`
+    margin: 0;
+    color: ${({ theme }) => theme.colors.muted};
+    font-size: 9px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  `,
+};
 
 export function ProjectsPage({ workspace }: { workspace: Workspace }) {
   const navigate = useNavigate();
@@ -42,11 +282,11 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
   });
   const projectTasks = tasks.data ?? [];
   return (
-    <>
+    <BaseLayout>
       <PageHeader eyebrow="PROJECT ROOM" title="프로젝트" />
-      <div className="project-layout">
-        <form
-          className="panel project-create"
+      <Styled.Layout>
+        <Styled.CreateForm
+          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();
@@ -99,31 +339,27 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
               />
             </div>
           </details>
-          <button className="primary-button wide" disabled={!name.trim() || create.isPending}>
+          <Button $variant="primary" $fullWidth disabled={!name.trim() || create.isPending}>
             {create.isPending ? "만드는 중..." : "프로젝트 만들기"}
-          </button>
+          </Button>
           {create.isError && <ErrorBanner>{messageOf(create.error)}</ErrorBanner>}
-        </form>
-        <section className="project-board">
+        </Styled.CreateForm>
+        <Styled.Board>
           <div className="section-heading compact">
             <h2>진행 중인 프로젝트</h2>
             <span>{projects.data?.length ?? 0}</span>
           </div>
-          <div className="project-card-grid">
+          <Styled.CardGrid>
             {(projects.data ?? []).map((project) => {
               const related = projectTasks.filter((task) => task.projectId === project.id);
               const completed = related.filter((task) => task.status === "done").length;
               return (
-                <Link
-                  className="panel project-card"
-                  to={`/projects/${project.id}`}
-                  key={project.id}
-                >
+                <Styled.Card className="panel" to={`/projects/${project.id}`} key={project.id}>
                   <div>
-                    <span className={`project-status project-${project.status}`}>
+                    <Styled.StatusBadge $status={project.status}>
                       {projectStatusLabel(project.status)}
-                    </span>
-                    {project.figmaUrl && <span className="project-figma">FIGMA</span>}
+                    </Styled.StatusBadge>
+                    {project.figmaUrl && <Styled.FigmaBadge>FIGMA</Styled.FigmaBadge>}
                   </div>
                   <h3>{project.name}</h3>
                   <p>
@@ -135,7 +371,7 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
                     <span>완료 {completed}</span>
                     <strong>열기 →</strong>
                   </footer>
-                </Link>
+                </Styled.Card>
               );
             })}
             {!projects.isPending && projects.data?.length === 0 && (
@@ -143,11 +379,11 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
                 <Empty>첫 프로젝트를 만들어 보세요.</Empty>
               </div>
             )}
-          </div>
+          </Styled.CardGrid>
           {projects.isError && <ErrorBanner>{messageOf(projects.error)}</ErrorBanner>}
-        </section>
-      </div>
-    </>
+        </Styled.Board>
+      </Styled.Layout>
+    </BaseLayout>
   );
 }
 
@@ -222,29 +458,29 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
   const memberIds = new Set(relatedTasks.map((task) => task.assigneeAgentId).filter(Boolean));
   const members = (agents.data ?? []).filter((agent) => memberIds.has(agent.id));
   return (
-    <>
+    <BaseLayout>
       <button className="back-button" onClick={() => navigate("/projects")}>
         ← 프로젝트 목록
       </button>
-      <div className="project-detail-heading">
+      <Styled.DetailHeading>
         <div>
-          <span className={`project-status project-${status}`}>{projectStatusLabel(status)}</span>
+          <Styled.StatusBadge $status={status}>{projectStatusLabel(status)}</Styled.StatusBadge>
           <h1>{projectQuery.data.name}</h1>
           <p>{projectQuery.data.description || "아직 프로젝트 목표가 없습니다."}</p>
         </div>
-        <button
+        <Button
           type="submit"
           form="project-context-form"
-          className="secondary-button"
+          $variant="secondary"
           disabled={save.isPending || !name.trim()}
         >
           변경 저장
-        </button>
-      </div>
-      <div className="project-detail-layout">
-        <div className="project-main-column">
-          <form
-            className="panel project-task-create"
+        </Button>
+      </Styled.DetailHeading>
+      <Styled.DetailLayout>
+        <Styled.MainColumn>
+          <Styled.TaskCreateForm
+            className="panel"
             onSubmit={(event) => {
               event.preventDefault();
               createTask.mutate();
@@ -271,17 +507,17 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
                 placeholder="예: 문제와 개선안을 우선순위로 정리해 주세요"
               />
             </div>
-            <button className="primary-button" disabled={!title.trim() || createTask.isPending}>
+            <Button $variant="primary" disabled={!title.trim() || createTask.isPending}>
               작업 만들기
-            </button>
+            </Button>
             {createTask.isError && <ErrorBanner>{messageOf(createTask.error)}</ErrorBanner>}
-          </form>
-          <section className="panel project-tasks">
+          </Styled.TaskCreateForm>
+          <Styled.TasksSection className="panel">
             <div className="section-heading compact">
               <h2>프로젝트 작업</h2>
               <span>{relatedTasks.length}</span>
             </div>
-            <div className="project-task-list">
+            <Styled.TaskList>
               {relatedTasks.map((task) => (
                 <TaskCard
                   key={task.id}
@@ -290,12 +526,12 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
                 />
               ))}
               {relatedTasks.length === 0 && <Empty>첫 작업을 만들어 프로젝트를 시작하세요.</Empty>}
-            </div>
-          </section>
-        </div>
-        <form
+            </Styled.TaskList>
+          </Styled.TasksSection>
+        </Styled.MainColumn>
+        <Styled.ContextForm
           id="project-context-form"
-          className="panel project-context"
+          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             if (name.trim() && !save.isPending) save.mutate();
@@ -334,16 +570,11 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
             />
           </div>
           {figmaUrl && (
-            <a
-              className="secondary-button project-figma-link"
-              href={figmaUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <Styled.FigmaLink as="a" href={figmaUrl} target="_blank" rel="noreferrer">
               Figma에서 열기 ↗
-            </a>
+            </Styled.FigmaLink>
           )}
-          <div className="project-members">
+          <Styled.Members>
             <strong>참여한 에이전트</strong>
             <div>
               {members.map((member) => (
@@ -354,16 +585,17 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
               ))}
               {members.length === 0 && <small>작업에 에이전트를 배치하면 여기에 표시됩니다.</small>}
             </div>
-          </div>
+          </Styled.Members>
           <details className="technical-details">
             <summary>개발자 옵션</summary>
-            <p className="path-note">
+            <Styled.PathNote>
               {projectQuery.data.path || "연결된 로컬 폴더가 없습니다. 설정에서 연결할 수 있어요."}
-            </p>
+            </Styled.PathNote>
           </details>
-          <button
+          <Button
             type="button"
-            className="danger-button wide"
+            $variant="danger"
+            $fullWidth
             disabled={remove.isPending}
             onClick={async () => {
               if (
@@ -378,13 +610,13 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
             }}
           >
             프로젝트 삭제
-          </button>
+          </Button>
           {(save.isError || remove.isError) && (
             <ErrorBanner>{messageOf(save.error ?? remove.error)}</ErrorBanner>
           )}
-        </form>
-      </div>
+        </Styled.ContextForm>
+      </Styled.DetailLayout>
       <ConfirmDialog {...dialogProps} />
-    </>
+    </BaseLayout>
   );
 }

@@ -3,7 +3,7 @@ import type {
   AgentPermissions,
   Task,
   TaskStatus,
-} from "../../../../../packages/domain/src/entities.ts";
+} from "@ai-pixel-office/domain/entities";
 
 export const RUNTIME: Record<AgentModel, { label: string; color: string }> = {
   claude: { label: "Claude", color: "#72549a" },

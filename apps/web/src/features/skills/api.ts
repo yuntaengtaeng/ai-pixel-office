@@ -1,4 +1,4 @@
-import type { AgentPermissions, Skill } from "../../../../../packages/domain/src/entities.ts";
+import type { AgentPermissions, Skill } from "@ai-pixel-office/domain/entities";
 import { post, request } from "../../shared/api/client.ts";
 
 export type SkillDraft = {

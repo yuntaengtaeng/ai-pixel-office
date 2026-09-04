@@ -1,4 +1,4 @@
-import type { Workspace } from "../../../../../packages/domain/src/entities.ts";
+import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { post, request } from "../../shared/api/client.ts";
 
 export const workspaceApi = {

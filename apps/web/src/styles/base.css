@@ -1,226 +1,19 @@
-:root {
-  color: #453d38;
-  background: #eee7dc;
-  font-family:
-    Inter,
-    Pretendard,
-    "Noto Sans KR",
-    system-ui,
-    -apple-system,
-    sans-serif;
-  font-synthesis: none;
-  --ink: #453d38;
-  --muted: #847a72;
-  --cream: #fffaf0;
-  --paper: #f8f3e9;
-  --line: #d9cdbc;
-  --green: #4e8874;
-  --green-dark: #386758;
-  --red: #c85f58;
-  --shadow: 4px 5px 0 #cbbdac;
-}
-
-* {
-  box-sizing: border-box;
-  scrollbar-width: none;
-}
-*::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
-button {
-  color: inherit;
-}
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.app-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 228px minmax(0, 1fr);
-}
-.sidebar {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: 228px;
-  padding: 25px 18px;
-  background: #354f49;
-  color: #f8f1e5;
-  border-right: 5px solid #283d39;
-  display: flex;
-  flex-direction: column;
-  z-index: 10;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  background: #f2c66f;
-  color: #3c514b;
-  border: 3px solid #233d38;
-  box-shadow: 3px 3px 0 #203632;
-  font-family: monospace;
-  font-size: 17px;
-}
-.sidebar-runtimes {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-.sidebar-runtimes > span {
-  padding: 6px;
-  border: 1px solid #6a817b;
-  background: #2e4641;
-  color: #aab9b4;
-  opacity: 0.42;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font: 700 9px monospace;
-  transition:
-    opacity 0.2s,
-    box-shadow 0.2s;
-}
-.sidebar-runtimes > span.connected {
-  opacity: 1;
-  color: #eef8f2;
-  border-color: #6eb78f;
-  box-shadow:
-    inset 0 0 0 1px #477c64,
-    0 0 8px #63b48655;
-}
-.sidebar-runtimes b {
-  width: 15px;
-  height: 15px;
-  display: grid;
-  place-items: center;
-  background: #507069;
-  color: #e8f0ed;
-  font-size: 9px;
-}
-.sidebar-runtimes .connected b {
-  background: #68bd8b;
-  color: #173b2d;
-}
-.workspace-chip {
-  margin: 30px 0 20px;
-  padding: 11px 12px;
-  border: 2px solid #58746d;
-  background: #2f4843;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.online-dot {
-  width: 8px;
-  height: 8px;
-  background: #74d39a;
-  box-shadow: 0 0 0 2px #315b4c;
-  display: inline-block;
-}
-.sidebar nav {
-  display: grid;
-  gap: 7px;
-}
-.sidebar nav a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 13px;
-  color: #d7e0d9;
-  font-weight: 700;
-  border: 2px solid transparent;
-}
-.sidebar nav a span {
-  width: 22px;
-  text-align: center;
-  font-family: monospace;
-  font-size: 19px;
-}
-.sidebar nav a:hover {
-  background: #3c5a53;
-}
-.sidebar nav a.active {
-  background: #f3e7cf;
-  color: #334d47;
-  border-color: #203b35;
-  box-shadow: 3px 3px 0 #233d38;
-}
-.sidebar-note {
-  margin-top: auto;
-  padding: 14px;
-  border: 2px dashed #708982;
-  display: grid;
-  gap: 7px;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #bfcfc8;
-}
-.sidebar-note strong {
-  color: #f2c66f;
-  font-family: monospace;
-  letter-spacing: 0.08em;
-}
-
-.main-content {
-  grid-column: 2;
-  width: min(1220px, 100%);
-  padding: 44px 46px 70px;
-  margin: 0 auto;
-}
-.page-header {
-  min-height: 82px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 25px;
-}
-.page-header h1,
-.task-detail-heading h1 {
-  margin: 5px 0 0;
-  color: #3d3632;
-  font-size: clamp(29px, 4vw, 42px);
-  letter-spacing: -0.045em;
-}
 .kicker {
   color: #9a704d;
   font: 800 11px/1.2 monospace;
   letter-spacing: 0.13em;
   text-transform: uppercase;
 }
+.helper-copy {
+  margin: -4px 0 15px;
+  color: #847a72;
+  font-size: 11px;
+}
 .panel,
 .office-card {
-  background: var(--cream);
+  background: #fffaf0;
   border: 2px solid #bcae9c;
-  box-shadow: var(--shadow);
+  box-shadow: 4px 5px 0 #cbbdac;
 }
 .office-card {
   padding: 21px;
@@ -265,4 +58,122 @@ a {
   color: #3f715d;
   font: 800 11px monospace;
   border: 1px solid #8fb39e;
+}
+.office-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.office-loading {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  color: #806f62;
+  background: #ead8bd;
+  border: 3px solid #6d5347;
+  font: 800 12px monospace;
+}
+.page-loading {
+  min-height: 45vh;
+  display: grid;
+  place-items: center;
+  color: #766b63;
+  font: 800 11px monospace;
+}
+button:disabled {
+  opacity: 0.47;
+  cursor: not-allowed;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 145px;
+}
+.field.grow {
+  flex: 1;
+}
+.field label,
+fieldset legend {
+  color: #796b60;
+  font: 800 11px monospace;
+  letter-spacing: 0.04em;
+}
+input,
+textarea,
+select {
+  width: 100%;
+  border: 2px solid #cbbdac;
+  background: #fffdfa;
+  padding: 10px 11px;
+  outline: none;
+  color: #453d38;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #4e8874;
+  box-shadow: 2px 2px 0 #a9c3b5;
+}
+textarea {
+  resize: vertical;
+  min-height: 86px;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+fieldset legend {
+  margin-bottom: 9px;
+}
+.prompt-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+.prompt-suggestions button {
+  padding: 5px 7px;
+  border: 1px solid #c9bdad;
+  background: #f8f1e6;
+  color: #70645b;
+  font-size: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.prompt-suggestions button:hover {
+  border-color: #6f9e8b;
+  background: #e8f1ec;
+  color: #3f6b5c;
+}
+.back-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #6a756f;
+  font-weight: 800;
+  cursor: pointer;
+}
+.technical-details {
+  margin: 12px 0;
+  border-top: 1px dashed #d4c7b6;
+  border-bottom: 1px dashed #d4c7b6;
+}
+.technical-details > summary {
+  padding: 9px 0;
+  color: #847a72;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.technical-details > .field {
+  padding-bottom: 10px;
+}
+
+@media (max-width: 760px) {
+  .office-card {
+    padding: 11px;
+  }
 }

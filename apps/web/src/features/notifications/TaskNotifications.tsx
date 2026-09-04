@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { Task, TaskStatus } from "../../../../../packages/domain/src/entities.ts";
+import styled, { keyframes } from "styled-components";
+import type { Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { usePageVisibility } from "../../shared/hooks/usePageVisibility.ts";
 
 type SnackbarItem = {
@@ -39,6 +40,96 @@ const IMPORTANT_STATUS: Partial<
     message: "실행 기록에서 실패 원인을 확인해 주세요.",
     tone: "danger",
   },
+};
+
+const snackbarIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+`;
+
+const TONE_COLORS: Record<SnackbarItem["tone"], { border: string; background: string }> = {
+  info: { border: "#548273", background: "#e9f5ed" },
+  warning: { border: "#b07c34", background: "#fff2cf" },
+  danger: { border: "#ae554d", background: "#ffebe3" },
+};
+
+const Styled = {
+  Region: styled.div`
+    position: fixed;
+    z-index: 100;
+    right: 22px;
+    bottom: 22px;
+    width: min(390px, calc(100vw - 28px));
+    display: grid;
+    gap: 10px;
+    pointer-events: none;
+
+    @media (max-width: 760px) {
+      right: 14px;
+      bottom: 14px;
+    }
+  `,
+  Snackbar: styled.div<{ $tone: SnackbarItem["tone"] }>`
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 42px 14px 16px;
+    border: 2px solid ${({ $tone }) => TONE_COLORS[$tone].border};
+    background: ${({ $tone }) => TONE_COLORS[$tone].background};
+    box-shadow: 5px 5px 0 rgb(73 59 49 / 22%);
+    line-height: 1.35;
+    pointer-events: auto;
+    animation: ${snackbarIn} 180ms ease-out;
+
+    > div {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    strong {
+      color: #433c37;
+      font-size: 13px;
+    }
+
+    span {
+      color: #766a61;
+      font-size: 11px;
+    }
+  `,
+  PermissionHint: styled.span`
+    margin-top: 3px;
+    color: #8a5c32;
+    font-size: 9px;
+    font-weight: 700;
+  `,
+  ActionButton: styled.button`
+    border: 1px solid currentColor;
+    background: rgb(255 255 255 / 55%);
+    padding: 6px 8px;
+    color: #4c695f;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+  `,
+  CloseButton: styled.button`
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    width: 25px;
+    height: 25px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #776b62;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  `,
 };
 
 export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
@@ -237,41 +328,38 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
   };
 
   return (
-    <div className="snackbar-region" aria-live="polite" aria-label="작업 상태 알림">
+    <Styled.Region aria-live="polite" aria-label="작업 상태 알림">
       {permission === "default" && permissionPromptVisible && (
-        <div className="app-snackbar snackbar-info">
+        <Styled.Snackbar $tone="info">
           <div>
             <strong>백그라운드 작업 알림을 받을까요?</strong>
             <span>다른 창을 보고 있을 때 검토나 입력이 필요하면 알려드려요.</span>
-            {permissionHint && (
-              <span className="notification-permission-hint">{permissionHint}</span>
-            )}
+            {permissionHint && <Styled.PermissionHint>{permissionHint}</Styled.PermissionHint>}
           </div>
-          <button
+          <Styled.ActionButton
             type="button"
             disabled={permissionRequesting}
             onClick={() => void requestPermission()}
           >
             {permissionRequesting ? "권한 확인 중..." : "알림 켜기"}
-          </button>
-          <button
+          </Styled.ActionButton>
+          <Styled.CloseButton
             type="button"
-            className="snackbar-close"
             onClick={() => setPermissionPromptVisible(false)}
             aria-label="알림 설정 안내 닫기"
           >
             ×
-          </button>
-        </div>
+          </Styled.CloseButton>
+        </Styled.Snackbar>
       )}
       {items.map((item) => (
-        <div className={`app-snackbar snackbar-${item.tone}`} key={item.id}>
+        <Styled.Snackbar $tone={item.tone} key={item.id}>
           <div>
             <strong>{item.title}</strong>
             <span>{item.message}</span>
           </div>
           {item.taskId && (
-            <button
+            <Styled.ActionButton
               type="button"
               onClick={() => {
                 dismiss(item.id);
@@ -279,19 +367,14 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
               }}
             >
               작업 보기
-            </button>
+            </Styled.ActionButton>
           )}
-          <button
-            type="button"
-            className="snackbar-close"
-            onClick={() => dismiss(item.id)}
-            aria-label="알림 닫기"
-          >
+          <Styled.CloseButton type="button" onClick={() => dismiss(item.id)} aria-label="알림 닫기">
             ×
-          </button>
-        </div>
+          </Styled.CloseButton>
+        </Styled.Snackbar>
       ))}
-    </div>
+    </Styled.Region>
   );
 }
 
