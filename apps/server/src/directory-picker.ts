@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { DomainError } from "../../../packages/domain/src/index.ts";
+import { DomainError } from "@ai-pixel-office/domain";
 
 const execFileAsync = promisify(execFile);
 

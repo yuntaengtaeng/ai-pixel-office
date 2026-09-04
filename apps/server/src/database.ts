@@ -1,16 +1,22 @@
 import { mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import Database from "better-sqlite3";
-import { DomainError } from "../../../packages/domain/src/errors.ts";
+import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
+import { DomainError } from "@ai-pixel-office/domain";
 
-export type AppDatabase = Database.Database;
+const loadNodeBuiltin = createRequire(process.execPath);
+// esbuild strips the `node:` prefix from static imports. `sqlite` is only
+// available with that prefix, so keep this runtime lookup opaque to bundlers.
+const { DatabaseSync } = loadNodeBuiltin("node:sqlite") as typeof import("node:sqlite");
+
+export type AppDatabase = NodeDatabaseSync;
 
 export function openDatabase(path = "data/ai-pixel-office.sqlite"): AppDatabase {
   const resolved = path === ":memory:" ? path : resolve(path);
   if (resolved !== ":memory:") mkdirSync(dirname(resolved), { recursive: true });
-  const database = new Database(resolved);
-  database.pragma("foreign_keys = ON");
-  if (resolved !== ":memory:") database.pragma("journal_mode = WAL");
+  const database = new DatabaseSync(resolved);
+  database.exec("PRAGMA foreign_keys = ON");
+  if (resolved !== ":memory:") database.exec("PRAGMA journal_mode = WAL");
   migrate(database);
   return database;
 }

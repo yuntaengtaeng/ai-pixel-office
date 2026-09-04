@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { AgentModel } from "../../../packages/domain/src/index.ts";
+import type { AgentModel } from "@ai-pixel-office/domain";
 
 export type DetectedProjectSkill = {
   name: string;

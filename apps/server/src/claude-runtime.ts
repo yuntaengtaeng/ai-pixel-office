@@ -1,12 +1,12 @@
 import { createInterface } from "node:readline";
 import { resolve } from "node:path";
-import { DomainError } from "../../../packages/domain/src/index.ts";
+import { DomainError } from "@ai-pixel-office/domain";
 import {
   BoundedJsonlWriter,
   pruneRuntimeLogs,
 } from "../../../scripts/runtime-spike/runtime-log.ts";
 import { spawnClaude } from "../../../scripts/runtime-spike/process.ts";
-import type { AgentEvent, ApprovalDecision } from "../../../scripts/runtime-spike/types.ts";
+import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import type {
   RuntimeAdapter,
   RuntimeCallbacks,
@@ -276,7 +276,7 @@ function claudeExitError(
 ): string {
   const cleaned = detail.trim();
   if (/auth|login|credential/i.test(cleaned)) {
-    return "Claude 인증이 필요합니다. 일반 터미널에서 claude를 실행하고 /login을 완료해 주세요.";
+    return "Claude 인증이 필요합니다. 앱 설정에서 브라우저 연결을 열거나 터미널에서 claude auth login을 실행해 주세요.";
   }
   return `Claude CLI가 종료되었습니다 (code=${String(code)}, signal=${String(signal)})${cleaned ? `: ${cleaned}` : ""}`;
 }

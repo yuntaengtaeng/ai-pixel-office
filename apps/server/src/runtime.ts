@@ -3,9 +3,9 @@ import {
   type AgentModel,
   type ReasoningEffort,
   type RunLimits,
-} from "../../../packages/domain/src/index.ts";
+} from "@ai-pixel-office/domain";
 import { runCodexSpike, type CodexSpikeResult } from "../../../scripts/runtime-spike/codex.ts";
-import type { AgentEvent, ApprovalDecision } from "../../../scripts/runtime-spike/types.ts";
+import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 
 export type RuntimeRunInput = {
   runId: string;

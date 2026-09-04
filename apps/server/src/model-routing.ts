@@ -1,9 +1,4 @@
-import type {
-  Agent,
-  ModelPolicy,
-  ReasoningEffort,
-  Task,
-} from "../../../packages/domain/src/index.ts";
+import type { Agent, ModelPolicy, ReasoningEffort, Task } from "@ai-pixel-office/domain";
 
 export type ModelSelection = {
   policy: ModelPolicy;

@@ -10,8 +10,8 @@ import {
   type Task,
   type TaskResult,
   type TaskWorkflowStep,
-} from "../../../packages/domain/src/index.ts";
-import type { AgentEvent, ApprovalDecision } from "../../../scripts/runtime-spike/types.ts";
+} from "@ai-pixel-office/domain";
+import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import { EventBus } from "./events.ts";
 import { Repository } from "./repository.ts";
 import type { RuntimeAdapter } from "./runtime.ts";
@@ -64,6 +64,7 @@ export class Orchestrator {
   private readonly concurrentRunLimit: number;
   private readonly limits: RunLimits;
   private readonly activeRuns = new Map<string, ActiveRunContext>();
+  private readonly eventQueues = new Map<string, Promise<void>>();
 
   constructor(
     repository: Repository,
@@ -84,37 +85,46 @@ export class Orchestrator {
     };
   }
 
-  getTaskExecutionContexts(taskId: string): TaskExecutionContext[] {
-    const task = this.repository.getTask(taskId);
+  async getTaskExecutionContexts(taskId: string): Promise<TaskExecutionContext[]> {
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
-    const contextAgent = (agentId: string) => {
-      const agent = this.repository.getAgent(agentId);
+    const contextAgent = async (agentId: string): Promise<Agent> => {
+      const agent = await this.repository.getAgent(agentId);
       if (!agent) throw new DomainError("NOT_FOUND", `Agent not found: ${agentId}`, 404);
       return agent;
     };
-    const workflow = this.repository.listWorkflowSteps(task.id);
-    const assignments =
-      workflow.length > 0
-        ? workflow.map((step) => ({
-            agent: contextAgent(step.agentId),
-            workflowStepId: step.id,
-            position: step.position,
-          }))
-        : task.assigneeAgentId
-          ? [{ agent: contextAgent(task.assigneeAgentId) }]
-          : [];
+    const workflow = await this.repository.listWorkflowSteps(task.id);
+    const assignments: Array<{ agent: Agent; workflowStepId?: string; position?: number }> = [];
+    if (workflow.length > 0) {
+      for (const step of workflow) {
+        assignments.push({
+          agent: await contextAgent(step.agentId),
+          workflowStepId: step.id,
+          position: step.position,
+        });
+      }
+    } else if (task.assigneeAgentId) {
+      assignments.push({ agent: await contextAgent(task.assigneeAgentId) });
+    }
 
-    return assignments.map(({ agent, ...assignment }) => ({
-      agentId: agent.id,
-      agentName: agent.name,
-      ...assignment,
-      ...inspectProjectRuntimeContext(agent.model, this.resolveWorkingDirectory(task, agent)),
-    }));
+    const contexts: TaskExecutionContext[] = [];
+    for (const { agent, ...assignment } of assignments) {
+      contexts.push({
+        agentId: agent.id,
+        agentName: agent.name,
+        ...assignment,
+        ...inspectProjectRuntimeContext(
+          agent.model,
+          await this.resolveWorkingDirectory(task, agent),
+        ),
+      });
+    }
+    return contexts;
   }
 
-  startTask(taskId: string): AgentRun {
-    const task = this.requireRunnableTask(taskId, "todo");
-    const workflow = this.repository.listWorkflowSteps(taskId);
+  async startTask(taskId: string): Promise<AgentRun> {
+    const task = await this.requireRunnableTask(taskId, "todo");
+    const workflow = await this.repository.listWorkflowSteps(taskId);
     if (workflow.length > 0) {
       const nextStep = workflow.find((step) => step.status === "pending");
       if (!nextStep) {
@@ -122,40 +132,36 @@ export class Orchestrator {
       }
       return this.startWorkflowStep(task, nextStep);
     }
-    const agent = this.requireRuntimeAgent(task);
-    const skills = agent.skillIds.map((id) => {
-      const skill = this.repository.getSkill(id);
-      if (!skill) throw new DomainError("SKILLS_NOT_FOUND", `Skill not found: ${id}`, 422);
-      return skill;
-    });
+    const agent = await this.requireRuntimeAgent(task);
+    const skills = await this.requireSkills(agent);
     const prompt = compileAgentInstructions(agent, skills, task);
     return this.queueRun(task, agent, prompt);
   }
 
-  retryTask(taskId: string): AgentRun {
-    const task = this.repository.getTask(taskId);
+  async retryTask(taskId: string): Promise<AgentRun> {
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
     if (task.status !== "failed") {
       throw new DomainError("TASK_NOT_FAILED", "Only a failed task can be retried", 409);
     }
-    const workflow = this.repository.listWorkflowSteps(taskId);
+    const workflow = await this.repository.listWorkflowSteps(taskId);
     if (workflow.length > 0) {
       const failedStep = workflow.find((step) => step.status === "failed");
       if (!failedStep) {
         throw new DomainError("WORKFLOW_NOT_FAILED", "실패한 Workflow 단계가 없습니다.", 409);
       }
-      this.requireAgent(failedStep.agentId);
-      this.repository.resetFailedWorkflowStep(taskId);
+      await this.requireAgent(failedStep.agentId);
+      await this.repository.resetFailedWorkflowStep(taskId);
     } else {
-      this.requireRuntimeAgent(task);
+      await this.requireRuntimeAgent(task);
     }
-    const reset = this.repository.transitionTask(taskId, "todo");
+    const reset = await this.repository.transitionTask(taskId, "todo");
     this.publishTask(reset);
     return this.startTask(taskId);
   }
 
-  approveTask(taskId: string): Task {
-    const task = this.repository.getTask(taskId);
+  async approveTask(taskId: string): Promise<Task> {
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
     if (task.status !== "needs_review") {
       throw new DomainError(
@@ -164,17 +170,17 @@ export class Orchestrator {
         409,
       );
     }
-    const latestRun = this.repository.latestRun(task.id);
-    this.repository.createReview({ taskId, runId: latestRun?.id, action: "approved" });
-    const updated = this.repository.transitionTask(taskId, "done");
-    this.activity(updated, "task_approved", "Task result approved", latestRun?.id);
+    const latestRun = await this.repository.latestRun(task.id);
+    await this.repository.createReview({ taskId, runId: latestRun?.id, action: "approved" });
+    const updated = await this.repository.transitionTask(taskId, "done");
+    await this.activity(updated, "task_approved", "Task result approved", latestRun?.id);
     this.publishTask(updated);
     return updated;
   }
 
-  requestChanges(taskId: string, feedback: string): AgentRun {
+  async requestChanges(taskId: string, feedback: string): Promise<AgentRun> {
     if (!feedback.trim()) throw new DomainError("INVALID_FEEDBACK", "Feedback is required");
-    const task = this.repository.getTask(taskId);
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
     if (task.status !== "needs_review") {
       throw new DomainError(
@@ -183,15 +189,15 @@ export class Orchestrator {
         409,
       );
     }
-    const agent = this.requireRuntimeAgent(task);
-    const previousRun = this.repository.latestRun(task.id);
-    this.repository.createReview({
+    const agent = await this.requireRuntimeAgent(task);
+    const previousRun = await this.repository.latestRun(task.id);
+    await this.repository.createReview({
       taskId,
       runId: previousRun?.id,
       action: "changes_requested",
       feedback: feedback.trim(),
     });
-    this.activity(
+    await this.activity(
       task,
       "change_requested",
       `Changes requested: ${feedback.trim()}`,
@@ -208,8 +214,8 @@ export class Orchestrator {
     );
   }
 
-  continueTask(taskId: string): AgentRun {
-    const task = this.repository.getTask(taskId);
+  async continueTask(taskId: string): Promise<AgentRun> {
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
     if (task.status !== "needs_input") {
       throw new DomainError(
@@ -218,7 +224,7 @@ export class Orchestrator {
         409,
       );
     }
-    const previousRun = this.repository.latestRun(task.id);
+    const previousRun = await this.repository.latestRun(task.id);
     if (!previousRun?.error?.startsWith("SESSION_LIMIT:")) {
       throw new DomainError(
         "SESSION_CONTINUATION_NOT_AVAILABLE",
@@ -226,8 +232,8 @@ export class Orchestrator {
         409,
       );
     }
-    const context = this.continuationContext(previousRun.id);
-    const workflow = this.repository.listWorkflowSteps(task.id);
+    const context = await this.continuationContext(previousRun.id);
+    const workflow = await this.repository.listWorkflowSteps(task.id);
     if (workflow.length > 0) {
       const step = workflow.find((candidate) => candidate.status === "pending");
       if (!step) {
@@ -235,12 +241,8 @@ export class Orchestrator {
       }
       return this.startWorkflowStep(task, step, { context });
     }
-    const agent = this.requireAgent(previousRun.agentId);
-    const skills = agent.skillIds.map((id) => {
-      const skill = this.repository.getSkill(id);
-      if (!skill) throw new DomainError("SKILLS_NOT_FOUND", `Skill not found: ${id}`, 422);
-      return skill;
-    });
+    const agent = await this.requireAgent(previousRun.agentId);
+    const skills = await this.requireSkills(agent);
     const prompt = `${compileAgentInstructions(agent, skills, task)}\n\nNEW WORK SESSION CONTINUATION\nThe previous work session reached its safety limit. Partial workspace changes were preserved. Inspect the current workspace, use the concise progress record below, and continue without repeating completed work.\n\n${context}`;
     return this.queueRun(
       task,
@@ -253,8 +255,8 @@ export class Orchestrator {
     );
   }
 
-  extendTaskSession(taskId: string): AgentRun {
-    const task = this.repository.getTask(taskId);
+  async extendTaskSession(taskId: string): Promise<AgentRun> {
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
     if (task.status !== "needs_input") {
       throw new DomainError(
@@ -263,7 +265,7 @@ export class Orchestrator {
         409,
       );
     }
-    const previousRun = this.repository.latestRun(task.id);
+    const previousRun = await this.repository.latestRun(task.id);
     if (!previousRun?.error?.startsWith("SESSION_LIMIT:")) {
       throw new DomainError(
         "SESSION_EXTENSION_NOT_AVAILABLE",
@@ -278,12 +280,12 @@ export class Orchestrator {
         409,
       );
     }
-    const context = this.continuationContext(previousRun.id);
+    const context = await this.continuationContext(previousRun.id);
     const sessionBudget: SessionBudget = {
       usageBaselineTokens: runUsageTokens(previousRun),
       maxAdditionalTokens: Math.max(1, Math.floor((this.limits.maxTokens ?? 100_000) / 2)),
     };
-    const workflow = this.repository.listWorkflowSteps(task.id);
+    const workflow = await this.repository.listWorkflowSteps(task.id);
     if (workflow.length > 0) {
       const step = workflow.find((candidate) => candidate.status === "pending");
       if (!step) {
@@ -296,7 +298,7 @@ export class Orchestrator {
         sameSession: true,
       });
     }
-    const agent = this.requireAgent(previousRun.agentId);
+    const agent = await this.requireAgent(previousRun.agentId);
     const prompt = `SAME WORK SESSION CONTINUATION\nThe application session allowance has been increased. Continue in the existing runtime session without repeating completed work. Use the concise progress record below only as a reminder.\n\n${context}`;
     return this.queueRun(
       task,
@@ -309,8 +311,12 @@ export class Orchestrator {
     );
   }
 
-  resolveApproval(runId: string, requestId: string, decision: ApprovalDecision): AgentRun {
-    const run = this.repository.getRun(runId);
+  async resolveApproval(
+    runId: string,
+    requestId: string,
+    decision: ApprovalDecision,
+  ): Promise<AgentRun> {
+    const run = await this.repository.getRun(runId);
     if (!run) throw new DomainError("NOT_FOUND", `AgentRun not found: ${runId}`, 404);
     if (run.status !== "waiting") {
       throw new DomainError("RUN_NOT_WAITING", "Run is not waiting for approval", 409);
@@ -318,25 +324,31 @@ export class Orchestrator {
     if (!this.runtime.resolveApproval(runId, requestId, decision)) {
       throw new DomainError("APPROVAL_NOT_FOUND", "Approval request is no longer pending", 404);
     }
-    const updatedRun = this.repository.updateRun(runId, { status: "running" });
+    const updatedRun = await this.repository.updateRun(runId, { status: "running" });
     this.touchRun(runId);
-    const task = this.repository.getTask(run.taskId);
+    const task = await this.repository.getTask(run.taskId);
     if (task?.status === "needs_input") {
-      const updatedTask = this.repository.transitionTask(task.id, "working");
+      const updatedTask = await this.repository.transitionTask(task.id, "working");
       this.publishTask(updatedTask);
     }
     if (task) {
-      this.activity(task, "approval_resolved", `Runtime approval resolved: ${decision}`, runId, {
-        requestId,
-        decision,
-      });
+      await this.activity(
+        task,
+        "approval_resolved",
+        `Runtime approval resolved: ${decision}`,
+        runId,
+        {
+          requestId,
+          decision,
+        },
+      );
     }
     this.publishRun(updatedRun, task?.workspaceId);
     return updatedRun;
   }
 
-  cancelRun(runId: string): AgentRun {
-    const run = this.repository.getRun(runId);
+  async cancelRun(runId: string): Promise<AgentRun> {
+    const run = await this.repository.getRun(runId);
     if (!run) throw new DomainError("NOT_FOUND", `AgentRun not found: ${runId}`, 404);
     const active = this.activeRuns.get(runId);
     if (!active) {
@@ -347,7 +359,17 @@ export class Orchestrator {
     return run;
   }
 
-  private queueRun(
+  private async requireSkills(agent: Agent) {
+    const skills = [];
+    for (const id of agent.skillIds) {
+      const skill = await this.repository.getSkill(id);
+      if (!skill) throw new DomainError("SKILLS_NOT_FOUND", `Skill not found: ${id}`, 422);
+      skills.push(skill);
+    }
+    return skills;
+  }
+
+  private async queueRun(
     task: Task,
     agent: Agent,
     prompt: string,
@@ -355,8 +377,8 @@ export class Orchestrator {
     workflowStep?: TaskWorkflowStep,
     sessionBudget?: SessionBudget,
     request = task.description?.trim() || task.title,
-  ): AgentRun {
-    const workingDirectory = this.resolveWorkingDirectory(task, agent);
+  ): Promise<AgentRun> {
+    const workingDirectory = await this.resolveWorkingDirectory(task, agent);
     const modelSelection = selectModel(agent, task);
     const workspaceRuns = [...this.activeRuns.values()].filter(
       (active) => active.workspaceId === task.workspaceId,
@@ -364,14 +386,11 @@ export class Orchestrator {
     if (workspaceRuns >= this.concurrentRunLimit) {
       throw new DomainError("CONCURRENCY_LIMIT", "Workspace run concurrency limit reached", 429);
     }
-    if (
-      this.repository
-        .listRuns(task.id)
-        .some((run) => ["queued", "running", "waiting"].includes(run.status))
-    ) {
+    const existingRuns = await this.repository.listRuns(task.id);
+    if (existingRuns.some((run) => ["queued", "running", "waiting"].includes(run.status))) {
       throw new DomainError("TASK_ALREADY_RUNNING", "Task already has an active run", 409);
     }
-    const run = this.repository.createRun({
+    const run = await this.repository.createRun({
       id: randomUUID(),
       taskId: task.id,
       agentId: agent.id,
@@ -383,13 +402,13 @@ export class Orchestrator {
       workingDirectory,
       cleanupPolicy: "preserve",
     });
-    const updatedTask = this.repository.transitionTask(task.id, "working");
+    const updatedTask = await this.repository.transitionTask(task.id, "working");
     if (workflowStep) {
-      this.repository.updateWorkflowStep(workflowStep.id, {
+      await this.repository.updateWorkflowStep(workflowStep.id, {
         status: "working",
         runId: run.id,
       });
-      this.activity(
+      await this.activity(
         updatedTask,
         "workflow_step_started",
         `Workflow ${workflowStep.position + 1}단계 시작: ${agent.name}`,
@@ -397,7 +416,7 @@ export class Orchestrator {
         { workflowStepId: workflowStep.id, position: workflowStep.position },
       );
     }
-    this.activity(updatedTask, "task_started", `Task assigned to ${agent.name}`, run.id);
+    await this.activity(updatedTask, "task_started", `Task assigned to ${agent.name}`, run.id);
     this.publishTask(updatedTask);
     this.publishRun(run, task.workspaceId);
     this.activeRuns.set(run.id, {
@@ -421,7 +440,7 @@ export class Orchestrator {
   ): Promise<void> {
     let result: Awaited<ReturnType<RuntimeAdapter["run"]>> | undefined;
     try {
-      const started = this.repository.updateRun(run.id, {
+      const started = await this.repository.updateRun(run.id, {
         status: "running",
         startedAt: new Date().toISOString(),
       });
@@ -442,32 +461,46 @@ export class Orchestrator {
           limits: this.limits,
         },
         {
-          onEvent: (event) => this.handleRuntimeEvent(run.id, event),
+          // `RuntimeCallbacks.onEvent` is a fixed synchronous-void contract (see runtime.ts).
+          // `handleRuntimeEvent` now awaits repository calls, so each event is queued onto a
+          // per-run promise chain (see `queueRuntimeEvent`) to preserve emission order, and that
+          // chain is drained via `flushRuntimeEvents` before this run's terminal status is
+          // written below — otherwise a delayed "started" write could race past and overwrite a
+          // "completed"/"failed" write that already landed.
+          onEvent: (event) => {
+            this.queueRuntimeEvent(run.id, event);
+          },
           onApprovalPending: () => undefined,
         },
       );
       this.armRunTimers(run.id);
       if (this.activeRuns.get(run.id)?.cancelRequested) this.runtime.cancel(run.id);
       result = await execution;
+      await this.flushRuntimeEvents(run.id);
 
       const active = this.activeRuns.get(run.id);
       if (active?.limitReason) {
-        this.finishSessionPaused(run.id, active.limitReason, result.eventLogRef, result.threadId);
+        await this.finishSessionPaused(
+          run.id,
+          active.limitReason,
+          result.eventLogRef,
+          result.threadId,
+        );
         return;
       }
       const cancelled = result.events.some((event) => event.type === "cancelled");
       if (cancelled) {
-        this.finishCancelled(run.id, result.eventLogRef, result.threadId);
+        await this.finishCancelled(run.id, result.eventLogRef, result.threadId);
         return;
       }
       const failed = result.events.findLast((event) => event.type === "failed");
       if (failed?.type === "failed") {
-        this.finishFailed(run.id, failed.error, result.eventLogRef, result.threadId);
+        await this.finishFailed(run.id, failed.error, result.eventLogRef, result.threadId);
         return;
       }
       const completion = result.events.findLast((event) => event.type === "completed");
       if (completion?.type !== "completed") {
-        this.finishFailed(
+        await this.finishFailed(
           run.id,
           "Runtime ended without a completion result",
           result.eventLogRef,
@@ -479,18 +512,19 @@ export class Orchestrator {
         .filter((event) => event.type === "artifact_created")
         .map((event) => (event.type === "artifact_created" ? event.artifact : undefined))
         .filter((artifact): artifact is NonNullable<typeof artifact> => artifact !== undefined);
-      this.finishCompleted(
+      await this.finishCompleted(
         run.id,
         { summary: completion.result.summary, ...(artifacts.length > 0 ? { artifacts } : {}) },
         result.eventLogRef,
         result.threadId,
       );
     } catch (error) {
+      await this.flushRuntimeEvents(run.id);
       const limitReason = this.activeRuns.get(run.id)?.limitReason;
       if (limitReason) {
-        this.finishSessionPaused(run.id, limitReason, result?.eventLogRef, result?.threadId);
+        await this.finishSessionPaused(run.id, limitReason, result?.eventLogRef, result?.threadId);
       } else {
-        this.finishFailed(
+        await this.finishFailed(
           run.id,
           error instanceof Error ? error.message : String(error),
           result?.eventLogRef,
@@ -500,19 +534,35 @@ export class Orchestrator {
     } finally {
       this.clearRunTimers(run.id);
       this.activeRuns.delete(run.id);
+      this.eventQueues.delete(run.id);
     }
   }
 
-  private handleRuntimeEvent(runId: string, event: AgentEvent): void {
-    const run = this.repository.getRun(runId);
+  private queueRuntimeEvent(runId: string, event: AgentEvent): void {
+    const previous = this.eventQueues.get(runId) ?? Promise.resolve();
+    const next = previous.then(() => this.handleRuntimeEvent(runId, event));
+    this.eventQueues.set(
+      runId,
+      next.catch((error: unknown) => {
+        console.error("Failed to handle runtime event", error);
+      }),
+    );
+  }
+
+  private async flushRuntimeEvents(runId: string): Promise<void> {
+    await (this.eventQueues.get(runId) ?? Promise.resolve());
+  }
+
+  private async handleRuntimeEvent(runId: string, event: AgentEvent): Promise<void> {
+    const run = await this.repository.getRun(runId);
     if (!run) return;
-    const task = this.repository.getTask(run.taskId);
+    const task = await this.repository.getTask(run.taskId);
     if (!task) return;
     this.touchRun(runId);
 
     const progressInput = runtimeProgress(run.runtime, event);
     if (progressInput) {
-      const progress = this.repository.createRunProgress({ runId, ...progressInput });
+      const progress = await this.repository.createRunProgress({ runId, ...progressInput });
       this.events.publish({
         type: "run.progress",
         workspaceId: task.workspaceId,
@@ -521,17 +571,19 @@ export class Orchestrator {
     }
 
     if (event.type === "started") {
-      const updated = this.repository.updateRun(runId, {
+      const updated = await this.repository.updateRun(runId, {
         status: "running",
         runtimeThreadId: event.threadId,
       });
       this.publishRun(updated, task.workspaceId);
     } else if (event.type === "permission_requested") {
       this.pauseIdleTimer(runId);
-      const updatedRun = this.repository.updateRun(runId, { status: "waiting" });
+      const updatedRun = await this.repository.updateRun(runId, { status: "waiting" });
       const updatedTask =
-        task.status === "working" ? this.repository.transitionTask(task.id, "needs_input") : task;
-      this.activity(
+        task.status === "working"
+          ? await this.repository.transitionTask(task.id, "needs_input")
+          : task;
+      await this.activity(
         updatedTask,
         "approval_requested",
         `Runtime permission requested: ${event.permission}`,
@@ -555,7 +607,7 @@ export class Orchestrator {
       this.publishRun(updatedRun, task.workspaceId);
       this.publishTask(updatedTask);
     } else if (event.type === "usage_updated") {
-      const updated = this.repository.updateRun(runId, { usage: event.usage });
+      const updated = await this.repository.updateRun(runId, { usage: event.usage });
       this.publishRun(updated, task.workspaceId);
       const total = (event.usage.inputTokens ?? 0) + (event.usage.outputTokens ?? 0);
       const active = this.activeRuns.get(runId);
@@ -572,13 +624,13 @@ export class Orchestrator {
         !active.sessionWarningEmitted
       ) {
         active.sessionWarningEmitted = true;
-        const progress = this.repository.createRunProgress({
+        const progress = await this.repository.createRunProgress({
           runId,
           type: "message",
           message: "작업 세션 한도가 얼마 남지 않았습니다. 현재 단계를 마무리하는 중입니다.",
           metadata: { kind: "session_limit_warning" },
         });
-        this.activity(
+        await this.activity(
           task,
           "session_limit_warning",
           "작업 세션 한도가 얼마 남지 않았습니다.",
@@ -604,50 +656,49 @@ export class Orchestrator {
     }
   }
 
-  private finishCompleted(
+  private async finishCompleted(
     runId: string,
     result: TaskResult,
     eventLogRef?: string,
     threadId?: string,
-  ): void {
-    const run = this.repository.getRun(runId);
+  ): Promise<void> {
+    const run = await this.repository.getRun(runId);
     if (!run) return;
-    const task = this.repository.getTask(run.taskId);
+    const task = await this.repository.getTask(run.taskId);
     if (!task) return;
-    if (task.status === "needs_input") this.repository.transitionTask(task.id, "working");
-    const updatedRun = this.repository.updateRun(runId, {
+    if (task.status === "needs_input") await this.repository.transitionTask(task.id, "working");
+    const updatedRun = await this.repository.updateRun(runId, {
       status: "completed",
       finishedAt: new Date().toISOString(),
       eventLogRef,
       runtimeThreadId: threadId,
       result,
     });
-    const workflowStep = this.repository.getWorkflowStepByRun(runId);
+    const workflowStep = await this.repository.getWorkflowStepByRun(runId);
     if (workflowStep) {
-      this.repository.updateWorkflowStep(workflowStep.id, { status: "completed", result });
-      const currentTask = this.repository.getTask(task.id) ?? task;
-      this.activity(
+      await this.repository.updateWorkflowStep(workflowStep.id, { status: "completed", result });
+      const currentTask = (await this.repository.getTask(task.id)) ?? task;
+      await this.activity(
         currentTask,
         "workflow_step_completed",
         `Workflow ${workflowStep.position + 1}단계 완료`,
         runId,
         { workflowStepId: workflowStep.id, position: workflowStep.position },
       );
-      const nextStep = this.repository
-        .listWorkflowSteps(task.id)
-        .find((step) => step.status === "pending");
+      const steps = await this.repository.listWorkflowSteps(task.id);
+      const nextStep = steps.find((step) => step.status === "pending");
       if (nextStep) {
-        const updatedTask = this.repository.transitionTask(task.id, "working", result);
+        const updatedTask = await this.repository.transitionTask(task.id, "working", result);
         this.publishRun(updatedRun, task.workspaceId);
         this.publishTask(updatedTask);
         this.clearRunTimers(runId);
         this.activeRuns.delete(runId);
         try {
-          this.startWorkflowStep(updatedTask, nextStep);
+          await this.startWorkflowStep(updatedTask, nextStep);
         } catch (error) {
-          const failedTask = this.repository.transitionTask(task.id, "failed");
-          this.repository.updateWorkflowStep(nextStep.id, { status: "failed" });
-          this.activity(
+          const failedTask = await this.repository.transitionTask(task.id, "failed");
+          await this.repository.updateWorkflowStep(nextStep.id, { status: "failed" });
+          await this.activity(
             failedTask,
             "task_failed",
             error instanceof Error ? error.message : String(error),
@@ -657,8 +708,8 @@ export class Orchestrator {
         return;
       }
     }
-    const updatedTask = this.repository.transitionTask(task.id, "needs_review", result);
-    this.activity(updatedTask, "task_completed", "Task result is ready for review", runId);
+    const updatedTask = await this.repository.transitionTask(task.id, "needs_review", result);
+    await this.activity(updatedTask, "task_completed", "Task result is ready for review", runId);
     this.publishRun(updatedRun, task.workspaceId);
     this.publishTask(updatedTask);
     this.events.publish({
@@ -668,23 +719,30 @@ export class Orchestrator {
     });
   }
 
-  private finishCancelled(runId: string, eventLogRef?: string, threadId?: string): void {
-    const run = this.repository.getRun(runId);
+  private async finishCancelled(
+    runId: string,
+    eventLogRef?: string,
+    threadId?: string,
+  ): Promise<void> {
+    const run = await this.repository.getRun(runId);
     if (!run) return;
-    const task = this.repository.getTask(run.taskId);
+    const task = await this.repository.getTask(run.taskId);
     if (!task) return;
-    const updatedRun = this.repository.updateRun(runId, {
+    const updatedRun = await this.repository.updateRun(runId, {
       status: "cancelled",
       finishedAt: new Date().toISOString(),
       eventLogRef,
       runtimeThreadId: threadId,
     });
-    const updatedTask = this.repository.transitionTask(task.id, "todo");
-    const workflowStep = this.repository.getWorkflowStepByRun(runId);
+    const updatedTask = await this.repository.transitionTask(task.id, "todo");
+    const workflowStep = await this.repository.getWorkflowStepByRun(runId);
     if (workflowStep) {
-      this.repository.updateWorkflowStep(workflowStep.id, { status: "pending", runId: undefined });
+      await this.repository.updateWorkflowStep(workflowStep.id, {
+        status: "pending",
+        runId: undefined,
+      });
     }
-    this.activity(
+    await this.activity(
       updatedTask,
       "task_cancelled",
       "Run cancelled; partial artifacts were preserved",
@@ -694,17 +752,17 @@ export class Orchestrator {
     this.publishTask(updatedTask);
   }
 
-  private finishFailed(
+  private async finishFailed(
     runId: string,
     error: string,
     eventLogRef?: string,
     threadId?: string,
-  ): void {
-    const run = this.repository.getRun(runId);
+  ): Promise<void> {
+    const run = await this.repository.getRun(runId);
     if (!run) return;
-    const task = this.repository.getTask(run.taskId);
+    const task = await this.repository.getTask(run.taskId);
     if (!task) return;
-    const updatedRun = this.repository.updateRun(runId, {
+    const updatedRun = await this.repository.updateRun(runId, {
       status: "failed",
       finishedAt: new Date().toISOString(),
       eventLogRef,
@@ -712,30 +770,31 @@ export class Orchestrator {
       error,
     });
     const updatedTask =
-      task.status === "failed" ? task : this.repository.transitionTask(task.id, "failed");
-    const workflowStep = this.repository.getWorkflowStepByRun(runId);
-    if (workflowStep) this.repository.updateWorkflowStep(workflowStep.id, { status: "failed" });
-    this.activity(updatedTask, "task_failed", error, runId);
+      task.status === "failed" ? task : await this.repository.transitionTask(task.id, "failed");
+    const workflowStep = await this.repository.getWorkflowStepByRun(runId);
+    if (workflowStep)
+      await this.repository.updateWorkflowStep(workflowStep.id, { status: "failed" });
+    await this.activity(updatedTask, "task_failed", error, runId);
     this.publishRun(updatedRun, task.workspaceId);
     this.publishTask(updatedTask);
   }
 
-  private finishSessionPaused(
+  private async finishSessionPaused(
     runId: string,
     reason: "capacity" | "inactivity" | "duration",
     eventLogRef?: string,
     threadId?: string,
-  ): void {
-    const run = this.repository.getRun(runId);
+  ): Promise<void> {
+    const run = await this.repository.getRun(runId);
     if (!run || run.status === "failed") return;
-    const task = this.repository.getTask(run.taskId);
+    const task = await this.repository.getTask(run.taskId);
     if (!task) return;
     const messages = {
       capacity: "작업 세션 한도에 도달했습니다.",
       inactivity: "5분 동안 새 진행이 없어 작업 세션을 일시 중단했습니다.",
       duration: "20분 실행 한도에 도달해 작업 세션을 일시 중단했습니다.",
     } as const;
-    const updatedRun = this.repository.updateRun(runId, {
+    const updatedRun = await this.repository.updateRun(runId, {
       status: "failed",
       finishedAt: new Date().toISOString(),
       eventLogRef,
@@ -743,12 +802,17 @@ export class Orchestrator {
       error: `SESSION_LIMIT:${reason}:${messages[reason]}`,
     });
     const updatedTask =
-      task.status === "needs_input" ? task : this.repository.transitionTask(task.id, "needs_input");
-    const workflowStep = this.repository.getWorkflowStepByRun(runId);
+      task.status === "needs_input"
+        ? task
+        : await this.repository.transitionTask(task.id, "needs_input");
+    const workflowStep = await this.repository.getWorkflowStepByRun(runId);
     if (workflowStep) {
-      this.repository.updateWorkflowStep(workflowStep.id, { status: "pending", runId: undefined });
+      await this.repository.updateWorkflowStep(workflowStep.id, {
+        status: "pending",
+        runId: undefined,
+      });
     }
-    this.activity(updatedTask, "session_limit_reached", messages[reason], runId, { reason });
+    await this.activity(updatedTask, "session_limit_reached", messages[reason], runId, { reason });
     this.publishRun(updatedRun, task.workspaceId);
     this.publishTask(updatedTask);
     this.events.publish({
@@ -758,8 +822,8 @@ export class Orchestrator {
     });
   }
 
-  private requireRunnableTask(taskId: string, status: Task["status"]): Task {
-    const task = this.repository.getTask(taskId);
+  private async requireRunnableTask(taskId: string, status: Task["status"]): Promise<Task> {
+    const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
     if (task.status !== status) {
       throw new DomainError("TASK_NOT_RUNNABLE", `Task must be ${status} to run`, 409);
@@ -767,14 +831,14 @@ export class Orchestrator {
     return task;
   }
 
-  private requireRuntimeAgent(task: Task): Agent {
+  private async requireRuntimeAgent(task: Task): Promise<Agent> {
     if (!task.assigneeAgentId)
       throw new DomainError("TASK_UNASSIGNED", "Task has no assigned agent", 422);
     return this.requireAgent(task.assigneeAgentId);
   }
 
-  private requireAgent(agentId: string): Agent {
-    const agent = this.repository.getAgent(agentId);
+  private async requireAgent(agentId: string): Promise<Agent> {
+    const agent = await this.repository.getAgent(agentId);
     if (!agent) throw new DomainError("NOT_FOUND", `Agent not found: ${agentId}`, 404);
     if (
       agent.mode !== "chat" &&
@@ -789,20 +853,16 @@ export class Orchestrator {
     return agent;
   }
 
-  private startWorkflowStep(
+  private async startWorkflowStep(
     task: Task,
     step: TaskWorkflowStep,
     continuation?: WorkflowContinuation,
-  ): AgentRun {
-    const agent = this.requireAgent(step.agentId);
-    const assignedTask = this.repository.updateTask(task.id, { assigneeAgentId: agent.id });
-    const skills = agent.skillIds.map((id) => {
-      const skill = this.repository.getSkill(id);
-      if (!skill) throw new DomainError("SKILLS_NOT_FOUND", `Skill not found: ${id}`, 422);
-      return skill;
-    });
-    const previousResults = this.repository
-      .listWorkflowSteps(task.id)
+  ): Promise<AgentRun> {
+    const agent = await this.requireAgent(step.agentId);
+    const assignedTask = await this.repository.updateTask(task.id, { assigneeAgentId: agent.id });
+    const skills = await this.requireSkills(agent);
+    const steps = await this.repository.listWorkflowSteps(task.id);
+    const previousResults = steps
       .filter((candidate) => candidate.position < step.position && candidate.result)
       .map(
         (candidate) => `STEP ${candidate.position + 1} RESULT\n${candidate.result?.summary ?? ""}`,
@@ -827,8 +887,9 @@ export class Orchestrator {
     );
   }
 
-  private continuationContext(runId: string): string {
-    const recent = this.repository.listRunProgress(runId).slice(-12);
+  private async continuationContext(runId: string): Promise<string> {
+    const progress = await this.repository.listRunProgress(runId);
+    const recent = progress.slice(-12);
     if (recent.length === 0) {
       return "No concise progress events were recorded. Inspect the workspace state first.";
     }
@@ -880,9 +941,9 @@ export class Orchestrator {
     if (active.hardTimer) clearTimeout(active.hardTimer);
   }
 
-  private resolveWorkingDirectory(task: Task, agent: Agent): string {
-    const workspace = this.repository.getWorkspace(task.workspaceId);
-    const project = task.projectId ? this.repository.getProject(task.projectId) : undefined;
+  private async resolveWorkingDirectory(task: Task, agent: Agent): Promise<string> {
+    const workspace = await this.repository.getWorkspace(task.workspaceId);
+    const project = task.projectId ? await this.repository.getProject(task.projectId) : undefined;
     const configured =
       task.workingDirectory ??
       project?.path ??
@@ -901,14 +962,14 @@ export class Orchestrator {
     return directory;
   }
 
-  private activity(
+  private async activity(
     task: Task,
     type: Parameters<Repository["createActivity"]>[0]["type"],
     message: string,
     runId?: string,
     metadata?: Record<string, unknown>,
-  ): void {
-    const activity = this.repository.createActivity({
+  ): Promise<void> {
+    const activity = await this.repository.createActivity({
       workspaceId: task.workspaceId,
       type,
       taskId: task.id,

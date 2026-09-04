@@ -64,9 +64,9 @@ class ApprovalRuntime implements RuntimeAdapter {
   }
 }
 
-async function waitFor(check: () => boolean, timeoutMs = 2_000): Promise<void> {
+async function waitFor(check: () => Promise<boolean> | boolean, timeoutMs = 2_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  while (!check()) {
+  while (!(await check())) {
     if (Date.now() > deadline) throw new Error("Timed out waiting for state change");
     await new Promise((resolveWait) => setTimeout(resolveWait, 5));
   }
@@ -75,8 +75,8 @@ async function waitFor(check: () => boolean, timeoutMs = 2_000): Promise<void> {
 test("runs task through approval, review, and approval persistence", async () => {
   const repository = new Repository(openDatabase(":memory:"));
   try {
-    const workspace = repository.createWorkspace({ name: "Studio" });
-    const agent = repository.createAgent({
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Reviewer",
       role: "Review UI",
@@ -84,28 +84,28 @@ test("runs task through approval, review, and approval persistence", async () =>
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Review checkout",
       assigneeAgentId: agent.id,
     });
     const orchestrator = new Orchestrator(repository, new ApprovalRuntime(), new EventBus());
-    const run = orchestrator.startTask(task.id);
-    await waitFor(() => repository.getRun(run.id)?.status === "waiting");
-    assert.equal(repository.getTask(task.id)?.status, "needs_input");
+    const run = await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getRun(run.id))?.status === "waiting");
+    assert.equal((await repository.getTask(task.id))?.status, "needs_input");
     assert.deepEqual(
-      repository.listRunProgress(run.id).map((event) => event.type),
+      (await repository.listRunProgress(run.id)).map((event) => event.type),
       ["started", "permission_requested"],
     );
 
-    orchestrator.resolveApproval(run.id, "approval-1", "accept");
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
-    assert.equal(repository.getRun(run.id)?.runtimeThreadId, "thread-1");
-    assert.equal(repository.getTask(task.id)?.result?.summary, "Reviewed");
+    await orchestrator.resolveApproval(run.id, "approval-1", "accept");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    assert.equal((await repository.getRun(run.id))?.runtimeThreadId, "thread-1");
+    assert.equal((await repository.getTask(task.id))?.result?.summary, "Reviewed");
 
-    orchestrator.approveTask(task.id);
-    assert.equal(repository.getTask(task.id)?.status, "done");
-    assert.equal(repository.listReviews(task.id)[0]?.action, "approved");
+    await orchestrator.approveTask(task.id);
+    assert.equal((await repository.getTask(task.id))?.status, "done");
+    assert.equal((await repository.listReviews(task.id))[0]?.action, "approved");
   } finally {
     repository.close();
   }
@@ -114,8 +114,8 @@ test("runs task through approval, review, and approval persistence", async () =>
 test("retries a failed task without creating a replacement task", async () => {
   const repository = new Repository(openDatabase(":memory:"));
   try {
-    const workspace = repository.createWorkspace({ name: "Studio" });
-    const agent = repository.createAgent({
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Retry Agent",
       role: "Retry work",
@@ -123,22 +123,22 @@ test("retries a failed task without creating a replacement task", async () => {
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Retry this task",
       assigneeAgentId: agent.id,
     });
-    repository.transitionTask(task.id, "working");
-    repository.transitionTask(task.id, "failed");
+    await repository.transitionTask(task.id, "working");
+    await repository.transitionTask(task.id, "failed");
 
     const runtime = new ApprovalRuntime();
     const orchestrator = new Orchestrator(repository, runtime, new EventBus());
-    const run = orchestrator.retryTask(task.id);
-    await waitFor(() => repository.getRun(run.id)?.status === "waiting");
-    assert.equal(repository.getTask(task.id)?.status, "needs_input");
+    const run = await orchestrator.retryTask(task.id);
+    await waitFor(async () => (await repository.getRun(run.id))?.status === "waiting");
+    assert.equal((await repository.getTask(task.id))?.status, "needs_input");
 
-    orchestrator.resolveApproval(run.id, "approval-1", "accept");
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
+    await orchestrator.resolveApproval(run.id, "approval-1", "accept");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
   } finally {
     repository.close();
   }
@@ -166,11 +166,11 @@ test("routes a Claude agent through the runtime contract", async () => {
     resolveApproval: () => false,
   };
   try {
-    const workspace = repository.createWorkspace({
+    const workspace = await repository.createWorkspace({
       name: "Studio",
       workingDirectory: process.cwd(),
     });
-    const agent = repository.createAgent({
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Claude Reviewer",
       role: "Review UI",
@@ -178,17 +178,17 @@ test("routes a Claude agent through the runtime contract", async () => {
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Review checkout",
       assigneeAgentId: agent.id,
     });
     const orchestrator = new Orchestrator(repository, runtime, new EventBus());
-    orchestrator.startTask(task.id);
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
+    await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
     assert.equal(selectedRuntime, "claude");
     assert.equal(selectedDirectory, process.cwd());
-    assert.equal(repository.getTask(task.id)?.result?.summary, "Claude result");
+    assert.equal((await repository.getTask(task.id))?.result?.summary, "Claude result");
   } finally {
     repository.close();
   }
@@ -209,11 +209,11 @@ test("uses task project folder before agent and workspace defaults", async () =>
     resolveApproval: () => false,
   };
   try {
-    const workspace = repository.createWorkspace({
+    const workspace = await repository.createWorkspace({
       name: "Studio",
       workingDirectory: process.cwd(),
     });
-    const agent = repository.createAgent({
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Developer",
       role: "Build",
@@ -222,7 +222,7 @@ test("uses task project folder before agent and workspace defaults", async () =>
       permissions: { fileRead: true, terminal: true },
       workingDirectory: process.cwd(),
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Build",
       assigneeAgentId: agent.id,
@@ -231,22 +231,22 @@ test("uses task project folder before agent and workspace defaults", async () =>
     const orchestrator = new Orchestrator(repository, runtime, new EventBus(), {
       workspacePath: "C:\\invalid-fallback",
     });
-    orchestrator.startTask(task.id);
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
+    await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
     assert.equal(selectedDirectory, process.cwd());
   } finally {
     repository.close();
   }
 });
 
-test("rejects a missing project folder before creating a run", () => {
+test("rejects a missing project folder before creating a run", async () => {
   const repository = new Repository(openDatabase(":memory:"));
   try {
-    const workspace = repository.createWorkspace({
+    const workspace = await repository.createWorkspace({
       name: "Studio",
       workingDirectory: "Z:\\missing-ai-pixel-office-folder",
     });
-    const agent = repository.createAgent({
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Developer",
       role: "Build",
@@ -254,15 +254,15 @@ test("rejects a missing project folder before creating a run", () => {
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Build",
       assigneeAgentId: agent.id,
     });
     const orchestrator = new Orchestrator(repository, new ApprovalRuntime(), new EventBus());
-    assert.throws(() => orchestrator.startTask(task.id), /프로젝트 폴더를 찾을 수 없습니다/);
-    assert.equal(repository.listRuns(task.id).length, 0);
-    assert.equal(repository.getTask(task.id)?.status, "todo");
+    await assert.rejects(() => orchestrator.startTask(task.id), /프로젝트 폴더를 찾을 수 없습니다/);
+    assert.equal((await repository.listRuns(task.id)).length, 0);
+    assert.equal((await repository.getTask(task.id))?.status, "todo");
   } finally {
     repository.close();
   }
@@ -293,13 +293,13 @@ test("runs a conversational agent in its project folder without file or terminal
     resolveApproval: () => false,
   };
   try {
-    const workspace = repository.createWorkspace({ name: "Studio" });
-    const project = repository.createProjectDirectory({
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const project = await repository.createProjectDirectory({
       workspaceId: workspace.id,
       name: "Product",
       path: process.cwd(),
     });
-    const agent = repository.createAgent({
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Idea Partner",
       role: "Talk through ideas",
@@ -308,7 +308,7 @@ test("runs a conversational agent in its project folder without file or terminal
       skillIds: [],
       permissions: {},
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "아이디어 정리",
       assigneeAgentId: agent.id,
@@ -317,8 +317,8 @@ test("runs a conversational agent in its project folder without file or terminal
     const orchestrator = new Orchestrator(repository, runtime, new EventBus(), {
       workspacePath: "Z:\\invalid-chat-fallback",
     });
-    orchestrator.startTask(task.id);
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
+    await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
     assert.equal(conversational, true);
     assert.equal(selectedDirectory, process.cwd());
   } finally {
@@ -351,8 +351,8 @@ test("runs sequential agents and hands each result to the next step", async () =
     resolveApproval: () => false,
   };
   try {
-    const workspace = repository.createWorkspace({ name: "Studio" });
-    const reviewer = repository.createAgent({
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const reviewer = await repository.createAgent({
       workspaceId: workspace.id,
       name: "UI Reviewer",
       role: "Analyze UI",
@@ -360,7 +360,7 @@ test("runs sequential agents and hands each result to the next step", async () =
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const developer = repository.createAgent({
+    const developer = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Frontend Developer",
       role: "Implement UI",
@@ -368,23 +368,23 @@ test("runs sequential agents and hands each result to the next step", async () =
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Improve checkout",
       description: "Preserve the existing payment flow and add regression coverage.",
       assigneeAgentId: reviewer.id,
     });
-    repository.setTaskWorkflow(task.id, [reviewer.id, developer.id]);
+    await repository.setTaskWorkflow(task.id, [reviewer.id, developer.id]);
 
     const orchestrator = new Orchestrator(repository, runtime, new EventBus(), {
       concurrentRunLimit: 1,
     });
-    orchestrator.startTask(task.id);
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
+    await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
 
-    assert.equal(repository.listRuns(task.id).length, 2);
+    assert.equal((await repository.listRuns(task.id)).length, 2);
     assert.deepEqual(
-      repository.listWorkflowSteps(task.id).map((step) => step.status),
+      (await repository.listWorkflowSteps(task.id)).map((step) => step.status),
       ["completed", "completed"],
     );
     assert.match(prompts[1] ?? "", /step-1-result/);
@@ -392,8 +392,8 @@ test("runs sequential agents and hands each result to the next step", async () =
       prompts[0] ?? "",
       /Preserve the existing payment flow and add regression coverage/,
     );
-    assert.equal(repository.getTask(task.id)?.assigneeAgentId, developer.id);
-    assert.equal(repository.getTask(task.id)?.result?.summary, "step-2-result");
+    assert.equal((await repository.getTask(task.id))?.assigneeAgentId, developer.id);
+    assert.equal((await repository.getTask(task.id))?.result?.summary, "step-2-result");
   } finally {
     repository.close();
   }
@@ -454,8 +454,8 @@ test("warns before the session limit and extends the existing runtime session", 
   };
 
   try {
-    const workspace = repository.createWorkspace({ name: "Studio" });
-    const agent = repository.createAgent({
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Long Runner",
       role: "Continue safely",
@@ -463,7 +463,7 @@ test("warns before the session limit and extends the existing runtime session", 
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const task = repository.createTask({
+    const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Large task",
       assigneeAgentId: agent.id,
@@ -477,20 +477,20 @@ test("warns before the session limit and extends the existing runtime session", 
       },
     });
 
-    const firstRun = orchestrator.startTask(task.id);
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_input");
-    assert.match(repository.getRun(firstRun.id)?.error ?? "", /^SESSION_LIMIT:capacity:/);
+    const firstRun = await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_input");
+    assert.match((await repository.getRun(firstRun.id))?.error ?? "", /^SESSION_LIMIT:capacity:/);
     assert.ok(
-      repository
-        .listRunProgress(firstRun.id)
-        .some((event) => event.metadata?.kind === "session_limit_warning"),
+      (await repository.listRunProgress(firstRun.id)).some(
+        (event) => event.metadata?.kind === "session_limit_warning",
+      ),
     );
     assert.ok(published.includes("session.limit_warning"));
     assert.ok(published.includes("session.limit_reached"));
 
-    orchestrator.extendTaskSession(task.id);
-    await waitFor(() => repository.getTask(task.id)?.status === "needs_review");
-    assert.equal(repository.getTask(task.id)?.result?.summary, "이어하기 완료");
+    await orchestrator.extendTaskSession(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    assert.equal((await repository.getTask(task.id))?.result?.summary, "이어하기 완료");
     assert.equal(resumedThreads[1], "session-1");
     assert.match(prompts[1] ?? "", /SAME WORK SESSION CONTINUATION/);
     assert.match(prompts[1] ?? "", /첫 단계 작업을 보존했습니다/);

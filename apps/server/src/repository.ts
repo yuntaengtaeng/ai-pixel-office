@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type Database from "better-sqlite3";
+import type { StatementResultingChanges } from "node:sqlite";
 import {
   assertTaskTransition,
   DomainError,
@@ -34,7 +34,7 @@ import {
   type Workspace,
   type WorkflowPreset,
   type WorkflowStepStatus,
-} from "../../../packages/domain/src/index.ts";
+} from "@ai-pixel-office/domain";
 import { requireEntity } from "./database.ts";
 import type { AppDatabase } from "./database.ts";
 
@@ -201,19 +201,19 @@ export class Repository {
     this.database.close();
   }
 
-  listWorkspaces(): Workspace[] {
+  async listWorkspaces(): Promise<Workspace[]> {
     return this.database
       .prepare("SELECT * FROM workspaces ORDER BY created_at")
       .all()
       .map((row) => workspaceFrom(row as Row));
   }
 
-  getWorkspace(id: string): Workspace | undefined {
+  async getWorkspace(id: string): Promise<Workspace | undefined> {
     const row = this.database.prepare("SELECT * FROM workspaces WHERE id = ?").get(id);
     return row ? workspaceFrom(row as Row) : undefined;
   }
 
-  createWorkspace(input: CreateWorkspaceInput): Workspace {
+  async createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
     const createdAt = now();
     const workspace: Workspace = { id: randomUUID(), ...input, createdAt, updatedAt: createdAt };
     this.database
@@ -230,8 +230,8 @@ export class Repository {
     return workspace;
   }
 
-  updateWorkspace(id: string, input: UpdateWorkspaceInput): Workspace {
-    const current = requireEntity(this.getWorkspace(id), "Workspace", id);
+  async updateWorkspace(id: string, input: UpdateWorkspaceInput): Promise<Workspace> {
+    const current = requireEntity(await this.getWorkspace(id), "Workspace", id);
     const updated = { ...current, ...input, updatedAt: now() };
     this.database
       .prepare("UPDATE workspaces SET name = ?, working_directory = ?, updated_at = ? WHERE id = ?")
@@ -239,7 +239,7 @@ export class Repository {
     return updated;
   }
 
-  deleteWorkspace(id: string): void {
+  async deleteWorkspace(id: string): Promise<void> {
     this.requireChanged(
       this.database.prepare("DELETE FROM workspaces WHERE id = ?").run(id),
       "Workspace",
@@ -247,23 +247,23 @@ export class Repository {
     );
   }
 
-  listProjectDirectories(workspaceId: string): Project[] {
+  async listProjectDirectories(workspaceId: string): Promise<Project[]> {
     return this.database
       .prepare("SELECT * FROM projects WHERE workspace_id = ? ORDER BY status, updated_at DESC")
       .all(workspaceId)
       .map((row) => projectFrom(row as Row));
   }
 
-  getProject(id: string): Project | undefined {
+  async getProject(id: string): Promise<Project | undefined> {
     const row = this.database.prepare("SELECT * FROM projects WHERE id = ?").get(id);
     return row ? projectFrom(row as Row) : undefined;
   }
 
-  createProjectDirectory(
+  async createProjectDirectory(
     input: Pick<Project, "workspaceId" | "name"> &
       Partial<Pick<Project, "description" | "status" | "figmaUrl" | "path">>,
-  ): Project {
-    requireEntity(this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
+  ): Promise<Project> {
+    requireEntity(await this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
     const createdAt = now();
     const project: Project = {
       id: randomUUID(),
@@ -292,11 +292,11 @@ export class Repository {
     return project;
   }
 
-  updateProject(
+  async updateProject(
     id: string,
     input: Partial<Pick<Project, "name" | "description" | "status" | "figmaUrl" | "path">>,
-  ): Project {
-    const current = requireEntity(this.getProject(id), "Project", id);
+  ): Promise<Project> {
+    const current = requireEntity(await this.getProject(id), "Project", id);
     const updated: Project = { ...current, ...input, updatedAt: now() };
     this.database
       .prepare(
@@ -314,8 +314,8 @@ export class Repository {
     return updated;
   }
 
-  deleteProjectDirectory(id: string): void {
-    this.transaction(() => {
+  async deleteProjectDirectory(id: string): Promise<void> {
+    await this.transaction(() => {
       this.database.prepare("UPDATE tasks SET project_id = NULL WHERE project_id = ?").run(id);
       this.requireChanged(
         this.database.prepare("DELETE FROM projects WHERE id = ?").run(id),
@@ -325,7 +325,7 @@ export class Repository {
     });
   }
 
-  listSkills(workspaceId?: string): Skill[] {
+  async listSkills(workspaceId?: string): Promise<Skill[]> {
     const rows = workspaceId
       ? this.database
           .prepare(
@@ -336,14 +336,14 @@ export class Repository {
     return rows.map((row) => skillFrom(row as Row));
   }
 
-  getSkill(id: string): Skill | undefined {
+  async getSkill(id: string): Promise<Skill | undefined> {
     const row = this.database.prepare("SELECT * FROM skills WHERE id = ?").get(id);
     return row ? skillFrom(row as Row) : undefined;
   }
 
-  createSkill(input: CreateSkillInput): Skill {
+  async createSkill(input: CreateSkillInput): Promise<Skill> {
     if (input.workspaceId)
-      requireEntity(this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
+      requireEntity(await this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
     const createdAt = now();
     const skill: Skill = { id: randomUUID(), ...input, createdAt, updatedAt: createdAt };
     this.database
@@ -369,8 +369,8 @@ export class Repository {
     return skill;
   }
 
-  updateSkill(id: string, input: UpdateSkillInput): Skill {
-    const current = requireEntity(this.getSkill(id), "Skill", id);
+  async updateSkill(id: string, input: UpdateSkillInput): Promise<Skill> {
+    const current = requireEntity(await this.getSkill(id), "Skill", id);
     const updated: Skill = { ...current, ...input, updatedAt: now() };
     this.database
       .prepare(
@@ -391,7 +391,7 @@ export class Repository {
     return updated;
   }
 
-  deleteSkill(id: string): void {
+  async deleteSkill(id: string): Promise<void> {
     try {
       this.requireChanged(
         this.database.prepare("DELETE FROM skills WHERE id = ?").run(id),
@@ -410,7 +410,7 @@ export class Repository {
     }
   }
 
-  listAgents(workspaceId?: string): Agent[] {
+  async listAgents(workspaceId?: string): Promise<Agent[]> {
     const rows = workspaceId
       ? this.database
           .prepare("SELECT * FROM agents WHERE workspace_id = ? ORDER BY created_at")
@@ -419,14 +419,14 @@ export class Repository {
     return rows.map((row) => this.agentFrom(row as Row));
   }
 
-  getAgent(id: string): Agent | undefined {
+  async getAgent(id: string): Promise<Agent | undefined> {
     const row = this.database.prepare("SELECT * FROM agents WHERE id = ?").get(id);
     return row ? this.agentFrom(row as Row) : undefined;
   }
 
-  createAgent(input: CreateAgentInput): Agent {
-    requireEntity(this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
-    this.assertSkillScope(input.workspaceId, input.skillIds);
+  async createAgent(input: CreateAgentInput): Promise<Agent> {
+    requireEntity(await this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
+    await this.assertSkillScope(input.workspaceId, input.skillIds);
     const createdAt = now();
     const agent: Agent = {
       id: randomUUID(),
@@ -436,7 +436,7 @@ export class Repository {
       createdAt,
       updatedAt: createdAt,
     };
-    this.transaction(() => {
+    await this.transaction(() => {
       this.database
         .prepare(
           `INSERT INTO agents
@@ -463,7 +463,7 @@ export class Repository {
         );
       this.replaceAgentSkills(agent.id, agent.skillIds);
     });
-    this.createActivity({
+    await this.createActivity({
       workspaceId: agent.workspaceId,
       type: "agent_created",
       agentId: agent.id,
@@ -472,11 +472,11 @@ export class Repository {
     return agent;
   }
 
-  updateAgent(id: string, input: UpdateAgentInput): Agent {
-    const current = requireEntity(this.getAgent(id), "Agent", id);
+  async updateAgent(id: string, input: UpdateAgentInput): Promise<Agent> {
+    const current = requireEntity(await this.getAgent(id), "Agent", id);
     const updated: Agent = { ...current, ...input, updatedAt: now() };
-    this.assertSkillScope(updated.workspaceId, updated.skillIds);
-    this.transaction(() => {
+    await this.assertSkillScope(updated.workspaceId, updated.skillIds);
+    await this.transaction(() => {
       this.database
         .prepare(
           `UPDATE agents SET name = ?, role = ?, description = ?, model = ?, model_policy = ?, model_name = ?, reasoning_effort = ?, mode = ?, avatar_id = ?,
@@ -503,7 +503,7 @@ export class Repository {
     return updated;
   }
 
-  deleteAgent(id: string): void {
+  async deleteAgent(id: string): Promise<void> {
     try {
       this.requireChanged(
         this.database.prepare("DELETE FROM agents WHERE id = ?").run(id),
@@ -522,16 +522,16 @@ export class Repository {
     }
   }
 
-  listAgentTaskTemplates(agentId: string): AgentTaskTemplate[] {
-    requireEntity(this.getAgent(agentId), "Agent", agentId);
+  async listAgentTaskTemplates(agentId: string): Promise<AgentTaskTemplate[]> {
+    requireEntity(await this.getAgent(agentId), "Agent", agentId);
     return this.database
       .prepare("SELECT * FROM agent_task_templates WHERE agent_id = ? ORDER BY created_at DESC")
       .all(agentId)
       .map((row) => taskTemplateFrom(row as Row));
   }
 
-  createAgentTaskTemplate(input: CreateAgentTaskTemplateInput): AgentTaskTemplate {
-    requireEntity(this.getAgent(input.agentId), "Agent", input.agentId);
+  async createAgentTaskTemplate(input: CreateAgentTaskTemplateInput): Promise<AgentTaskTemplate> {
+    requireEntity(await this.getAgent(input.agentId), "Agent", input.agentId);
     const template: AgentTaskTemplate = {
       id: randomUUID(),
       agentId: input.agentId,
@@ -556,7 +556,7 @@ export class Repository {
     return template;
   }
 
-  deleteAgentTaskTemplate(agentId: string, id: string): void {
+  async deleteAgentTaskTemplate(agentId: string, id: string): Promise<void> {
     this.requireChanged(
       this.database
         .prepare("DELETE FROM agent_task_templates WHERE id = ? AND agent_id = ?")
@@ -566,7 +566,7 @@ export class Repository {
     );
   }
 
-  listTasks(workspaceId?: string, status?: TaskStatus): Task[] {
+  async listTasks(workspaceId?: string, status?: TaskStatus): Promise<Task[]> {
     let rows: Row[];
     if (workspaceId && status) {
       rows = this.database
@@ -584,15 +584,16 @@ export class Repository {
     return rows.map(taskFrom);
   }
 
-  getTask(id: string): Task | undefined {
+  async getTask(id: string): Promise<Task | undefined> {
     const row = this.database.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
     return row ? taskFrom(row as Row) : undefined;
   }
 
-  createTask(input: CreateTaskInput): Task {
-    requireEntity(this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
-    if (input.assigneeAgentId) this.assertAgentWorkspace(input.assigneeAgentId, input.workspaceId);
-    if (input.projectId) this.assertProjectWorkspace(input.projectId, input.workspaceId);
+  async createTask(input: CreateTaskInput): Promise<Task> {
+    requireEntity(await this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
+    if (input.assigneeAgentId)
+      await this.assertAgentWorkspace(input.assigneeAgentId, input.workspaceId);
+    if (input.projectId) await this.assertProjectWorkspace(input.projectId, input.workspaceId);
     const createdAt = now();
     const task: Task = {
       id: randomUUID(),
@@ -623,7 +624,7 @@ export class Repository {
         task.createdAt,
         task.updatedAt,
       );
-    this.createActivity({
+    await this.createActivity({
       workspaceId: task.workspaceId,
       type: "task_created",
       taskId: task.id,
@@ -632,18 +633,19 @@ export class Repository {
     return task;
   }
 
-  updateTask(id: string, input: UpdateTaskInput): Task {
-    const current = requireEntity(this.getTask(id), "Task", id);
+  async updateTask(id: string, input: UpdateTaskInput): Promise<Task> {
+    const current = requireEntity(await this.getTask(id), "Task", id);
     const updated: Task = { ...current, ...input, updatedAt: now() };
     if (updated.assigneeAgentId)
-      this.assertAgentWorkspace(updated.assigneeAgentId, updated.workspaceId);
-    if (updated.projectId) this.assertProjectWorkspace(updated.projectId, updated.workspaceId);
+      await this.assertAgentWorkspace(updated.assigneeAgentId, updated.workspaceId);
+    if (updated.projectId)
+      await this.assertProjectWorkspace(updated.projectId, updated.workspaceId);
     this.writeTask(updated);
     return updated;
   }
 
-  transitionTask(id: string, status: TaskStatus, result?: TaskResult): Task {
-    const current = requireEntity(this.getTask(id), "Task", id);
+  async transitionTask(id: string, status: TaskStatus, result?: TaskResult): Promise<Task> {
+    const current = requireEntity(await this.getTask(id), "Task", id);
     assertTaskTransition(current.status, status);
     const updated: Task = {
       ...current,
@@ -656,7 +658,7 @@ export class Repository {
     return updated;
   }
 
-  deleteTask(id: string): void {
+  async deleteTask(id: string): Promise<void> {
     this.requireChanged(
       this.database.prepare("DELETE FROM tasks WHERE id = ?").run(id),
       "Task",
@@ -664,8 +666,8 @@ export class Repository {
     );
   }
 
-  listInputs(workspaceId: string, status?: InputStatus): Input[] {
-    requireEntity(this.getWorkspace(workspaceId), "Workspace", workspaceId);
+  async listInputs(workspaceId: string, status?: InputStatus): Promise<Input[]> {
+    requireEntity(await this.getWorkspace(workspaceId), "Workspace", workspaceId);
     const rows = status
       ? this.database
           .prepare(
@@ -680,13 +682,13 @@ export class Repository {
     return rows.map((row) => inputFrom(row as Row));
   }
 
-  getInput(id: string): Input | undefined {
+  async getInput(id: string): Promise<Input | undefined> {
     const row = this.database.prepare("SELECT * FROM inputs WHERE id = ?").get(id);
     return row ? inputFrom(row as Row) : undefined;
   }
 
-  createInput(input: CreateInputInput): Input {
-    requireEntity(this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
+  async createInput(input: CreateInputInput): Promise<Input> {
+    requireEntity(await this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
     const createdAt = now();
     const captured: Input = {
       id: randomUUID(),
@@ -713,7 +715,7 @@ export class Repository {
         captured.createdAt,
         captured.updatedAt,
       );
-    this.createActivity({
+    await this.createActivity({
       workspaceId: captured.workspaceId,
       type: "input_created",
       message: `Inbox에 담음: ${captured.title ?? captured.content.slice(0, 60)}`,
@@ -722,8 +724,8 @@ export class Repository {
     return captured;
   }
 
-  updateInput(id: string, input: UpdateInputInput): Input {
-    const current = requireEntity(this.getInput(id), "Input", id);
+  async updateInput(id: string, input: UpdateInputInput): Promise<Input> {
+    const current = requireEntity(await this.getInput(id), "Input", id);
     if (current.status === "converted") {
       throw new DomainError(
         "INPUT_ALREADY_CONVERTED",
@@ -734,7 +736,7 @@ export class Repository {
     const updated: Input = { ...current, ...input, updatedAt: now() };
     this.writeInput(updated);
     if (updated.status === "archived" && current.status !== "archived") {
-      this.createActivity({
+      await this.createActivity({
         workspaceId: updated.workspaceId,
         type: "input_archived",
         message: `Inbox 보관: ${updated.title ?? updated.content.slice(0, 60)}`,
@@ -744,7 +746,7 @@ export class Repository {
     return updated;
   }
 
-  deleteInput(id: string): void {
+  async deleteInput(id: string): Promise<void> {
     this.requireChanged(
       this.database.prepare("DELETE FROM inputs WHERE id = ?").run(id),
       "Input",
@@ -752,14 +754,14 @@ export class Repository {
     );
   }
 
-  convertInput(
+  async convertInput(
     id: string,
     taskInput: Partial<
       Pick<CreateTaskInput, "title" | "description" | "assigneeAgentId" | "priority" | "projectId">
     >,
-  ): { input: Input; task: Task } {
-    return this.transaction(() => {
-      const captured = requireEntity(this.getInput(id), "Input", id);
+  ): Promise<{ input: Input; task: Task }> {
+    return this.transaction(async () => {
+      const captured = requireEntity(await this.getInput(id), "Input", id);
       if (captured.status === "converted") {
         throw new DomainError(
           "INPUT_ALREADY_CONVERTED",
@@ -767,7 +769,7 @@ export class Repository {
           409,
         );
       }
-      const task = this.createTask({
+      const task = await this.createTask({
         workspaceId: captured.workspaceId,
         title: taskInput.title ?? captured.title ?? captured.content.slice(0, 80),
         description: taskInput.description ?? captured.content,
@@ -778,7 +780,7 @@ export class Repository {
       });
       const converted: Input = { ...captured, status: "converted", updatedAt: now() };
       this.writeInput(converted);
-      this.createActivity({
+      await this.createActivity({
         workspaceId: converted.workspaceId,
         type: "input_converted",
         taskId: task.id,
@@ -789,27 +791,27 @@ export class Repository {
     });
   }
 
-  listWorkflowSteps(taskId: string): TaskWorkflowStep[] {
+  async listWorkflowSteps(taskId: string): Promise<TaskWorkflowStep[]> {
     return this.database
       .prepare("SELECT * FROM task_workflow_steps WHERE task_id = ? ORDER BY position")
       .all(taskId)
       .map((row) => workflowStepFrom(row as Row));
   }
 
-  listWorkflowPresets(workspaceId: string): WorkflowPreset[] {
-    requireEntity(this.getWorkspace(workspaceId), "Workspace", workspaceId);
+  async listWorkflowPresets(workspaceId: string): Promise<WorkflowPreset[]> {
+    requireEntity(await this.getWorkspace(workspaceId), "Workspace", workspaceId);
     return this.database
       .prepare("SELECT * FROM workflow_presets WHERE workspace_id = ? ORDER BY updated_at DESC")
       .all(workspaceId)
       .map((row) => workflowPresetFrom(row as Row));
   }
 
-  createWorkflowPreset(input: {
+  async createWorkflowPreset(input: {
     workspaceId: string;
     name: string;
     agentIds: string[];
-  }): WorkflowPreset {
-    requireEntity(this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
+  }): Promise<WorkflowPreset> {
+    requireEntity(await this.getWorkspace(input.workspaceId), "Workspace", input.workspaceId);
     const name = input.name.trim();
     if (!name) throw new DomainError("INVALID_WORKFLOW_PRESET", "협업 그룹 이름을 입력해 주세요.");
     if (input.agentIds.length < 2 || input.agentIds.length > 8) {
@@ -824,7 +826,8 @@ export class Repository {
         "같은 에이전트를 협업 그룹에 중복 배치할 수 없습니다.",
       );
     }
-    for (const agentId of input.agentIds) this.assertAgentWorkspace(agentId, input.workspaceId);
+    for (const agentId of input.agentIds)
+      await this.assertAgentWorkspace(agentId, input.workspaceId);
     const createdAt = now();
     const preset: WorkflowPreset = {
       id: randomUUID(),
@@ -862,7 +865,7 @@ export class Repository {
     return preset;
   }
 
-  deleteWorkflowPreset(id: string): void {
+  async deleteWorkflowPreset(id: string): Promise<void> {
     this.requireChanged(
       this.database.prepare("DELETE FROM workflow_presets WHERE id = ?").run(id),
       "WorkflowPreset",
@@ -870,16 +873,16 @@ export class Repository {
     );
   }
 
-  getWorkflowStepByRun(runId: string): TaskWorkflowStep | undefined {
+  async getWorkflowStepByRun(runId: string): Promise<TaskWorkflowStep | undefined> {
     const row = this.database
       .prepare("SELECT * FROM task_workflow_steps WHERE run_id = ?")
       .get(runId);
     return row ? workflowStepFrom(row as Row) : undefined;
   }
 
-  setTaskWorkflow(taskId: string, agentIds: string[]): TaskWorkflowStep[] {
-    const task = requireEntity(this.getTask(taskId), "Task", taskId);
-    if (task.status !== "todo" || this.listRuns(taskId).length > 0) {
+  async setTaskWorkflow(taskId: string, agentIds: string[]): Promise<TaskWorkflowStep[]> {
+    const task = requireEntity(await this.getTask(taskId), "Task", taskId);
+    if (task.status !== "todo" || (await this.listRuns(taskId)).length > 0) {
       throw new DomainError(
         "WORKFLOW_ALREADY_STARTED",
         "실행 기록이 없는 Todo 작업에서만 Workflow를 변경할 수 있습니다.",
@@ -895,9 +898,9 @@ export class Repository {
     if (new Set(agentIds).size !== agentIds.length) {
       throw new DomainError("INVALID_WORKFLOW", "같은 에이전트를 중복 배치할 수 없습니다.");
     }
-    for (const agentId of agentIds) this.assertAgentWorkspace(agentId, task.workspaceId);
+    for (const agentId of agentIds) await this.assertAgentWorkspace(agentId, task.workspaceId);
 
-    const steps = this.transaction(() => {
+    const steps = await this.transaction(async () => {
       this.database.prepare("DELETE FROM task_workflow_steps WHERE task_id = ?").run(taskId);
       const insert = this.database.prepare(
         `INSERT INTO task_workflow_steps
@@ -918,10 +921,10 @@ export class Repository {
         insert.run(step.id, taskId, agentId, position, createdAt, createdAt);
         return step;
       });
-      if (agentIds[0]) this.updateTask(taskId, { assigneeAgentId: agentIds[0] });
+      if (agentIds[0]) await this.updateTask(taskId, { assigneeAgentId: agentIds[0] });
       return created;
     });
-    this.createActivity({
+    await this.createActivity({
       workspaceId: task.workspaceId,
       type: "workflow_configured",
       taskId,
@@ -931,10 +934,10 @@ export class Repository {
     return steps;
   }
 
-  updateWorkflowStep(
+  async updateWorkflowStep(
     id: string,
     input: Partial<Pick<TaskWorkflowStep, "status" | "runId" | "result">>,
-  ): TaskWorkflowStep {
+  ): Promise<TaskWorkflowStep> {
     const currentRow = this.database
       .prepare("SELECT * FROM task_workflow_steps WHERE id = ?")
       .get(id);
@@ -959,14 +962,15 @@ export class Repository {
     return updated;
   }
 
-  resetFailedWorkflowStep(taskId: string): TaskWorkflowStep | undefined {
-    const failed = this.listWorkflowSteps(taskId).find((step) => step.status === "failed");
+  async resetFailedWorkflowStep(taskId: string): Promise<TaskWorkflowStep | undefined> {
+    const steps = await this.listWorkflowSteps(taskId);
+    const failed = steps.find((step) => step.status === "failed");
     return failed
-      ? this.updateWorkflowStep(failed.id, { status: "pending", runId: undefined })
+      ? await this.updateWorkflowStep(failed.id, { status: "pending", runId: undefined })
       : undefined;
   }
 
-  createRun(
+  async createRun(
     input: Pick<
       AgentRun,
       | "id"
@@ -980,7 +984,7 @@ export class Repository {
       | "request"
       | "workingDirectory"
     >,
-  ): AgentRun {
+  ): Promise<AgentRun> {
     const run: AgentRun = { ...input, status: "queued", createdAt: now() };
     this.database
       .prepare(
@@ -1006,12 +1010,12 @@ export class Repository {
     return run;
   }
 
-  getRun(id: string): AgentRun | undefined {
+  async getRun(id: string): Promise<AgentRun | undefined> {
     const row = this.database.prepare("SELECT * FROM agent_runs WHERE id = ?").get(id);
     return row ? runFrom(row as Row) : undefined;
   }
 
-  listRuns(taskId?: string): AgentRun[] {
+  async listRuns(taskId?: string): Promise<AgentRun[]> {
     const rows = taskId
       ? this.database
           .prepare("SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at DESC")
@@ -1020,8 +1024,10 @@ export class Repository {
     return rows.map((row) => runFrom(row as Row));
   }
 
-  createRunProgress(input: Omit<RunProgressEvent, "id" | "createdAt">): RunProgressEvent {
-    requireEntity(this.getRun(input.runId), "AgentRun", input.runId);
+  async createRunProgress(
+    input: Omit<RunProgressEvent, "id" | "createdAt">,
+  ): Promise<RunProgressEvent> {
+    requireEntity(await this.getRun(input.runId), "AgentRun", input.runId);
     const progress: RunProgressEvent = { id: randomUUID(), ...input, createdAt: now() };
     this.database
       .prepare(
@@ -1039,7 +1045,7 @@ export class Repository {
     return progress;
   }
 
-  listRunProgress(runId: string, limit = 100): RunProgressEvent[] {
+  async listRunProgress(runId: string, limit = 100): Promise<RunProgressEvent[]> {
     return this.database
       .prepare(
         "SELECT * FROM run_progress_events WHERE run_id = ? ORDER BY created_at, rowid LIMIT ?",
@@ -1058,7 +1064,7 @@ export class Repository {
       });
   }
 
-  recoverInterruptedRuns(): number {
+  async recoverInterruptedRuns(): Promise<number> {
     const interrupted = this.database
       .prepare(
         "SELECT * FROM agent_runs WHERE status IN ('queued', 'running', 'waiting') ORDER BY created_at",
@@ -1067,16 +1073,16 @@ export class Repository {
       .map((row) => runFrom(row as Row));
     if (interrupted.length === 0) return 0;
 
-    this.transaction(() => {
+    await this.transaction(async () => {
       for (const run of interrupted) {
         const error = "Server restarted while the AgentRun was active. Retry the task to continue.";
-        this.updateRun(run.id, { status: "failed", finishedAt: now(), error });
-        const workflowStep = this.getWorkflowStepByRun(run.id);
-        if (workflowStep) this.updateWorkflowStep(workflowStep.id, { status: "failed" });
-        const task = this.getTask(run.taskId);
+        await this.updateRun(run.id, { status: "failed", finishedAt: now(), error });
+        const workflowStep = await this.getWorkflowStepByRun(run.id);
+        if (workflowStep) await this.updateWorkflowStep(workflowStep.id, { status: "failed" });
+        const task = await this.getTask(run.taskId);
         if (task && ["working", "needs_input", "blocked"].includes(task.status)) {
-          const failedTask = this.transitionTask(task.id, "failed");
-          this.createActivity({
+          const failedTask = await this.transitionTask(task.id, "failed");
+          await this.createActivity({
             workspaceId: failedTask.workspaceId,
             type: "task_failed",
             taskId: failedTask.id,
@@ -1090,14 +1096,14 @@ export class Repository {
     return interrupted.length;
   }
 
-  latestRun(taskId: string): AgentRun | undefined {
+  async latestRun(taskId: string): Promise<AgentRun | undefined> {
     const row = this.database
       .prepare("SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at DESC LIMIT 1")
       .get(taskId);
     return row ? runFrom(row as Row) : undefined;
   }
 
-  updateRun(
+  async updateRun(
     id: string,
     patch: Partial<
       Pick<
@@ -1112,8 +1118,8 @@ export class Repository {
         | "error"
       >
     >,
-  ): AgentRun {
-    const current = requireEntity(this.getRun(id), "AgentRun", id);
+  ): Promise<AgentRun> {
+    const current = requireEntity(await this.getRun(id), "AgentRun", id);
     const updated = { ...current, ...patch };
     this.database
       .prepare(
@@ -1134,7 +1140,7 @@ export class Repository {
     return updated;
   }
 
-  createReview(input: Omit<TaskReview, "id" | "createdAt">): TaskReview {
+  async createReview(input: Omit<TaskReview, "id" | "createdAt">): Promise<TaskReview> {
     const review: TaskReview = { id: randomUUID(), ...input, createdAt: now() };
     this.database
       .prepare(
@@ -1151,7 +1157,7 @@ export class Repository {
     return review;
   }
 
-  listReviews(taskId: string): TaskReview[] {
+  async listReviews(taskId: string): Promise<TaskReview[]> {
     return this.database
       .prepare("SELECT * FROM task_reviews WHERE task_id = ? ORDER BY created_at DESC")
       .all(taskId)
@@ -1168,7 +1174,7 @@ export class Repository {
       });
   }
 
-  createActivity(input: {
+  async createActivity(input: {
     workspaceId: string;
     type: ActivityType;
     message: string;
@@ -1176,7 +1182,7 @@ export class Repository {
     taskId?: string;
     runId?: string;
     metadata?: Record<string, unknown>;
-  }): ActivityLog {
+  }): Promise<ActivityLog> {
     const activity: ActivityLog = { id: randomUUID(), ...input, createdAt: now() };
     this.database
       .prepare(
@@ -1198,7 +1204,7 @@ export class Repository {
     return activity;
   }
 
-  listActivities(workspaceId: string, limit = 100): ActivityLog[] {
+  async listActivities(workspaceId: string, limit = 100): Promise<ActivityLog[]> {
     return this.database
       .prepare(
         "SELECT * FROM activity_logs WHERE workspace_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
@@ -1245,9 +1251,9 @@ export class Repository {
     };
   }
 
-  private assertSkillScope(workspaceId: string, skillIds: string[]): void {
+  private async assertSkillScope(workspaceId: string, skillIds: string[]): Promise<void> {
     for (const skillId of skillIds) {
-      const skill = requireEntity(this.getSkill(skillId), "Skill", skillId);
+      const skill = requireEntity(await this.getSkill(skillId), "Skill", skillId);
       if (skill.workspaceId && skill.workspaceId !== workspaceId) {
         throw new DomainError(
           "SKILL_SCOPE_MISMATCH",
@@ -1258,15 +1264,15 @@ export class Repository {
     }
   }
 
-  private assertAgentWorkspace(agentId: string, workspaceId: string): void {
-    const agent = requireEntity(this.getAgent(agentId), "Agent", agentId);
+  private async assertAgentWorkspace(agentId: string, workspaceId: string): Promise<void> {
+    const agent = requireEntity(await this.getAgent(agentId), "Agent", agentId);
     if (agent.workspaceId !== workspaceId) {
       throw new DomainError("AGENT_SCOPE_MISMATCH", "Agent belongs to another workspace", 422);
     }
   }
 
-  private assertProjectWorkspace(projectId: string, workspaceId: string): void {
-    const project = requireEntity(this.getProject(projectId), "Project", projectId);
+  private async assertProjectWorkspace(projectId: string, workspaceId: string): Promise<void> {
+    const project = requireEntity(await this.getProject(projectId), "Project", projectId);
     if (project.workspaceId !== workspaceId) {
       throw new DomainError("PROJECT_SCOPE_MISMATCH", "Project belongs to another workspace", 422);
     }
@@ -1312,11 +1318,29 @@ export class Repository {
       .run(input.type, input.title ?? null, input.content, input.status, input.updatedAt, input.id);
   }
 
-  private transaction<T>(action: () => T): T {
-    return this.database.transaction(action).immediate();
+  /**
+   * BEGIN/COMMIT/ROLLBACK stay synchronous (`node:sqlite` has no async API), but the wrapped
+   * `action` may itself await other now-async Repository methods. Since nothing in `action` ever
+   * performs real async I/O (every await here resolves on the next microtask, not on a timer or
+   * socket), no other queued work observably interleaves between BEGIN and COMMIT in practice.
+   * A future async DB backend that performs genuine I/O inside a transaction would need a real
+   * connection-scoped transaction instead of this call-timing assumption.
+   */
+  private async transaction<T>(action: () => T | Promise<T>): Promise<T> {
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      const result = await action();
+      this.database.exec("COMMIT");
+      return result;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
   }
 
-  private requireChanged(result: Database.RunResult, entity: string, id: string): void {
-    if (result.changes === 0) throw new DomainError("NOT_FOUND", `${entity} not found: ${id}`, 404);
+  private requireChanged(result: StatementResultingChanges, entity: string, id: string): void {
+    if (result.changes === 0 || result.changes === 0n) {
+      throw new DomainError("NOT_FOUND", `${entity} not found: ${id}`, 404);
+    }
   }
 }

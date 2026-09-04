@@ -1,4 +1,4 @@
-import { DomainError, type AgentPermissions } from "../../../packages/domain/src/index.ts";
+import { DomainError, type AgentPermissions } from "@ai-pixel-office/domain";
 import { runCodexSpike } from "../../../scripts/runtime-spike/codex.ts";
 
 export type SkillDraft = {

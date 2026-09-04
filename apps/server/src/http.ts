@@ -1,7 +1,8 @@
 import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
-import { statSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import {
   DomainError,
   parseCreateAgent,
@@ -16,8 +17,8 @@ import {
   parseUpdateWorkspace,
   type TaskStatus,
   type InputStatus,
-} from "../../../packages/domain/src/index.ts";
-import type { ApprovalDecision } from "../../../scripts/runtime-spike/types.ts";
+} from "@ai-pixel-office/domain";
+import type { ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import { EventBus } from "./events.ts";
 import { Orchestrator } from "./orchestrator.ts";
 import { Repository } from "./repository.ts";
@@ -30,6 +31,7 @@ export type AppDependencies = {
   orchestrator: Orchestrator;
   events: EventBus;
   corsOrigin?: string;
+  staticRoot?: string;
   skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
 };
 
@@ -66,6 +68,13 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
+  if (dependencies.staticRoot) {
+    void app.register(fastifyStatic, {
+      root: resolve(dependencies.staticRoot),
+      prefix: "/",
+    });
+  }
+
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof DomainError) {
       reply.status(error.status).send({ error: { code: error.code, message: error.message } });
@@ -85,6 +94,11 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   });
 
   app.setNotFoundHandler((request, reply) => {
+    if (dependencies.staticRoot && request.method === "GET" && !request.url.startsWith("/api/")) {
+      return reply
+        .type("text/html; charset=utf-8")
+        .send(readFileSync(join(resolve(dependencies.staticRoot), "index.html"), "utf8"));
+    }
     reply.status(404).send({
       error: { code: "NOT_FOUND", message: `Route not found: ${request.method} ${request.url}` },
     });
@@ -133,40 +147,41 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   });
 
   app.get("/api/workspaces", async (_request, reply) =>
-    data(reply, 200, repository.listWorkspaces()),
+    data(reply, 200, await repository.listWorkspaces()),
   );
   app.post<{ Body: unknown }>("/api/workspaces", async (request, reply) =>
-    data(reply, 201, repository.createWorkspace(parseCreateWorkspace(request.body))),
+    data(reply, 201, await repository.createWorkspace(parseCreateWorkspace(request.body))),
   );
   app.get<{ Params: IdParams }>("/api/workspaces/:id", async (request, reply) =>
     data(
       reply,
       200,
-      repository.getWorkspace(request.params.id) ?? notFound("Workspace", request.params.id),
+      (await repository.getWorkspace(request.params.id)) ??
+        notFound("Workspace", request.params.id),
     ),
   );
   app.patch<{ Params: IdParams; Body: unknown }>("/api/workspaces/:id", async (request, reply) =>
     data(
       reply,
       200,
-      repository.updateWorkspace(request.params.id, parseUpdateWorkspace(request.body)),
+      await repository.updateWorkspace(request.params.id, parseUpdateWorkspace(request.body)),
     ),
   );
   app.delete<{ Params: IdParams }>("/api/workspaces/:id", async (request, reply) => {
-    repository.deleteWorkspace(request.params.id);
+    await repository.deleteWorkspace(request.params.id);
     return reply.status(204).send();
   });
 
   app.get<{ Querystring: WorkspaceQuery }>("/api/projects", async (request, reply) => {
     if (!request.query.workspaceId)
       throw new DomainError("WORKSPACE_REQUIRED", "workspaceId is required");
-    return data(reply, 200, repository.listProjectDirectories(request.query.workspaceId));
+    return data(reply, 200, await repository.listProjectDirectories(request.query.workspaceId));
   });
   app.get<{ Params: IdParams }>("/api/projects/:id", async (request, reply) =>
     data(
       reply,
       200,
-      repository.getProject(request.params.id) ?? notFound("Project", request.params.id),
+      (await repository.getProject(request.params.id)) ?? notFound("Project", request.params.id),
     ),
   );
   app.post<{ Body: unknown }>("/api/projects", async (request, reply) => {
@@ -198,7 +213,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     return data(
       reply,
       201,
-      repository.createProjectDirectory({
+      await repository.createProjectDirectory({
         workspaceId: body.workspaceId,
         name: body.name.trim(),
         ...(typeof body.description === "string" && body.description.trim()
@@ -235,7 +250,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     return data(
       reply,
       200,
-      repository.updateProject(request.params.id, {
+      await repository.updateProject(request.params.id, {
         ...(typeof body.name === "string" ? { name: body.name.trim() } : {}),
         ...(typeof body.description === "string"
           ? { description: body.description.trim() || undefined }
@@ -249,15 +264,15 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     );
   });
   app.delete<{ Params: IdParams }>("/api/projects/:id", async (request, reply) => {
-    repository.deleteProjectDirectory(request.params.id);
+    await repository.deleteProjectDirectory(request.params.id);
     return reply.status(204).send();
   });
 
   app.get<{ Querystring: WorkspaceQuery }>("/api/skills", async (request, reply) =>
-    data(reply, 200, repository.listSkills(request.query.workspaceId)),
+    data(reply, 200, await repository.listSkills(request.query.workspaceId)),
   );
   app.post<{ Body: unknown }>("/api/skills", async (request, reply) =>
-    data(reply, 201, repository.createSkill(parseCreateSkill(request.body))),
+    data(reply, 201, await repository.createSkill(parseCreateSkill(request.body))),
   );
   app.post<{ Body: unknown }>("/api/skills/draft", async (request, reply) => {
     const body = request.body as { brief?: unknown };
@@ -271,39 +286,47 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     data(
       reply,
       200,
-      repository.getSkill(request.params.id) ?? notFound("Skill", request.params.id),
+      (await repository.getSkill(request.params.id)) ?? notFound("Skill", request.params.id),
     ),
   );
   app.patch<{ Params: IdParams; Body: unknown }>("/api/skills/:id", async (request, reply) =>
-    data(reply, 200, repository.updateSkill(request.params.id, parseUpdateSkill(request.body))),
+    data(
+      reply,
+      200,
+      await repository.updateSkill(request.params.id, parseUpdateSkill(request.body)),
+    ),
   );
   app.delete<{ Params: IdParams }>("/api/skills/:id", async (request, reply) => {
-    repository.deleteSkill(request.params.id);
+    await repository.deleteSkill(request.params.id);
     return reply.status(204).send();
   });
 
   app.get<{ Querystring: WorkspaceQuery }>("/api/agents", async (request, reply) =>
-    data(reply, 200, repository.listAgents(request.query.workspaceId)),
+    data(reply, 200, await repository.listAgents(request.query.workspaceId)),
   );
   app.post<{ Body: unknown }>("/api/agents", async (request, reply) =>
-    data(reply, 201, repository.createAgent(parseCreateAgent(request.body))),
+    data(reply, 201, await repository.createAgent(parseCreateAgent(request.body))),
   );
   app.get<{ Params: IdParams }>("/api/agents/:id", async (request, reply) =>
     data(
       reply,
       200,
-      repository.getAgent(request.params.id) ?? notFound("Agent", request.params.id),
+      (await repository.getAgent(request.params.id)) ?? notFound("Agent", request.params.id),
     ),
   );
   app.patch<{ Params: IdParams; Body: unknown }>("/api/agents/:id", async (request, reply) =>
-    data(reply, 200, repository.updateAgent(request.params.id, parseUpdateAgent(request.body))),
+    data(
+      reply,
+      200,
+      await repository.updateAgent(request.params.id, parseUpdateAgent(request.body)),
+    ),
   );
   app.delete<{ Params: IdParams }>("/api/agents/:id", async (request, reply) => {
-    repository.deleteAgent(request.params.id);
+    await repository.deleteAgent(request.params.id);
     return reply.status(204).send();
   });
   app.get<{ Params: IdParams }>("/api/agents/:id/task-templates", async (request, reply) =>
-    data(reply, 200, repository.listAgentTaskTemplates(request.params.id)),
+    data(reply, 200, await repository.listAgentTaskTemplates(request.params.id)),
   );
   app.post<{ Params: IdParams; Body: unknown }>(
     "/api/agents/:id/task-templates",
@@ -324,7 +347,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
       return data(
         reply,
         201,
-        repository.createAgentTaskTemplate({
+        await repository.createAgentTaskTemplate({
           agentId: request.params.id,
           title: body.title.trim(),
           description:
@@ -337,7 +360,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   app.delete<{ Params: AgentTemplateParams }>(
     "/api/agents/:id/task-templates/:templateId",
     async (request, reply) => {
-      repository.deleteAgentTaskTemplate(request.params.id, request.params.templateId);
+      await repository.deleteAgentTaskTemplate(request.params.id, request.params.templateId);
       return reply.status(204).send();
     },
   );
@@ -348,37 +371,45 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     if (status && !inputStatuses.has(status as InputStatus)) {
       throw new DomainError("INVALID_STATUS", `Unknown input status: ${status}`);
     }
-    return data(reply, 200, repository.listInputs(workspaceId, status as InputStatus | undefined));
+    return data(
+      reply,
+      200,
+      await repository.listInputs(workspaceId, status as InputStatus | undefined),
+    );
   });
   app.post<{ Body: unknown }>("/api/inputs", async (request, reply) =>
-    data(reply, 201, repository.createInput(parseCreateInput(request.body))),
+    data(reply, 201, await repository.createInput(parseCreateInput(request.body))),
   );
   app.get<{ Params: IdParams }>("/api/inputs/:id", async (request, reply) =>
     data(
       reply,
       200,
-      repository.getInput(request.params.id) ?? notFound("Input", request.params.id),
+      (await repository.getInput(request.params.id)) ?? notFound("Input", request.params.id),
     ),
   );
   app.patch<{ Params: IdParams; Body: unknown }>("/api/inputs/:id", async (request, reply) =>
-    data(reply, 200, repository.updateInput(request.params.id, parseUpdateInput(request.body))),
+    data(
+      reply,
+      200,
+      await repository.updateInput(request.params.id, parseUpdateInput(request.body)),
+    ),
   );
   app.delete<{ Params: IdParams }>("/api/inputs/:id", async (request, reply) => {
-    repository.deleteInput(request.params.id);
+    await repository.deleteInput(request.params.id);
     return reply.status(204).send();
   });
   app.post<{ Params: IdParams; Body: unknown }>(
     "/api/inputs/:id/convert",
     async (request, reply) => {
       const captured =
-        repository.getInput(request.params.id) ?? notFound("Input", request.params.id);
+        (await repository.getInput(request.params.id)) ?? notFound("Input", request.params.id);
       const body = (request.body ?? {}) as Record<string, unknown>;
       const parsed = parseCreateTask({
         ...body,
         workspaceId: captured.workspaceId,
         title: body.title ?? captured.title ?? captured.content.slice(0, 80),
       });
-      return data(reply, 201, repository.convertInput(request.params.id, parsed));
+      return data(reply, 201, await repository.convertInput(request.params.id, parsed));
     },
   );
 
@@ -390,17 +421,17 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     return data(
       reply,
       200,
-      repository.listTasks(request.query.workspaceId, rawStatus as TaskStatus | undefined),
+      await repository.listTasks(request.query.workspaceId, rawStatus as TaskStatus | undefined),
     );
   });
   app.post<{ Body: unknown }>("/api/tasks", async (request, reply) =>
-    data(reply, 201, repository.createTask(parseCreateTask(request.body))),
+    data(reply, 201, await repository.createTask(parseCreateTask(request.body))),
   );
   app.get<{ Querystring: WorkspaceQuery }>("/api/workflow-presets", async (request, reply) => {
     if (!request.query.workspaceId) {
       throw new DomainError("WORKSPACE_REQUIRED", "workspaceId is required");
     }
-    return data(reply, 200, repository.listWorkflowPresets(request.query.workspaceId));
+    return data(reply, 200, await repository.listWorkflowPresets(request.query.workspaceId));
   });
   app.post<{ Body: unknown }>("/api/workflow-presets", async (request, reply) => {
     const body = request.body as {
@@ -423,7 +454,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     return data(
       reply,
       201,
-      repository.createWorkflowPreset({
+      await repository.createWorkflowPreset({
         workspaceId: body.workspaceId,
         name: body.name,
         agentIds: body.agentIds as string[],
@@ -431,7 +462,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     );
   });
   app.delete<{ Params: IdParams }>("/api/workflow-presets/:id", async (request, reply) => {
-    repository.deleteWorkflowPreset(request.params.id);
+    await repository.deleteWorkflowPreset(request.params.id);
     return reply.status(204).send();
   });
   app.put<{ Params: IdParams; Body: unknown }>(
@@ -448,24 +479,24 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
       return data(
         reply,
         200,
-        repository.setTaskWorkflow(request.params.id, body.agentIds as string[]),
+        await repository.setTaskWorkflow(request.params.id, body.agentIds as string[]),
       );
     },
   );
   app.post<{ Params: IdParams }>("/api/tasks/:id/run", async (request, reply) =>
-    data(reply, 202, orchestrator.startTask(request.params.id)),
+    data(reply, 202, await orchestrator.startTask(request.params.id)),
   );
   app.post<{ Params: IdParams }>("/api/tasks/:id/retry", async (request, reply) =>
-    data(reply, 202, orchestrator.retryTask(request.params.id)),
+    data(reply, 202, await orchestrator.retryTask(request.params.id)),
   );
   app.post<{ Params: IdParams }>("/api/tasks/:id/continue", async (request, reply) =>
-    data(reply, 202, orchestrator.continueTask(request.params.id)),
+    data(reply, 202, await orchestrator.continueTask(request.params.id)),
   );
   app.post<{ Params: IdParams }>("/api/tasks/:id/extend-session", async (request, reply) =>
-    data(reply, 202, orchestrator.extendTaskSession(request.params.id)),
+    data(reply, 202, await orchestrator.extendTaskSession(request.params.id)),
   );
   app.post<{ Params: IdParams }>("/api/tasks/:id/approve", async (request, reply) =>
-    data(reply, 200, orchestrator.approveTask(request.params.id)),
+    data(reply, 200, await orchestrator.approveTask(request.params.id)),
   );
   app.post<{ Params: IdParams; Body: unknown }>(
     "/api/tasks/:id/request-changes",
@@ -474,46 +505,49 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
       if (!body || typeof body.feedback !== "string") {
         throw new DomainError("INVALID_FEEDBACK", "feedback must be a string");
       }
-      return data(reply, 202, orchestrator.requestChanges(request.params.id, body.feedback));
+      return data(reply, 202, await orchestrator.requestChanges(request.params.id, body.feedback));
     },
   );
   app.get<{ Params: IdParams }>("/api/tasks/:id/execution-context", async (request, reply) =>
-    data(reply, 200, orchestrator.getTaskExecutionContexts(request.params.id)),
+    data(reply, 200, await orchestrator.getTaskExecutionContexts(request.params.id)),
   );
   app.get<{ Params: IdParams }>("/api/tasks/:id", async (request, reply) => {
-    const task = repository.getTask(request.params.id) ?? notFound("Task", request.params.id);
-    const runs = repository.listRuns(request.params.id);
+    const task =
+      (await repository.getTask(request.params.id)) ?? notFound("Task", request.params.id);
+    const runs = await repository.listRuns(request.params.id);
+    const progressByRun: Record<string, Awaited<ReturnType<Repository["listRunProgress"]>>> = {};
+    for (const run of runs) {
+      progressByRun[run.id] = await repository.listRunProgress(run.id, 50);
+    }
     return data(reply, 200, {
       ...task,
       runs,
-      workflow: repository.listWorkflowSteps(task.id),
-      reviews: repository.listReviews(request.params.id),
-      progress: runs[0] ? repository.listRunProgress(runs[0].id) : [],
-      progressByRun: Object.fromEntries(
-        runs.map((run) => [run.id, repository.listRunProgress(run.id, 50)]),
-      ),
+      workflow: await repository.listWorkflowSteps(task.id),
+      reviews: await repository.listReviews(request.params.id),
+      progress: runs[0] ? await repository.listRunProgress(runs[0].id) : [],
+      progressByRun,
     });
   });
   app.patch<{ Params: IdParams; Body: unknown }>("/api/tasks/:id", async (request, reply) =>
-    data(reply, 200, repository.updateTask(request.params.id, parseUpdateTask(request.body))),
+    data(reply, 200, await repository.updateTask(request.params.id, parseUpdateTask(request.body))),
   );
   app.delete<{ Params: IdParams }>("/api/tasks/:id", async (request, reply) => {
-    repository.deleteTask(request.params.id);
+    await repository.deleteTask(request.params.id);
     return reply.status(204).send();
   });
 
   app.get<{ Querystring: { taskId?: string } }>("/api/runs", async (request, reply) =>
-    data(reply, 200, repository.listRuns(request.query.taskId)),
+    data(reply, 200, await repository.listRuns(request.query.taskId)),
   );
   app.get<{ Params: IdParams }>("/api/runs/:id", async (request, reply) =>
     data(
       reply,
       200,
-      repository.getRun(request.params.id) ?? notFound("AgentRun", request.params.id),
+      (await repository.getRun(request.params.id)) ?? notFound("AgentRun", request.params.id),
     ),
   );
   app.post<{ Params: RunIdParams }>("/api/runs/:runId/cancel", async (request, reply) =>
-    data(reply, 202, orchestrator.cancelRun(request.params.runId)),
+    data(reply, 202, await orchestrator.cancelRun(request.params.runId)),
   );
   app.post<{ Params: ApprovalParams; Body: unknown }>(
     "/api/runs/:runId/approvals/:requestId",
@@ -525,7 +559,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
       return data(
         reply,
         200,
-        orchestrator.resolveApproval(
+        await orchestrator.resolveApproval(
           request.params.runId,
           request.params.requestId,
           body.decision as ApprovalDecision,
@@ -543,7 +577,10 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
       return data(
         reply,
         200,
-        repository.listActivities(workspaceId, Number.isFinite(parsedLimit) ? parsedLimit : 100),
+        await repository.listActivities(
+          workspaceId,
+          Number.isFinite(parsedLimit) ? parsedLimit : 100,
+        ),
       );
     },
   );
