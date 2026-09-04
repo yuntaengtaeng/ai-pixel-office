@@ -1,4 +1,4 @@
-import { css } from "styled-components";
+import styled, { css } from "styled-components";
 import { fontFamily, fontSize, fontWeight, lineHeight } from "@ai-pixel-office/design-token";
 
 /**
@@ -49,3 +49,16 @@ export const Label = {
     font-weight: ${fontWeight.black};
   `,
 };
+
+export const Kicker = styled.span`
+  ${Label.mono}
+  color: ${({ theme }) => theme.colors.text.secondary};
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+`;
+
+export const HelperText = styled.p`
+  ${Text.caption}
+  margin: -4px 0 15px;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;

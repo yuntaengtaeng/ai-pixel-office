@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Select } from "@ai-pixel-office/ui";
 import { projectApi } from "./api.ts";
 
 export function ProjectDirectorySelect({
@@ -26,7 +27,7 @@ export function ProjectDirectorySelect({
   return (
     <div className={`field${grow ? " grow" : ""}`}>
       <label>{label}</label>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{emptyLabel}</option>
         {isLegacyValue && <option value={value}>기존 프로젝트 설정</option>}
         {(projects.data ?? [])
@@ -36,7 +37,7 @@ export function ProjectDirectorySelect({
               {project.name}
             </option>
           ))}
-      </select>
+      </Select>
     </div>
   );
 }
@@ -57,14 +58,14 @@ export function ProjectSelect({
   return (
     <div className="field">
       <label>프로젝트</label>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">프로젝트 없음</option>
         {(projects.data ?? []).map((project) => (
           <option value={project.id} key={project.id}>
             {project.name}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

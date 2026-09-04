@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-pixel-office/design-token": "workspace:*",
     "@ai-pixel-office/domain": "workspace:*",
+    "@ai-pixel-office/pet": "workspace:*",
     "@ai-pixel-office/ui": "workspace:*",
     "@tanstack/react-query": "^5.102.8",
     "pixi.js": "^8.20.1",

@@ -18,7 +18,7 @@ export type PetDesign = {
   accessories: Accessory[];
 };
 
-export const PETS: PetDesign[] = [
+export const PETS: readonly PetDesign[] = [
   {
     id: "dog-shiba",
     species: "dog",

@@ -1,3 +1,4 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import styled from "styled-components";
 import { Link, NavLink } from "react-router-dom";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
@@ -8,21 +9,21 @@ const Styled = {
     position: fixed;
     inset: 0 auto 0 0;
     width: 228px;
-    padding: 25px 18px;
-    background: #354f49;
-    color: #f8f1e5;
-    border-right: 5px solid #283d39;
+    padding: 24px 20px;
+    background: ${({ theme }) => theme.colors.brand.primaryDark};
+    color: ${({ theme }) => theme.colors.text.inverse};
+    border-right: 4px solid ${({ theme }) => theme.colors.brand.primary};
     display: flex;
     flex-direction: column;
-    z-index: 10;
+    z-index: ${({ theme }) => theme.zIndex.navigation};
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       position: sticky;
       width: 100%;
       height: auto;
-      padding: 10px 13px;
+      padding: 12px 12px;
       border: 0;
-      border-bottom: 4px solid #283d39;
+      border-bottom: 4px solid ${({ theme }) => theme.colors.brand.primary};
       flex-direction: row;
       align-items: center;
     }
@@ -30,12 +31,12 @@ const Styled = {
   Brand: styled(Link)`
     display: flex;
     align-items: center;
-    gap: 11px;
-    font-weight: 900;
+    gap: 12px;
+    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     letter-spacing: -0.02em;
 
     > span:last-child {
-      @media (max-width: 760px) {
+      @media ${mediaQuery.mobile} {
         display: none;
       }
     }
@@ -45,49 +46,51 @@ const Styled = {
     place-items: center;
     width: 42px;
     height: 42px;
-    background: ${({ theme }) => theme.colors.warning};
-    color: #3c514b;
-    border: 3px solid #233d38;
-    box-shadow: 3px 3px 0 #203632;
+    background: ${({ theme }) => theme.colors.semantic.warning};
+    color: ${({ theme }) => theme.colors.text.primary};
+    border: 2px solid ${({ theme }) => theme.colors.border.strong};
+    box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-    font-size: 17px;
+    font-size: ${({ theme }) => theme.typography.fontSize.title};
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       width: 36px;
       height: 36px;
     }
   `,
   RuntimeList: styled.div`
-    margin-top: 14px;
+    margin-top: 16px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       display: none;
     }
 
     > span {
-      padding: 6px;
-      border: 1px solid #6a817b;
-      background: #2e4641;
-      color: #aab9b4;
-      opacity: 0.42;
+      padding: 8px;
+      border: 1px solid ${({ theme }) => theme.colors.brand.primary};
+      background: ${({ theme }) => theme.colors.brand.primary};
+      color: ${({ theme }) => theme.colors.text.inverse};
+      opacity: 0.6;
       display: flex;
       align-items: center;
-      gap: 5px;
-      font: 700 9px monospace;
+      gap: 4px;
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
       transition:
         opacity 0.2s,
         box-shadow 0.2s;
 
       &.connected {
         opacity: 1;
-        color: #eef8f2;
-        border-color: #6eb78f;
+        color: ${({ theme }) => theme.colors.text.inverse};
+        border-color: ${({ theme }) => theme.colors.semantic.positive};
         box-shadow:
-          inset 0 0 0 1px #477c64,
-          0 0 8px #63b48655;
+          inset 0 0 0 1px ${({ theme }) => theme.colors.semantic.positive},
+          0 0 8px ${({ theme }) => theme.colors.shadow.glow};
       }
     }
 
@@ -96,42 +99,42 @@ const Styled = {
       height: 15px;
       display: grid;
       place-items: center;
-      background: #507069;
-      color: #e8f0ed;
-      font-size: 9px;
+      background: ${({ theme }) => theme.colors.brand.primaryDark};
+      color: ${({ theme }) => theme.colors.text.inverse};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
     .connected b {
-      background: #68bd8b;
-      color: #173b2d;
+      background: ${({ theme }) => theme.colors.semantic.positive};
+      color: ${({ theme }) => theme.colors.text.inverse};
     }
   `,
   WorkspaceChip: styled.div`
-    margin: 30px 0 20px;
-    padding: 11px 12px;
-    border: 2px solid #58746d;
-    background: #2f4843;
-    font-size: 12px;
+    margin: 32px 0 20px;
+    padding: 12px 12px;
+    border: 2px solid ${({ theme }) => theme.colors.brand.primary};
+    background: ${({ theme }) => theme.colors.brand.primary};
+    font-size: ${({ theme }) => theme.typography.fontSize.md};
     display: flex;
     align-items: center;
     gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       display: none;
     }
   `,
   OnlineDot: styled.span`
     width: 8px;
     height: 8px;
-    background: #74d39a;
-    box-shadow: 0 0 0 2px #315b4c;
+    background: ${({ theme }) => theme.colors.semantic.positive};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.brand.primaryDark};
     display: inline-block;
   `,
   Nav: styled.nav`
     display: grid;
-    gap: 7px;
+    gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       margin-left: auto;
       display: flex;
       gap: 4px;
@@ -141,14 +144,14 @@ const Styled = {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 13px;
-      color: #d7e0d9;
-      font-weight: 700;
+      padding: 12px 12px;
+      color: ${({ theme }) => theme.colors.text.inverse};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
       border: 2px solid transparent;
 
-      @media (max-width: 760px) {
+      @media ${mediaQuery.mobile} {
         padding: 8px;
-        font-size: 11px;
+        font-size: ${({ theme }) => theme.typography.fontSize.compact};
         gap: 4px;
       }
 
@@ -156,42 +159,42 @@ const Styled = {
         width: 22px;
         text-align: center;
         font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: 19px;
+        font-size: ${({ theme }) => theme.typography.fontSize.headingSm};
 
-        @media (max-width: 760px) {
-          font-size: 15px;
+        @media ${mediaQuery.mobile} {
+          font-size: ${({ theme }) => theme.typography.fontSize.lead};
           width: 16px;
         }
       }
 
       &:hover {
-        background: #3c5a53;
+        background: ${({ theme }) => theme.colors.brand.primary};
       }
 
       &.active {
-        background: #f3e7cf;
-        color: #334d47;
-        border-color: #203b35;
-        box-shadow: 3px 3px 0 #233d38;
+        background: ${({ theme }) => theme.colors.background.surfaceMuted};
+        color: ${({ theme }) => theme.colors.text.primary};
+        border-color: ${({ theme }) => theme.colors.border.strong};
+        box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
       }
     }
   `,
   Note: styled.div`
     margin-top: auto;
-    padding: 14px;
-    border: 2px dashed #708982;
+    padding: 16px;
+    border: 2px dashed ${({ theme }) => theme.colors.brand.primary};
     display: grid;
-    gap: 7px;
-    font-size: 11px;
+    gap: 8px;
+    font-size: ${({ theme }) => theme.typography.fontSize.compact};
     line-height: 1.5;
-    color: #bfcfc8;
+    color: ${({ theme }) => theme.colors.text.inverse};
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       display: none;
     }
 
     strong {
-      color: ${({ theme }) => theme.colors.warning};
+      color: ${({ theme }) => theme.colors.semantic.warning};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       letter-spacing: 0.08em;
     }

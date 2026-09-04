@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { colors } from "@ai-pixel-office/design-token";
 import { Label } from "./typography.ts";
 
 export type ButtonVariant = "primary" | "secondary" | "danger";
@@ -8,22 +9,22 @@ const VARIANT_STYLES: Record<
   { color: string; background: string; border: string; shadow: string }
 > = {
   primary: {
-    color: "#fff9ec",
-    background: "#4e8874",
-    border: "#2f5448",
-    shadow: "#294d42",
+    color: colors.action.primary.foreground,
+    background: colors.action.primary.background,
+    border: colors.action.primary.border,
+    shadow: colors.action.primary.shadow,
   },
   secondary: {
-    color: "#59483d",
-    background: "#f1dfbc",
-    border: "#8d704f",
-    shadow: "#b59876",
+    color: colors.action.secondary.foreground,
+    background: colors.action.secondary.background,
+    border: colors.action.secondary.border,
+    shadow: colors.action.secondary.shadow,
   },
   danger: {
-    color: "#fff",
-    background: "#c45d58",
-    border: "#763c39",
-    shadow: "#783d39",
+    color: colors.action.danger.foreground,
+    background: colors.action.danger.background,
+    border: colors.action.danger.border,
+    shadow: colors.action.danger.shadow,
   },
 };
 
@@ -38,11 +39,11 @@ export const Button = styled.button<{ $variant?: ButtonVariant; $fullWidth?: boo
   ${Label.md}
   min-height: 40px;
   width: ${({ $fullWidth }) => ($fullWidth ? "100%" : "auto")};
-  padding: 10px 16px;
+  padding: 12px 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   border: 2px solid ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].border};
   background: ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].background};
   color: ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].color};

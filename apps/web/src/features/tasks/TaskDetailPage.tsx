@@ -1,10 +1,11 @@
+import { colors, mediaQuery } from "@ai-pixel-office/design-token";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styled, { keyframes } from "styled-components";
-import { Button } from "@ai-pixel-office/ui";
+import { Button, Input, Kicker, Select, TextArea } from "@ai-pixel-office/ui";
 import type {
   Agent,
   Skill,
@@ -23,7 +24,9 @@ import { STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner, FullScreenMessage } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { ProjectDirectorySelect, ProjectSelect } from "../projects/ProjectSelect.tsx";
 
@@ -38,23 +41,13 @@ const pixelWork = keyframes`
   }
 `;
 
-const STATUS_ACCENT: Record<TaskStatus, string> = {
-  todo: "#c19a54",
-  working: "#4c8a75",
-  needs_review: "#8b68b5",
-  needs_input: "#487fad",
-  blocked: "#c85f58",
-  failed: "#a54349",
-  done: "#599875",
-};
-
 const RUN_DOT_COLOR: Record<TaskDetail["runs"][number]["status"], string> = {
-  queued: "#9a9189",
-  running: "#54a076",
-  completed: "#4f8c75",
-  waiting: "#9a9189",
-  failed: "#c65b56",
-  cancelled: "#c65b56",
+  queued: colors.runStatus.queued,
+  running: colors.runStatus.running,
+  completed: colors.runStatus.completed,
+  waiting: colors.runStatus.queued,
+  failed: colors.runStatus.failed,
+  cancelled: colors.runStatus.failed,
 };
 
 const RunRow = styled.summary`
@@ -62,15 +55,15 @@ const RunRow = styled.summary`
   grid-template-columns: 12px 90px 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 10px 3px;
-  border-bottom: 1px solid #e8dfd1;
-  font-size: 11px;
+  padding: 12px 4px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  font-size: ${({ theme }) => theme.typography.fontSize.compact};
 
   time {
-    color: ${({ theme }) => theme.colors.muted};
+    color: ${({ theme }) => theme.colors.text.muted};
   }
 
-  @media (max-width: 760px) {
+  @media ${mediaQuery.mobile} {
     grid-template-columns: 12px 70px 1fr;
 
     time {
@@ -84,28 +77,28 @@ const RunDot = styled.span<{ $status: TaskDetail["runs"][number]["status"] }>`
   height: 8px;
   background: ${({ $status }) => RUN_DOT_COLOR[$status]};
 
-  ${({ $status }) =>
+  ${({ $status, theme }) =>
     $status === "running" &&
     `
-      box-shadow: 0 0 0 3px #d7eadf;
+      box-shadow: 0 0 0 3px ${theme.colors.border.positive};
     `}
 `;
 
 const RunExpandIcon = styled.span`
   position: absolute;
   right: 6px;
-  color: #9a5d57;
-  font-size: 20px;
+  color: ${({ theme }) => theme.colors.text.negative};
+  font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
   line-height: 1;
   transition: transform 0.15s ease-out;
 `;
 
 const RunEntry = styled.details<{ $failed: boolean }>`
-  border-bottom: 1px solid #e8dfd1;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
   ${RunRow} {
     position: relative;
-    padding-right: 25px;
+    padding-right: 24px;
     border-bottom: 0;
     cursor: pointer;
     list-style: none;
@@ -120,33 +113,36 @@ const RunEntry = styled.details<{ $failed: boolean }>`
   }
 
   &[open] ${RunRow} {
-    background: ${({ $failed }) => ($failed ? "#fff5f1" : "#f4f7f4")};
+    background: ${({ $failed, theme }) =>
+      $failed ? theme.colors.background.negativeSubtle : theme.colors.background.positiveSubtle};
   }
 `;
 
 const Styled = {
   Heading: styled.div`
-    margin: 25px 0 28px;
+    margin: 24px 0 28px;
 
     h1 {
-      margin: 5px 0 0;
-      color: #3d3632;
+      margin: 4px 0 0;
+      color: ${({ theme }) => theme.colors.text.primary};
       font-size: clamp(29px, 4vw, 42px);
       letter-spacing: -0.045em;
     }
 
     p {
-      color: ${({ theme }) => theme.colors.muted};
+      color: ${({ theme }) => theme.colors.text.muted};
       max-width: 720px;
     }
   `,
   StatusPill: styled.span<{ $status: TaskStatus }>`
     display: inline-block;
-    padding: 5px 9px;
+    padding: 4px 8px;
     border: 2px solid currentColor;
-    border-top-color: ${({ $status }) => STATUS_ACCENT[$status]};
-    background: #fff8ed;
-    font: 800 10px monospace;
+    border-top-color: ${({ $status }) => STATUS[$status].color};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   `,
   DetailLayout: styled.div`
     display: grid;
@@ -154,7 +150,7 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -164,7 +160,7 @@ const Styled = {
     gap: 20px;
   `,
   ResultPanel: styled.section`
-    padding: 21px;
+    padding: 20px;
     min-height: 340px;
   `,
   MarkdownResult: styled.div<{ $size?: "default" | "compact" | "small" }>`
@@ -175,22 +171,22 @@ const Styled = {
     h2,
     h3 {
       margin: 1.25em 0 0.55em;
-      color: #403832;
+      color: ${({ theme }) => theme.colors.text.primary};
       line-height: 1.35;
     }
 
     h1 {
-      font-size: 22px;
-      border-bottom: 2px solid #e2d6c5;
+      font-size: ${({ theme }) => theme.typography.fontSize.headingXl};
+      border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
       padding-bottom: 8px;
     }
 
     h2 {
-      font-size: 18px;
+      font-size: ${({ theme }) => theme.typography.fontSize.xl};
     }
 
     h3 {
-      font-size: 15px;
+      font-size: ${({ theme }) => theme.typography.fontSize.lead};
     }
 
     p {
@@ -199,7 +195,7 @@ const Styled = {
 
     ul,
     ol {
-      padding-left: 22px;
+      padding-left: 24px;
     }
 
     li {
@@ -207,18 +203,19 @@ const Styled = {
     }
 
     code {
-      padding: 2px 5px;
-      background: #eee5d8;
-      border: 1px solid #d4c5b3;
-      font: 12px monospace;
+      padding: 4px 4px;
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
+      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     pre {
-      padding: 13px;
+      padding: 12px;
       overflow: auto;
-      background: #292b31;
-      color: #f5eee3;
-      border: 2px solid #17191e;
+      background: ${({ theme }) => theme.colors.semantic.info};
+      color: ${({ theme }) => theme.colors.text.inverse};
+      border: 2px solid ${({ theme }) => theme.colors.border.positive};
     }
 
     pre code {
@@ -230,9 +227,9 @@ const Styled = {
 
     blockquote {
       margin-left: 0;
-      padding-left: 13px;
-      border-left: 4px solid #779a8b;
-      color: #71675f;
+      padding-left: 12px;
+      border-left: 4px solid ${({ theme }) => theme.colors.border.positive};
+      color: ${({ theme }) => theme.colors.text.secondary};
     }
 
     table {
@@ -242,66 +239,66 @@ const Styled = {
 
     th,
     td {
-      padding: 7px;
-      border: 1px solid #d6c9b8;
+      padding: 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
       text-align: left;
     }
   `,
   CurrentRunRequest: styled.div`
     display: grid;
-    gap: 5px;
-    margin: 14px 0 4px;
-    padding: 11px 13px;
-    border-left: 4px solid #5d8e79;
-    background: #edf5f0;
+    gap: 4px;
+    margin: 16px 0 4px;
+    padding: 12px 12px;
+    border-left: 4px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
     span {
-      color: #46715f;
-      font-size: 9px;
-      font-weight: 900;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     }
 
     p {
       margin: 0;
-      color: #5f655f;
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.55;
       white-space: pre-wrap;
     }
   `,
   PreviousResult: styled.details`
     margin-top: 16px;
-    border: 1px solid #d5c9b9;
-    background: #faf6ef;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > summary {
-      padding: 10px 12px;
-      color: #6c625a;
-      font-size: 10px;
-      font-weight: 800;
+      padding: 12px 12px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
     }
 
     > div {
-      padding: 2px 13px 13px;
-      border-top: 1px solid #ded3c4;
+      padding: 4px 12px 12px;
+      border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
     }
   `,
   TaskBriefEditor: styled.div`
-    margin-top: 18px;
+    margin-top: 20px;
     display: grid;
-    gap: 7px;
+    gap: 8px;
 
     label {
-      color: #4c625a;
-      font-size: 12px;
-      font-weight: 900;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     }
 
     p {
       margin: 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.55;
     }
 
@@ -310,11 +307,11 @@ const Styled = {
       min-height: 180px;
       resize: vertical;
       line-height: 1.55;
-      background: #fffdf8;
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
     }
   `,
   TaskBriefActions: styled.div`
-    margin-top: 3px;
+    margin-top: 4px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -322,12 +319,12 @@ const Styled = {
 
     small {
       margin: 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.55;
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       align-items: flex-start;
       flex-direction: column;
     }
@@ -337,40 +334,40 @@ const Styled = {
     display: grid;
     place-content: center;
     justify-items: center;
-    gap: 11px;
+    gap: 12px;
     text-align: center;
 
     strong {
-      font-size: 17px;
-      color: #3f6d5d;
+      font-size: ${({ theme }) => theme.typography.fontSize.title};
+      color: ${({ theme }) => theme.colors.text.positive};
     }
 
     p {
       max-width: 420px;
       margin: 0;
-      color: #81756c;
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.6;
     }
 
-    ${({ $waiting }) =>
+    ${({ $waiting, theme }) =>
       $waiting &&
       `
         .progress-pixels span {
-          background: #7b63a0;
+          background: ${theme.colors.brand.primaryDark};
         }
       `}
   `,
   ProgressPixels: styled.div`
     display: flex;
     align-items: end;
-    gap: 5px;
+    gap: 4px;
     height: 34px;
 
     span {
       width: 10px;
       height: 10px;
-      background: #568d78;
+      background: ${({ theme }) => theme.colors.brand.primary};
       animation: ${pixelWork} 0.9s infinite alternate;
 
       &:nth-child(2) {
@@ -391,8 +388,8 @@ const Styled = {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    padding: 25px;
+    gap: 16px;
+    padding: 24px;
 
     > span {
       flex: 0 0 auto;
@@ -400,11 +397,13 @@ const Styled = {
       place-items: center;
       width: 44px;
       height: 44px;
-      background: #c75f58;
-      color: #fff;
-      border: 3px solid #773d39;
-      box-shadow: 3px 3px 0 #d8a49c;
-      font: 900 23px monospace;
+      background: ${({ theme }) => theme.colors.semantic.negative};
+      color: ${({ theme }) => theme.colors.text.inverse};
+      border: 3px solid ${({ theme }) => theme.colors.border.negative};
+      box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.negative};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     }
 
     div {
@@ -412,13 +411,15 @@ const Styled = {
     }
 
     strong {
-      color: #863f3b;
+      color: ${({ theme }) => theme.colors.text.negative};
     }
 
     p {
-      margin: 7px 0 0;
-      color: #725c57;
-      font: 11px/1.6 monospace;
+      margin: 8px 0 0;
+      color: ${({ theme }) => theme.colors.text.negative};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
     }
@@ -426,32 +427,32 @@ const Styled = {
   SessionLimitState: styled.div`
     display: grid;
     grid-template-columns: 42px 1fr;
-    gap: 13px;
-    margin-top: 18px;
-    padding: 18px;
-    border: 2px solid #b18a50;
-    background: #fff3d6;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 20px;
+    border: 2px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > span {
       width: 38px;
       height: 38px;
       display: grid;
       place-items: center;
-      border-radius: 50%;
-      background: #d49a43;
-      color: #fff;
-      font-size: 21px;
-      font-weight: 900;
+      border-radius: ${({ theme }) => theme.radius.circle};
+      background: ${({ theme }) => theme.colors.semantic.warning};
+      color: ${({ theme }) => theme.colors.text.inverse};
+      font-size: ${({ theme }) => theme.typography.fontSize.headingLg};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     }
 
     strong {
-      color: #6c4a20;
+      color: ${({ theme }) => theme.colors.text.primary};
     }
 
     p {
-      margin: 5px 0 13px;
-      color: #755f42;
-      font-size: 12px;
+      margin: 4px 0 12px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
       line-height: 1.6;
     }
   `,
@@ -462,21 +463,23 @@ const Styled = {
   `,
   RunProgress: styled.div`
     margin-top: 4px;
-    padding-top: 14px;
-    border-top: 2px dashed #d6c9b7;
+    padding-top: 16px;
+    border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
   `,
   RunProgressHeading: styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
-    color: #4a695e;
-    font-size: 11px;
+    color: ${({ theme }) => theme.colors.text.positive};
+    font-size: ${({ theme }) => theme.typography.fontSize.compact};
 
     span {
-      padding: 2px 6px;
-      background: #e0ece6;
-      font: 800 9px monospace;
+      padding: 4px 8px;
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   RunProgressList: styled.div`
@@ -487,28 +490,33 @@ const Styled = {
   ProgressEvent: styled.div<{ $type: string }>`
     display: grid;
     grid-template-columns: 18px 1fr;
-    gap: 6px;
-    padding: 7px 3px;
-    border-bottom: 1px solid #e8ded0;
+    gap: 8px;
+    padding: 8px 4px;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
     > span {
-      color: #588472;
-      font: 800 11px monospace;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 
-      ${({ $type }) => $type === "permission_requested" && `color: #a45a4f;`}
+      color: ${({ $type, theme }) =>
+        $type === "permission_requested"
+          ? theme.colors.text.negative
+          : theme.colors.text.secondary};
     }
 
     div {
       min-width: 0;
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 3px 8px;
+      gap: 4px 8px;
     }
 
     p {
       margin: 0;
-      color: #615850;
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.45;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -519,56 +527,56 @@ const Styled = {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: #806b5d;
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
     time {
       grid-column: 2;
       grid-row: 1;
-      color: #9a9087;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
   `,
   Artifact: styled.div`
     margin-top: 12px;
     padding: 12px;
     display: flex;
-    gap: 11px;
-    border: 1px solid #d3c6b6;
-    background: #f5ecdf;
+    gap: 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     div {
       display: grid;
-      gap: 3px;
+      gap: 4px;
     }
 
     small {
-      color: ${({ theme }) => theme.colors.muted};
+      color: ${({ theme }) => theme.colors.text.muted};
     }
   `,
   ReviewBox: styled.div`
     display: grid;
     gap: 12px;
-    margin-top: 23px;
+    margin-top: 24px;
     padding: 16px;
-    border: 2px solid #a5b9ae;
-    background: #f3f8f4;
-    box-shadow: 3px 3px 0 #d0ddd6;
+    border: 2px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
+    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.positive};
   `,
   ReviewCopy: styled.div`
     display: grid;
     gap: 4px;
 
     strong {
-      color: #355e50;
-      font-size: 13px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.base};
     }
 
     p {
       margin: 0;
-      color: #6f7e77;
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.5;
     }
   `,
@@ -581,7 +589,7 @@ const Styled = {
       min-width: 0;
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -590,47 +598,47 @@ const Styled = {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding-top: 11px;
-    border-top: 1px solid #cedbd4;
+    padding-top: 12px;
+    border-top: 1px solid ${({ theme }) => theme.colors.border.positive};
 
     span {
-      color: #7a8780;
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       align-items: flex-start;
     }
   `,
   WorkflowPanel: styled.section`
-    margin-bottom: 18px;
+    margin-bottom: 20px;
     padding-bottom: 16px;
-    border-bottom: 2px solid #e6dbcb;
+    border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
   `,
   AssignmentModeSwitch: styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 5px;
+    gap: 4px;
     margin-bottom: 12px;
     padding: 4px;
-    border: 1px solid #cbbdac;
-    background: #eee5d8;
+    border: 1px solid ${({ theme }) => theme.colors.shadow.default};
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
 
     button {
       min-width: 0;
-      padding: 8px 5px;
+      padding: 8px 4px;
       border: 1px solid transparent;
       background: transparent;
-      color: #766a61;
-      font-size: 9px;
-      font-weight: 800;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
 
       &.selected {
-        border-color: #557d6d;
-        background: #fffdfa;
-        color: #355e50;
-        box-shadow: 2px 2px 0 #bdcec5;
+        border-color: ${({ theme }) => theme.colors.border.positive};
+        background: ${({ theme }) => theme.colors.background.surfaceRaised};
+        color: ${({ theme }) => theme.colors.text.positive};
+        box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.border.positive};
       }
 
       &:disabled {
@@ -641,43 +649,45 @@ const Styled = {
   `,
   WorkflowEditor: styled.div`
     display: grid;
-    gap: 9px;
+    gap: 8px;
     margin: 0;
     padding: 0;
   `,
   WorkflowEditorStep: styled.div`
     min-width: 0;
     padding: 8px;
-    border: 1px solid #d2c5b4;
-    background: #faf5ed;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
-    gap: 7px;
+    gap: 8px;
   `,
   WorkflowStepMain: styled.div`
     min-width: 0;
     display: grid;
     grid-template-columns: 25px minmax(0, 1fr);
-    gap: 7px;
+    gap: 8px;
     align-items: center;
 
     > span {
       width: 23px;
       height: 23px;
-      border: 1px solid #7d6a5d;
-      background: #eee3d2;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
       display: grid;
       place-items: center;
-      font: 800 9px monospace;
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     select {
       width: 100%;
       min-width: 0;
       height: 34px;
-      padding: 4px 7px;
-      border: 1px solid #bcae9c;
-      background: #fffdfa;
-      font-size: 9px;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   WorkflowStepControls: styled.div`
@@ -689,8 +699,8 @@ const Styled = {
     > span {
       min-width: 0;
       margin-right: auto;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
       line-height: 1.3;
       overflow-wrap: anywhere;
     }
@@ -700,8 +710,8 @@ const Styled = {
       width: 27px;
       height: 26px;
       padding: 0;
-      border: 1px solid #c7b9a7;
-      background: #f4eadb;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
       cursor: pointer;
 
       &:disabled {
@@ -712,38 +722,38 @@ const Styled = {
   `,
   WorkflowPresetPicker: styled.div`
     display: grid;
-    gap: 5px;
-    padding: 9px;
-    border: 1px solid #9fb4aa;
-    background: #edf4f0;
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
     label {
-      color: #4f675d;
-      font-size: 9px;
-      font-weight: 800;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     > div {
       min-width: 0;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 5px;
+      gap: 4px;
     }
 
     select {
       min-width: 0;
       height: 32px;
-      padding: 4px 6px;
+      padding: 4px 8px;
       border-width: 1px;
-      font-size: 9px;
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   WorkflowPresetDelete: styled.button`
-    padding: 0 7px;
-    border: 1px solid #c5a09b;
-    background: #fff8f4;
-    color: #8d514d;
-    font-size: 8px;
+    padding: 0 8px;
+    border: 1px solid ${({ theme }) => theme.colors.border.negative};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    color: ${({ theme }) => theme.colors.text.negative};
+    font-size: ${({ theme }) => theme.typography.fontSize.xs};
     cursor: pointer;
 
     &:disabled {
@@ -754,63 +764,63 @@ const Styled = {
   WorkflowAddStep: styled.button`
     width: 100%;
     padding: 8px;
-    border: 1px dashed #8ca598;
-    background: #f6faf7;
-    color: #426c5b;
-    font-size: 9px;
-    font-weight: 800;
+    border: 1px dashed ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
+    color: ${({ theme }) => theme.colors.text.positive};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     cursor: pointer;
   `,
   WorkflowPresetSave: styled.form`
     min-width: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 5px;
+    gap: 4px;
 
     input {
       min-width: 0;
-      padding: 7px;
+      padding: 8px;
       border-width: 1px;
-      font-size: 9px;
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
     button {
-      padding: 7px 8px;
-      font-size: 8px;
+      padding: 8px 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
       white-space: nowrap;
     }
   `,
   WorkflowEditorActions: styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-top: 2px;
+    gap: 8px;
+    margin-top: 4px;
 
     button {
-      padding: 7px 9px;
-      font-size: 9px;
+      padding: 8px 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   WorkflowMessage: styled.small`
     display: block;
-    margin: 6px 0 0;
-    color: #8d514d;
-    font-size: 9px;
+    margin: 8px 0 0;
+    color: ${({ theme }) => theme.colors.text.negative};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
     line-height: 1.5;
   `,
   WorkflowEmpty: styled.p`
-    margin: 6px 0 0;
-    color: #8d514d;
-    font-size: 9px;
+    margin: 8px 0 0;
+    color: ${({ theme }) => theme.colors.text.negative};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
     line-height: 1.5;
   `,
   WorkflowSummary: styled.div`
     display: grid;
-    gap: 9px;
+    gap: 8px;
 
     ol {
       display: grid;
-      gap: 5px;
+      gap: 4px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -821,18 +831,20 @@ const Styled = {
       display: grid;
       grid-template-columns: 22px minmax(0, 1fr);
       align-items: center;
-      gap: 7px;
-      padding: 6px 8px;
-      background: #f4ede2;
+      gap: 8px;
+      padding: 8px 8px;
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
       span {
-        color: #557d6d;
-        font: 800 9px monospace;
+        color: ${({ theme }) => theme.colors.text.positive};
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+        font-size: ${({ theme }) => theme.typography.fontSize.micro};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       }
 
       strong {
         overflow: hidden;
-        font-size: 9px;
+        font-size: ${({ theme }) => theme.typography.fontSize.micro};
         text-overflow: ellipsis;
         white-space: nowrap;
       }
@@ -840,7 +852,7 @@ const Styled = {
   `,
   WorkflowProgressList: styled.ol`
     display: grid;
-    gap: 9px;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -855,35 +867,37 @@ const Styled = {
       > span {
         width: 23px;
         height: 23px;
-        border: 1px solid #7d6a5d;
-        background: #eee3d2;
+        border: 1px solid ${({ theme }) => theme.colors.border.default};
+        background: ${({ theme }) => theme.colors.background.surfaceMuted};
         display: grid;
         place-items: center;
-        font: 800 9px monospace;
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+        font-size: ${({ theme }) => theme.typography.fontSize.micro};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       }
 
       > div {
         min-width: 0;
         display: grid;
-        gap: 2px;
+        gap: 4px;
         padding-bottom: 8px;
       }
 
       strong {
-        font-size: 10px;
+        font-size: ${({ theme }) => theme.typography.fontSize.sm};
       }
 
       small {
-        color: ${({ theme }) => theme.colors.muted};
-        font-size: 8px;
+        color: ${({ theme }) => theme.colors.text.muted};
+        font-size: ${({ theme }) => theme.typography.fontSize.xs};
       }
 
       p {
         max-height: 34px;
-        margin: 3px 0 0;
+        margin: 4px 0 0;
         overflow: hidden;
-        color: #756960;
-        font-size: 8px;
+        color: ${({ theme }) => theme.colors.text.secondary};
+        font-size: ${({ theme }) => theme.typography.fontSize.xs};
         line-height: 1.4;
       }
 
@@ -891,7 +905,7 @@ const Styled = {
         cursor: pointer;
 
         &:hover > div strong {
-          color: #356551;
+          color: ${({ theme }) => theme.colors.text.positive};
           text-decoration: underline;
           text-underline-offset: 2px;
         }
@@ -904,30 +918,30 @@ const Styled = {
         top: 24px;
         width: 2px;
         height: calc(100% - 14px);
-        background: #cbbdac;
+        background: ${({ theme }) => theme.colors.shadow.default};
       }
 
       &[data-status="working"] > span {
-        border-color: #3f715d;
-        background: #dcece3;
+        border-color: ${({ theme }) => theme.colors.border.positive};
+        background: ${({ theme }) => theme.colors.background.surfaceMuted};
       }
 
       &[data-status="completed"] > span {
-        border-color: #3f715d;
-        background: #6fa389;
+        border-color: ${({ theme }) => theme.colors.border.positive};
+        background: ${({ theme }) => theme.colors.brand.primary};
         color: white;
       }
 
       &[data-status="failed"] > span {
-        border-color: #8d514d;
-        background: #d5685e;
+        border-color: ${({ theme }) => theme.colors.border.negative};
+        background: ${({ theme }) => theme.colors.semantic.negative};
         color: white;
       }
     }
   `,
   WorkflowStepJump: styled.button`
     position: absolute;
-    z-index: 2;
+    z-index: ${({ theme }) => theme.zIndex.raised};
     inset: 0;
     width: 100%;
     padding: 0;
@@ -936,74 +950,74 @@ const Styled = {
     cursor: pointer;
 
     &:focus-visible {
-      outline: 2px dashed #426e60;
+      outline: 2px dashed ${({ theme }) => theme.colors.border.positive};
       outline-offset: 3px;
     }
   `,
   WorkflowResults: styled.div`
     display: grid;
-    gap: 18px;
+    gap: 20px;
   `,
   WorkflowFinalResult: styled.section`
-    padding: 15px;
-    border: 2px solid #8eaa9b;
-    background: #f6faf7;
+    padding: 16px;
+    border: 2px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
   `,
   WorkflowResultLabel: styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #cddbd3;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.positive};
 
     strong {
-      color: #3e6657;
-      font-size: 12px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
-      font-weight: 800;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   WorkflowStepResults: styled.section`
     display: grid;
     gap: 8px;
-    padding-top: 15px;
-    border-top: 2px dashed #d6c9b7;
+    padding-top: 16px;
+    border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
   `,
   WorkflowStepResultsHeading: styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 2px;
+    gap: 12px;
+    margin-bottom: 4px;
 
     strong {
-      color: #3e6657;
-      font-size: 12px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
-      font-weight: 800;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   WorkflowResultStep: styled.details`
     scroll-margin-top: 24px;
-    border: 1px solid #d4c8b9;
-    background: #fbf7f0;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     summary {
       min-width: 0;
       display: grid;
       grid-template-columns: 28px minmax(0, 1fr) auto;
       align-items: center;
-      gap: 9px;
-      padding: 10px;
+      gap: 8px;
+      padding: 12px;
       cursor: pointer;
       list-style: none;
 
@@ -1016,15 +1030,17 @@ const Styled = {
         height: 25px;
         display: grid;
         place-items: center;
-        background: #6f9a87;
+        background: ${({ theme }) => theme.colors.brand.primary};
         color: white;
-        font: 800 9px monospace;
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+        font-size: ${({ theme }) => theme.typography.fontSize.micro};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       }
 
       > div {
         min-width: 0;
         display: grid;
-        gap: 2px;
+        gap: 4px;
       }
 
       strong,
@@ -1035,29 +1051,29 @@ const Styled = {
       }
 
       strong {
-        color: #4e4842;
-        font-size: 11px;
+        color: ${({ theme }) => theme.colors.text.primary};
+        font-size: ${({ theme }) => theme.typography.fontSize.compact};
       }
 
       small {
-        color: ${({ theme }) => theme.colors.muted};
-        font-size: 8px;
+        color: ${({ theme }) => theme.colors.text.muted};
+        font-size: ${({ theme }) => theme.typography.fontSize.xs};
       }
 
       b {
-        color: #557d6d;
+        color: ${({ theme }) => theme.colors.text.positive};
         font-size: 0;
 
         &::after {
           content: "결과 보기";
-          font-size: 9px;
+          font-size: ${({ theme }) => theme.typography.fontSize.micro};
         }
       }
     }
 
     &[open] summary {
-      border-bottom: 1px solid #d8cdbf;
-      background: #f3ede3;
+      border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
       b::after {
         content: "결과 닫기";
@@ -1065,38 +1081,38 @@ const Styled = {
     }
   `,
   WorkflowResultBody: styled.div`
-    padding: 4px 13px 13px;
+    padding: 4px 12px 12px;
   `,
   AssignmentPanel: styled.div`
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     padding: 12px;
-    border: 2px solid #8eaa9b;
-    background: #f3f8f4;
+    border: 2px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
     display: grid;
-    gap: 7px;
+    gap: 8px;
 
     strong {
-      color: #355e50;
-      font-size: 12px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
-      color: #6f7e77;
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
       line-height: 1.5;
     }
   `,
   AssignmentLink: styled(Button).attrs({ $variant: "secondary" as const })`
     display: inline-block;
     width: fit-content;
-    font-size: 10px;
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
   `,
   DetailAgent: styled.div`
     display: flex;
-    gap: 13px;
+    gap: 12px;
     align-items: center;
     padding-bottom: 16px;
-    border-bottom: 2px solid #e6dbcb;
+    border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
 
     div {
       display: grid;
@@ -1104,28 +1120,30 @@ const Styled = {
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     small {
-      font: 800 9px monospace;
-      color: #4c7b6b;
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+      color: ${({ theme }) => theme.colors.text.positive};
     }
   `,
   AgentSkillList: styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 3px;
+    margin-top: 4px;
 
     span {
-      padding: 3px 5px;
-      border: 1px solid #91ad9f;
-      background: #e2eee7;
-      color: #396655;
-      font-size: 8px;
-      font-weight: 800;
+      padding: 4px 4px;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   ExecutionContext: styled.section`
@@ -1133,14 +1151,14 @@ const Styled = {
     gap: 8px;
     margin: 16px 0;
     padding: 12px;
-    border: 1px solid #b9c9c0;
-    background: #f5f9f6;
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
     > small,
     > p {
       margin: 0;
-      color: #78847e;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
       line-height: 1.5;
     }
   `,
@@ -1150,26 +1168,28 @@ const Styled = {
     justify-content: space-between;
 
     strong {
-      color: #3f6254;
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     span {
-      color: #789187;
-      font: 800 8px monospace;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   ExecutionContextError: styled.small`
-    color: #9a4f49;
+    color: ${({ theme }) => theme.colors.text.negative};
   `,
   ExecutionContextItem: styled.details`
-    border: 1px solid #c9d5ce;
-    background: #fffdfa;
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > summary {
       display: grid;
       grid-template-columns: 22px minmax(0, 1fr);
-      gap: 7px;
+      gap: 8px;
       align-items: center;
       padding: 8px;
       cursor: pointer;
@@ -1184,9 +1204,11 @@ const Styled = {
         height: 20px;
         display: grid;
         place-items: center;
-        background: #dfeae4;
-        color: #416454;
-        font: 800 8px monospace;
+        background: ${({ theme }) => theme.colors.background.surfaceMuted};
+        color: ${({ theme }) => theme.colors.text.positive};
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+        font-size: ${({ theme }) => theme.typography.fontSize.xs};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       }
 
       > div {
@@ -1197,25 +1219,27 @@ const Styled = {
       }
 
       strong {
-        font-size: 9px;
+        font-size: ${({ theme }) => theme.typography.fontSize.micro};
       }
 
       small {
-        color: #4f7666;
-        font: 800 8px monospace;
+        color: ${({ theme }) => theme.colors.text.positive};
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+        font-size: ${({ theme }) => theme.typography.fontSize.xs};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       }
     }
   `,
   ExecutionContextBody: styled.div`
     display: grid;
-    gap: 9px;
-    padding: 9px;
-    border-top: 1px solid #d8e0dc;
+    gap: 8px;
+    padding: 8px;
+    border-top: 1px solid ${({ theme }) => theme.colors.border.positive};
 
     > code {
       overflow: hidden;
-      color: #6b756f;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -1225,8 +1249,8 @@ const Styled = {
     gap: 4px;
 
     > b {
-      color: #68766f;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
 
     > div {
@@ -1236,68 +1260,70 @@ const Styled = {
     }
 
     span {
-      padding: 3px 5px;
-      border: 1px solid #adc1b7;
-      background: #e8f1ec;
-      color: #416656;
-      font-size: 8px;
-      font-weight: 800;
+      padding: 4px 4px;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     small {
-      color: #8b918d;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
   `,
   PermissionWarning: styled.div`
-    margin: 14px 0;
+    margin: 16px 0;
     padding: 12px;
-    border: 2px solid #d18a62;
-    background: #fff0dc;
+    border: 2px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
     gap: 8px;
 
     strong {
-      color: #8c4d36;
-      font-size: 12px;
+      color: ${({ theme }) => theme.colors.text.negative};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
-      color: #765e51;
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.5;
     }
   `,
   RuntimeApproval: styled.div`
-    margin: 14px 0;
-    padding: 13px;
-    border: 3px solid #6d5a91;
-    background: #eee8fa;
-    box-shadow: 3px 3px 0 #b8a9ce;
+    margin: 16px 0;
+    padding: 12px;
+    border: 3px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.default};
     display: grid;
     gap: 8px;
 
     > strong {
-      color: #55436f;
-      font-size: 13px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.base};
     }
 
     p {
       margin: 0;
-      color: #6e6278;
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.5;
     }
 
     pre {
       max-height: 150px;
       margin: 0;
-      padding: 9px;
+      padding: 8px;
       overflow: auto;
-      border: 1px solid #b9aacb;
-      background: #292531;
-      color: #f3ebff;
-      font: 9px/1.5 monospace;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.brand.primaryDark};
+      color: ${({ theme }) => theme.colors.text.inverse};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-all;
     }
@@ -1308,76 +1334,76 @@ const Styled = {
     }
   `,
   TaskMeta: styled.aside`
-    padding: 21px;
+    padding: 20px;
 
     > h2 {
-      font-size: 14px;
-      margin: 0 0 13px;
+      font-size: ${({ theme }) => theme.typography.fontSize.lg};
+      margin: 0 0 12px;
     }
 
     dl {
       margin: 16px 0;
       display: grid;
-      gap: 9px;
+      gap: 8px;
 
       div {
         display: flex;
         justify-content: space-between;
-        font-size: 11px;
+        font-size: ${({ theme }) => theme.typography.fontSize.compact};
       }
 
       dt {
-        color: ${({ theme }) => theme.colors.muted};
+        color: ${({ theme }) => theme.colors.text.muted};
       }
 
       dd {
         margin: 0;
-        font-weight: 800;
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
         text-align: right;
       }
     }
   `,
   TaskDangerZone: styled.div`
-    margin-top: 17px;
-    padding-top: 14px;
-    border-top: 2px dashed #dfc5c1;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 2px dashed ${({ theme }) => theme.colors.border.negative};
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 11px;
+    gap: 12px;
     align-items: center;
 
     > div {
       min-width: 0;
       display: grid;
-      gap: 3px;
+      gap: 4px;
     }
 
     strong {
-      color: #884640;
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.negative};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     span {
-      color: #8d7b75;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.negative};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
       line-height: 1.4;
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   TaskRemoveButton: styled(Button).attrs({ $variant: "danger" as const })`
-    padding: 8px 11px;
-    font-size: 10px;
+    padding: 8px 12px;
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
     white-space: nowrap;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       width: 100%;
     }
   `,
   RunHistory: styled.section`
-    padding: 21px;
+    padding: 20px;
     margin-top: 0;
   `,
   RunRow,
@@ -1386,23 +1412,24 @@ const Styled = {
   RunEntry,
   RunEntryBody: styled.div<{ $failed: boolean }>`
     display: grid;
-    gap: 11px;
-    padding: 2px 12px 13px 20px;
-    background: ${({ $failed }) => ($failed ? "#fff9f5" : "#fafbf8")};
+    gap: 12px;
+    padding: 4px 12px 12px 20px;
+    background: ${({ $failed, theme }) =>
+      $failed ? theme.colors.background.negativeSubtle : theme.colors.background.positiveSubtle};
 
     section {
       display: grid;
-      gap: 6px;
+      gap: 8px;
 
       > strong {
-        color: #4e6f60;
-        font-size: 10px;
+        color: ${({ theme }) => theme.colors.text.positive};
+        font-size: ${({ theme }) => theme.typography.fontSize.sm};
       }
     }
 
     dl {
       display: grid;
-      gap: 3px;
+      gap: 4px;
       margin: 0;
 
       div {
@@ -1410,11 +1437,11 @@ const Styled = {
         display: grid;
         grid-template-columns: 65px minmax(0, 1fr);
         gap: 8px;
-        font-size: 8px;
+        font-size: ${({ theme }) => theme.typography.fontSize.xs};
       }
 
       dt {
-        color: ${({ theme }) => theme.colors.muted};
+        color: ${({ theme }) => theme.colors.text.muted};
       }
 
       dd {
@@ -1425,54 +1452,56 @@ const Styled = {
     }
 
     > small {
-      color: #615850;
+      color: ${({ theme }) => theme.colors.text.secondary};
     }
   `,
   RunRequestSnapshot: styled.section`
     p {
       margin: 0;
-      color: #655d56;
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.55;
       white-space: pre-wrap;
     }
   `,
   RunResultSnapshot: styled.section`
-    padding: 10px;
-    border: 1px solid #d3ded7;
-    background: #fff;
+    padding: 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
   `,
   RunErrorSnapshot: styled.section`
     > strong {
-      color: #914943;
+      color: ${({ theme }) => theme.colors.text.negative};
     }
 
     pre {
       max-height: 220px;
       margin: 0;
-      padding: 10px;
+      padding: 12px;
       overflow: auto;
-      border: 1px solid #dfb1aa;
-      background: #402f2e;
-      color: #ffe9e3;
+      border: 1px solid ${({ theme }) => theme.colors.border.negative};
+      background: ${({ theme }) => theme.colors.semantic.negative};
+      color: ${({ theme }) => theme.colors.text.inverse};
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      font: 10px/1.55 monospace;
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+      line-height: 1.55;
     }
   `,
   RunEntryEvents: styled.div`
     max-height: 180px;
     overflow: auto;
-    border: 1px solid #ead2cc;
-    background: #fffdf9;
+    border: 1px solid ${({ theme }) => theme.colors.border.negative};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > div {
       display: grid;
       grid-template-columns: 70px minmax(0, 1fr);
       gap: 8px;
-      padding: 6px 8px;
-      border-bottom: 1px solid #eee2d9;
-      font-size: 9px;
+      padding: 8px 8px;
+      border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
       line-height: 1.45;
 
       &:last-child {
@@ -1481,12 +1510,12 @@ const Styled = {
     }
 
     time {
-      color: ${({ theme }) => theme.colors.muted};
+      color: ${({ theme }) => theme.colors.text.muted};
     }
 
     span {
       overflow-wrap: anywhere;
-      color: #665c54;
+      color: ${({ theme }) => theme.colors.text.secondary};
     }
   `,
 };
@@ -1721,7 +1750,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                   배경, 원하는 결과, 지켜야 할 조건을 적어 주세요. 제목과 함께 첫 요청으로
                   전달됩니다.
                 </p>
-                <textarea
+                <TextArea
                   id="task-brief"
                   value={taskBrief}
                   onChange={(event) => setTaskBrief(event.target.value)}
@@ -1794,7 +1823,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                     if (feedback.trim() && !changes.isPending) changes.mutate();
                   }}
                 >
-                  <input
+                  <Input
                     value={feedback}
                     onChange={(event) => setFeedback(event.target.value)}
                     placeholder="추가로 요청할 내용을 입력하세요."
@@ -1856,7 +1885,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                       : "작업에 맞는 에이전트를 선택하면 시작할 수 있습니다."}
                   </span>
                   {(agents.data?.length ?? 0) > 0 ? (
-                    <select
+                    <Select
                       value={item.assigneeAgentId ?? ""}
                       disabled={updateAssignment.isPending}
                       onChange={(event) => updateAssignment.mutate(event.target.value)}
@@ -1867,7 +1896,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                           {candidate.name} · {candidate.model.toUpperCase()}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
                     <Styled.AssignmentLink as={Link} to="/agents">
                       첫 에이전트 만들기
@@ -2142,7 +2171,7 @@ function WorkflowPanel({
           <Styled.WorkflowPresetPicker>
             <label htmlFor="workflow-preset">저장된 협업 그룹</label>
             <div>
-              <select
+              <Select
                 id="workflow-preset"
                 value={selectedPresetId}
                 onChange={(event) => {
@@ -2163,7 +2192,7 @@ function WorkflowPanel({
                     {preset.name} · {preset.agentIds.length}명
                   </option>
                 ))}
-              </select>
+              </Select>
               <Styled.WorkflowPresetDelete
                 type="button"
                 disabled={!selectedPreset || presetSaving}
@@ -2178,7 +2207,7 @@ function WorkflowPanel({
             <Styled.WorkflowEditorStep key={`${position}-${agentId}`}>
               <Styled.WorkflowStepMain>
                 <span>{position + 1}</span>
-                <select
+                <Select
                   value={agentId}
                   onChange={(event) => updateAgent(position, event.target.value)}
                 >
@@ -2187,7 +2216,7 @@ function WorkflowPanel({
                       {agent.name} · {agent.role}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Styled.WorkflowStepMain>
               <Styled.WorkflowStepControls>
                 <span>
@@ -2246,7 +2275,7 @@ function WorkflowPanel({
               }
             }}
           >
-            <input
+            <Input
               value={presetName}
               onChange={(event) => setPresetName(event.target.value)}
               placeholder="이 순서의 그룹 이름"
@@ -2785,7 +2814,7 @@ function RuntimeApproval({
   const command = typeof details.command === "string" ? details.command : undefined;
   return (
     <Styled.RuntimeApproval>
-      <span className="kicker">APPROVAL REQUIRED</span>
+      <Kicker>APPROVAL REQUIRED</Kicker>
       <strong>작업을 계속하려면 승인이 필요합니다.</strong>
       <p>{reason}</p>
       {command && <pre>{command}</pre>}

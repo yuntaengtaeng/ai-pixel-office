@@ -1,7 +1,8 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button } from "@ai-pixel-office/ui";
+import { Button, HelperText, Input } from "@ai-pixel-office/ui";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { projectApi } from "../projects/api.ts";
 import { systemApi } from "../system/api.ts";
@@ -9,7 +10,9 @@ import { workspaceApi } from "../workspaces/api.ts";
 import { useAlertDialog, useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { AlertDialog, ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner, PageHeader } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { ProjectDirectorySelect } from "../projects/ProjectSelect.tsx";
 
@@ -20,25 +23,25 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: 1fr;
     }
   `,
   Section: styled.section`
     padding: 20px;
     display: grid;
-    gap: 14px;
+    gap: 16px;
   `,
   WorkspaceForm: styled.form`
     padding: 20px;
     display: grid;
-    gap: 14px;
+    gap: 16px;
   `,
   AdvancedSettings: styled.details`
     grid-column: 1 / -1;
 
     > summary {
-      padding: 17px 20px;
+      padding: 16px 20px;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -46,113 +49,114 @@ const Styled = {
       list-style-position: inside;
 
       strong {
-        font-size: 14px;
+        font-size: ${({ theme }) => theme.typography.fontSize.lg};
       }
 
       span {
-        color: ${({ theme }) => theme.colors.muted};
-        font-size: 10px;
+        color: ${({ theme }) => theme.colors.text.muted};
+        font-size: ${({ theme }) => theme.typography.fontSize.sm};
       }
     }
 
     &[open] > summary {
-      border-bottom: 2px solid #ded2c2;
+      border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
     }
   `,
   AdvancedSettingsBody: styled.div`
     padding: 20px;
     display: grid;
-    gap: 14px;
+    gap: 16px;
   `,
   AdvancedDefaultRow: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-    gap: 9px;
+    gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   ProjectAddForm: styled.form`
     display: flex;
     align-items: end;
-    gap: 9px;
+    gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       display: grid;
     }
   `,
   ProjectDirectoryList: styled.div`
     display: grid;
-    gap: 7px;
+    gap: 8px;
   `,
   ProjectRow: styled.article<{ $selected: boolean }>`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    border: 1px solid #d3c7b7;
-    background: #fffdf8;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
-    ${({ $selected }) =>
+    ${({ $selected, theme }) =>
       $selected &&
       `
-        border-color: #4e8874;
-        background: #e7f1eb;
-        box-shadow: inset 4px 0 #4e8874;
+        border-color: ${theme.colors.brand.primary};
+        background: ${theme.colors.background.positiveSubtle};
+        box-shadow: inset 4px 0 ${theme.colors.brand.primary};
       `}
 
     > span {
-      padding: 4px 7px;
-      color: #3e705a;
-      font-size: 9px;
-      font-weight: 800;
+      padding: 4px 8px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   ProjectSelectButton: styled.button`
     min-width: 0;
-    padding: 10px 12px;
+    padding: 12px 12px;
     border: 0;
     background: transparent;
     text-align: left;
     display: grid;
-    gap: 3px;
+    gap: 4px;
     cursor: pointer;
 
     strong {
-      font-size: 12px;
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: ${({ theme }) => theme.colors.muted};
-      font: 9px monospace;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   ProjectDeleteButton: styled.button`
     align-self: stretch;
-    padding: 0 11px;
+    padding: 0 12px;
     border: 0;
-    border-left: 1px dashed #cbbdac;
-    background: #fae9e6;
-    color: #934b46;
-    font-size: 9px;
-    font-weight: 800;
+    border-left: 1px dashed ${({ theme }) => theme.colors.shadow.default};
+    background: ${({ theme }) => theme.colors.background.negativeSubtle};
+    color: ${({ theme }) => theme.colors.text.negative};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     cursor: pointer;
   `,
   ConnectionList: styled.div`
     display: grid;
-    gap: 10px;
+    gap: 12px;
   `,
   ConnectionCard: styled.article`
     display: grid;
     grid-template-columns: 12px minmax(0, 1fr);
-    gap: 11px;
-    padding: 13px;
-    border: 1px solid #d3c7b7;
-    background: #fffdf8;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > div {
       min-width: 0;
@@ -160,33 +164,34 @@ const Styled = {
 
     p {
       margin: 4px 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
 
     small {
-      color: #796d64;
-      font: 9px monospace;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   ConnectionLight: styled.span<{ $state: "connected" | "warning" | "default" }>`
     width: 10px;
     height: 10px;
-    margin-top: 3px;
-    background: #c55c58;
-    box-shadow: 0 0 0 2px #f0d5d1;
+    margin-top: 4px;
+    background: ${({ theme }) => theme.colors.semantic.negative};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.border.negative};
 
-    ${({ $state }) =>
+    ${({ $state, theme }) =>
       $state === "connected" &&
       `
-        background: #4d9b6e;
-        box-shadow: 0 0 0 2px #d5eadc;
+        background: ${theme.colors.brand.primary};
+        box-shadow: 0 0 0 2px ${theme.colors.border.positive};
       `}
-    ${({ $state }) =>
+    ${({ $state, theme }) =>
       $state === "warning" &&
       `
-        background: #c99743;
-        box-shadow: 0 0 0 2px #f3e3bf;
+        background: ${theme.colors.semantic.warning};
+        box-shadow: 0 0 0 2px ${theme.colors.border.subtle};
       `}
   `,
   CommandRow: styled.div`
@@ -196,18 +201,18 @@ const Styled = {
 
     code {
       min-width: 0;
-      padding: 7px;
+      padding: 8px;
       overflow: auto;
-      background: #eee6da;
-      color: #544b44;
-      font-size: 9px;
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
+      color: ${({ theme }) => theme.colors.text.primary};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
       white-space: nowrap;
     }
 
     button {
-      border: 1px solid #b7a995;
-      background: #f7efdf;
-      font-size: 9px;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
       cursor: pointer;
     }
   `,
@@ -217,13 +222,13 @@ const Styled = {
     gap: 8px;
   `,
   DesktopConnectButton: styled.button`
-    margin-top: 9px;
-    padding: 8px 11px;
-    border: 1px solid ${({ theme }) => theme.colors.greenDark};
-    background: ${({ theme }) => theme.colors.green};
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid ${({ theme }) => theme.colors.brand.primaryDark};
+    background: ${({ theme }) => theme.colors.brand.primary};
     color: white;
-    font-size: 10px;
-    font-weight: 900;
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     cursor: pointer;
 
     &:disabled {
@@ -232,13 +237,13 @@ const Styled = {
     }
   `,
   DesktopInstallButton: styled.button`
-    margin-top: 9px;
-    padding: 8px 11px;
-    border: 1px solid ${({ theme }) => theme.colors.blue};
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid ${({ theme }) => theme.colors.brand.secondary};
     background: white;
-    color: ${({ theme }) => theme.colors.blue};
-    font-size: 10px;
-    font-weight: 900;
+    color: ${({ theme }) => theme.colors.brand.secondary};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     cursor: pointer;
 
     &:disabled {
@@ -248,13 +253,13 @@ const Styled = {
   `,
   ConnectionHint: styled.p`
     && {
-      margin-top: 7px;
-      color: ${({ theme }) => theme.colors.greenDark};
-      font-weight: 800;
+      margin-top: 8px;
+      color: ${({ theme }) => theme.colors.brand.primaryDark};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     &[data-error] {
-      color: ${({ theme }) => theme.colors.red};
+      color: ${({ theme }) => theme.colors.semantic.negative};
     }
   `,
 };
@@ -389,7 +394,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
           </div>
           <div className="field">
             <label>이름</label>
-            <input
+            <Input
               value={workspaceName}
               onChange={(event) => setWorkspaceName(event.target.value)}
               required
@@ -412,9 +417,9 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
               <h2>로컬 프로젝트 폴더</h2>
               <span>{projects.data?.length ?? 0}</span>
             </div>
-            <p className="helper-copy">
+            <HelperText>
               코드 작업이 필요한 경우에만 설정하세요. PM·디자인 대화에는 필요하지 않습니다.
-            </p>
+            </HelperText>
             <Styled.AdvancedDefaultRow>
               <ProjectDirectorySelect
                 workspaceId={workspace.id}
@@ -440,7 +445,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
             >
               <div className="field">
                 <label>프로젝트 이름</label>
-                <input
+                <Input
                   value={projectName}
                   onChange={(event) => setProjectName(event.target.value)}
                   placeholder="예: 쇼핑몰 웹"
@@ -449,7 +454,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
               </div>
               <div className="field grow">
                 <label>선택한 폴더</label>
-                <input
+                <Input
                   value={projectPath}
                   onChange={(event) => setProjectPath(event.target.value)}
                   placeholder="폴더 찾아보기를 눌러 주세요"

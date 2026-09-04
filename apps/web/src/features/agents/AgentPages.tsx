@@ -1,8 +1,17 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, TrashIcon } from "@ai-pixel-office/ui";
+import {
+  Button,
+  HelperText,
+  Input,
+  Kicker,
+  Select,
+  TextArea,
+  TrashIcon,
+} from "@ai-pixel-office/ui";
 import type {
   AgentPermissions,
   ModelPolicy,
@@ -14,7 +23,7 @@ import type {
 import { taskApi } from "../tasks/api.ts";
 import { skillApi } from "../skills/api.ts";
 import { agentApi } from "./api.ts";
-import { PETS } from "../office/pets.ts";
+import { PETS } from "@ai-pixel-office/pet";
 import { PetPreview } from "../office/PetPreview.tsx";
 import { PERMISSIONS, STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
@@ -22,45 +31,39 @@ import { toggle } from "../../shared/lib/collections.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner, PageHeader } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { ProjectDirectorySelect } from "../projects/ProjectSelect.tsx";
 import { ModelPolicyFields } from "./ModelPolicyFields.tsx";
 import { defaultManualModel } from "./model-options.ts";
 
-const STATUS_ACCENT: Record<TaskStatus, string> = {
-  todo: "#c19a54",
-  working: "#4c8a75",
-  needs_review: "#8b68b5",
-  needs_input: "#487fad",
-  blocked: "#c85f58",
-  failed: "#a54349",
-  done: "#599875",
-};
-
 const Styled = {
   StatusPill: styled.span<{ $status: TaskStatus }>`
     display: inline-block;
-    padding: 5px 9px;
+    padding: 4px 8px;
     border: 2px solid currentColor;
-    border-top-color: ${({ $status }) => STATUS_ACCENT[$status]};
-    background: #fff8ed;
-    font: 800 10px monospace;
+    border-top-color: ${({ $status }) => STATUS[$status].color};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   `,
   Roster: styled.section`
-    margin-top: 22px;
+    margin-top: 24px;
     padding: 20px;
   `,
   RosterGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+    gap: 12px;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -68,32 +71,32 @@ const Styled = {
     position: relative;
     width: 100%;
     padding: 0;
-    border: 1px solid #d9cebf;
-    background: #fffdf8;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
     text-align: left;
 
-    ${({ $selected }) =>
+    ${({ $selected, theme }) =>
       $selected &&
       `
-        border-color: #4d7c6c;
-        background: #edf5ef;
-        box-shadow: 3px 3px 0 #b9cfc4;
+        border-color: ${theme.colors.border.positive};
+        background: ${theme.colors.background.positiveSubtle};
+        box-shadow: 3px 3px 0 ${theme.colors.shadow.positive};
       `}
 
     &:hover {
-      border-color: #4d7c6c;
-      background: #edf5ef;
-      box-shadow: 3px 3px 0 #b9cfc4;
+      border-color: ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.shadow.positive};
     }
 
     > button {
       width: 100%;
-      padding: 10px 10px 42px;
+      padding: 12px 12px 44px;
       border: 0;
       background: transparent;
       display: flex;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
       text-align: left;
       cursor: pointer;
@@ -106,20 +109,22 @@ const Styled = {
     }
 
     strong {
-      font-size: 13px;
+      font-size: ${({ theme }) => theme.typography.fontSize.base};
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
 
     small {
-      color: #4b7b69;
-      font: 800 9px monospace;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
   AgentCardActions: styled.div`
@@ -128,51 +133,51 @@ const Styled = {
     bottom: 8px;
     display: flex !important;
     grid-auto-flow: column;
-    gap: 5px !important;
+    gap: 4px !important;
 
     a,
     button {
-      padding: 5px 7px;
-      border: 1px solid #8ca99d;
-      background: #edf5ef;
-      color: #42695b;
-      font-size: 9px;
-      font-weight: 800;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
     }
 
     button {
-      border-color: #c7938e;
-      background: #fae9e6;
-      color: #934b46;
+      border-color: ${({ theme }) => theme.colors.border.negative};
+      background: ${({ theme }) => theme.colors.background.negativeSubtle};
+      color: ${({ theme }) => theme.colors.text.negative};
     }
   `,
   QuickJobs: styled.section`
-    margin-top: 18px;
+    margin-top: 20px;
     padding: 20px;
   `,
   QuickJobList: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 9px;
+    gap: 8px;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   QuickJob: styled.div`
     display: grid;
     grid-template-columns: 1fr 30px;
-    border: 1px solid #cabda9;
-    background: #fffaf0;
+    border: 1px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surface};
 
     > button:first-child {
       min-width: 0;
-      padding: 11px;
+      padding: 12px;
       border: 0;
       background: transparent;
       text-align: left;
@@ -182,12 +187,12 @@ const Styled = {
     }
 
     strong {
-      font-size: 12px;
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -195,9 +200,9 @@ const Styled = {
   `,
   RemoveQuickJobButton: styled.button`
     border: 0;
-    border-left: 1px solid #ded2c1;
-    background: #faf7f1;
-    color: #887871;
+    border-left: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    color: ${({ theme }) => theme.colors.text.negative};
     display: grid;
     place-items: center;
     cursor: pointer;
@@ -209,35 +214,35 @@ const Styled = {
     }
 
     &:hover {
-      background: #f7dfdc;
-      color: #9f413d;
+      background: ${({ theme }) => theme.colors.background.negativeSubtle};
+      color: ${({ theme }) => theme.colors.text.negative};
     }
   `,
   RecentJobs: styled.div`
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     margin-top: 12px;
     flex-wrap: wrap;
-    font-size: 10px;
-    color: ${({ theme }) => theme.colors.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    color: ${({ theme }) => theme.colors.text.muted};
 
     button {
-      padding: 5px 8px;
-      border: 1px solid #c9bdad;
-      background: #f7f0e5;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
       cursor: pointer;
     }
   `,
   QuickJobForm: styled.form`
     display: flex;
     align-items: end;
-    gap: 9px;
+    gap: 8px;
     margin-top: 16px;
-    padding-top: 15px;
-    border-top: 1px dashed #d6c9b8;
+    padding-top: 16px;
+    border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       display: grid;
     }
   `,
@@ -247,7 +252,7 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: 1fr;
     }
   `,
@@ -259,49 +264,49 @@ const Styled = {
     padding: 16px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 9px;
+    gap: 8px;
 
     div {
-      padding: 10px;
-      background: #f2eadf;
+      padding: 12px;
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
       text-align: center;
       display: grid;
       gap: 4px;
     }
 
     strong {
-      color: #3e7160;
-      font-size: 22px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.headingXl};
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   ProfilePanel: styled.section`
-    padding: 18px;
+    padding: 20px;
   `,
   TemplateList: styled.div`
     display: grid;
-    gap: 6px;
+    gap: 8px;
 
     > div {
       display: grid;
       grid-template-columns: 1fr 30px;
-      border: 1px solid #d5c9b9;
+      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
       > div {
         min-width: 0;
         padding: 8px;
         display: grid;
-        gap: 3px;
+        gap: 4px;
       }
     }
 
     span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -310,9 +315,9 @@ const Styled = {
     button {
       width: 34px;
       border: 0;
-      border-left: 1px solid #ded2c1;
-      background: #faf7f1;
-      color: #887871;
+      border-left: 1px solid ${({ theme }) => theme.colors.border.subtle};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      color: ${({ theme }) => theme.colors.text.negative};
       display: grid;
       place-items: center;
       cursor: pointer;
@@ -324,18 +329,18 @@ const Styled = {
       }
 
       &:hover {
-        background: #f7dfdc;
-        color: #9f413d;
+        background: ${({ theme }) => theme.colors.background.negativeSubtle};
+        color: ${({ theme }) => theme.colors.text.negative};
       }
     }
   `,
   TemplateForm: styled.form`
     display: grid;
     grid-template-columns: 0.7fr 1fr auto;
-    gap: 6px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 12px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -347,20 +352,20 @@ const Styled = {
       grid-template-columns: auto minmax(0, 1fr) auto;
       gap: 8px;
       align-items: center;
-      padding: 9px 2px;
-      border-bottom: 1px solid #e5dbcd;
+      padding: 8px 4px;
+      border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
     }
 
     strong {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-size: 11px;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     time {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
   `,
   BuilderLayout: styled.div`
@@ -369,14 +374,14 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: 1fr;
     }
   `,
   BuilderForm: styled.form`
-    padding: 22px;
+    padding: 24px;
     display: grid;
-    gap: 18px;
+    gap: 20px;
 
     h2 {
       margin: 0;
@@ -386,32 +391,34 @@ const Styled = {
     display: flex;
     align-items: center;
     gap: 16px;
-    background: #efe6d8;
-    padding: 13px;
-    border: 2px solid #d2c2ae;
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
+    padding: 12px;
+    border: 2px solid ${({ theme }) => theme.colors.border.default};
 
     div {
       display: grid;
-      gap: 2px;
+      gap: 4px;
 
       > span {
-        color: #9c704f;
-        font: 800 10px monospace;
+        color: ${({ theme }) => theme.colors.text.secondary};
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+        font-size: ${({ theme }) => theme.typography.fontSize.sm};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       }
     }
 
     strong {
-      font-size: 21px;
+      font-size: ${({ theme }) => theme.typography.fontSize.headingLg};
     }
 
     small {
-      color: ${({ theme }) => theme.colors.muted};
+      color: ${({ theme }) => theme.colors.text.muted};
     }
   `,
   CheckGrid: styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
+    gap: 8px;
   `,
   CheckChip: styled.label`
     position: relative;
@@ -424,18 +431,18 @@ const Styled = {
 
     span {
       display: block;
-      padding: 7px 9px;
-      border: 1px solid #c9bdad;
-      background: #f7f0e5;
-      font-size: 11px;
+      padding: 8px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       cursor: pointer;
     }
 
     input:checked + span {
-      color: #326252;
-      border-color: #5a907d;
-      background: #dcece3;
-      box-shadow: inset 3px 0 #4e8874;
+      color: ${({ theme }) => theme.colors.text.positive};
+      border-color: ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
+      box-shadow: inset 3px 0 ${({ theme }) => theme.colors.brand.primary};
     }
   `,
   EnginePicker: styled.div`
@@ -444,78 +451,78 @@ const Styled = {
     gap: 8px;
 
     button {
-      padding: 11px;
+      padding: 12px;
       display: grid;
-      gap: 2px;
-      border: 2px solid #c9bcaa;
-      background: #f3ebdf;
-      font-weight: 800;
+      gap: 4px;
+      border: 2px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 
       &.selected {
-        border-color: #416f61;
-        background: #dce9e1;
-        color: #375e53;
+        border-color: ${({ theme }) => theme.colors.border.positive};
+        background: ${({ theme }) => theme.colors.background.surfaceMuted};
+        color: ${({ theme }) => theme.colors.text.positive};
       }
     }
 
     small {
-      font-size: 9px;
-      font-weight: 500;
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
     }
   `,
   AdvancedOptions: styled.details`
-    border: 1px solid #cdbfad;
-    background: #f8f1e6;
+    border: 1px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > summary {
-      padding: 10px 12px;
-      color: #665c54;
-      font-size: 10px;
-      font-weight: 800;
+      padding: 12px 12px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
     }
 
     > div {
       padding: 12px;
-      border-top: 1px dashed #cdbfad;
+      border-top: 1px dashed ${({ theme }) => theme.colors.border.default};
       display: grid;
-      gap: 15px;
+      gap: 16px;
     }
   `,
   MappedPermissions: styled.div`
-    margin-top: 9px;
-    padding: 9px;
-    border-left: 3px solid #6f9e8b;
-    background: #e9f2ed;
+    margin-top: 8px;
+    padding: 8px;
+    border-left: 3px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
     display: grid;
-    gap: 6px;
+    gap: 8px;
 
     strong {
-      color: #456e60;
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
     > div {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 4px;
     }
 
     span {
-      padding: 3px 6px;
-      border: 1px solid #96b5a8;
-      background: #f5fbf7;
-      color: #3e6759;
-      font-size: 8px;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
   `,
   AvatarLibrary: styled.section`
-    padding: 22px;
+    padding: 24px;
 
     h3 {
-      margin: 18px 0 9px;
-      font-size: 13px;
-      color: #76675c;
+      margin: 20px 0 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.base};
+      color: ${({ theme }) => theme.colors.text.secondary};
     }
   `,
   PetGrid: styled.div`
@@ -523,41 +530,41 @@ const Styled = {
     grid-template-columns: repeat(5, 1fr);
     gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: repeat(3, 1fr);
     }
   `,
   PetChoice: styled.button<{ $selected: boolean }>`
     min-width: 0;
     padding: 8px 4px;
-    border: 2px solid #ded2c2;
-    background: #faf5eb;
+    border: 2px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: flex;
     flex-direction: column;
     align-items: center;
     cursor: pointer;
 
     &:hover {
-      border-color: #8a7666;
+      border-color: ${({ theme }) => theme.colors.border.default};
     }
 
-    ${({ $selected }) =>
+    ${({ $selected, theme }) =>
       $selected &&
       `
-        border-color: #3f7564;
-        background: #dfece4;
-        box-shadow: 3px 3px 0 #9bb6a8;
+        border-color: ${theme.colors.border.positive};
+        background: ${theme.colors.background.surfaceMuted};
+        box-shadow: 3px 3px 0 ${theme.colors.border.positive};
       `}
 
     strong {
       margin-top: 4px;
-      font-size: 11px;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     span {
-      margin-top: 2px;
-      font-size: 8px;
-      color: ${({ theme }) => theme.colors.muted};
+      margin-top: 4px;
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      color: ${({ theme }) => theme.colors.text.muted};
       overflow: hidden;
       white-space: nowrap;
       width: 100%;
@@ -716,7 +723,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           </Styled.SelectedPet>
           <div className="field">
             <label>이름</label>
-            <input
+            <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="예: 프론트엔드 개발자"
@@ -725,7 +732,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           </div>
           <div className="field">
             <label>어떤 도움을 주나요?</label>
-            <textarea
+            <TextArea
               value={role}
               onChange={(event) => setRole(event.target.value)}
               placeholder="이 동료가 도와줄 일을 적어 주세요."
@@ -734,10 +741,10 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           </div>
           <fieldset className="skill-selector">
             <legend>스킬 · 선택 사항</legend>
-            <p className="helper-copy">
+            <HelperText>
               스킬 없이도 기본 업무를 수행합니다. 반복해서 잘해야 할 전문 업무가 있으면 스킬을
               연결하세요.
-            </p>
+            </HelperText>
             <Styled.CheckGrid>
               {(skills.data ?? []).map((skill) => (
                 <Styled.CheckChip
@@ -748,7 +755,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                       : undefined
                   }
                 >
-                  <input
+                  <Input
                     type="checkbox"
                     checked={selectedSkills.includes(skill.id)}
                     onChange={() => toggleSkill(skill)}
@@ -825,7 +832,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                       const required = key === "fileRead" || key === "terminal";
                       return (
                         <Styled.CheckChip key={key}>
-                          <input
+                          <Input
                             type="checkbox"
                             checked={permissions[key] ?? false}
                             disabled={required}
@@ -857,7 +864,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         <Styled.AvatarLibrary className="panel">
           <div className="section-heading">
             <div>
-              <span className="kicker">PET LIBRARY</span>
+              <Kicker>PET LIBRARY</Kicker>
               <h2>캐릭터 고르기</h2>
             </div>
           </div>
@@ -936,13 +943,13 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         <Styled.QuickJobs className="panel">
           <div className="section-heading">
             <div>
-              <span className="kicker">QUICK ASSIGN</span>
+              <Kicker>QUICK ASSIGN</Kicker>
               <h2>{selectedAgent.name}에게 바로 맡기기</h2>
             </div>
           </div>
-          <p className="helper-copy">
+          <HelperText>
             자주 하는 일을 등록해 두면 동료를 클릭한 뒤 한 번에 작업을 만들 수 있습니다.
-          </p>
+          </HelperText>
           <Styled.QuickJobList>
             {(templates.data ?? []).map((template) => (
               <Styled.QuickJob key={template.id}>
@@ -992,7 +999,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           >
             <div className="field">
               <label>작업 이름</label>
-              <input
+              <Input
                 value={templateTitle}
                 onChange={(event) => setTemplateTitle(event.target.value)}
                 placeholder="예: UI 검토"
@@ -1001,7 +1008,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
             </div>
             <div className="field grow">
               <label>기본 요청</label>
-              <input
+              <Input
                 value={templateDescription}
                 onChange={(event) => setTemplateDescription(event.target.value)}
                 placeholder="예: Figma 화면의 사용성과 일관성을 검토해 줘"
@@ -1190,38 +1197,38 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
           </Styled.SelectedPet>
           <div className="field">
             <label>캐릭터</label>
-            <select value={avatarId} onChange={(event) => setAvatarId(event.target.value)}>
+            <Select value={avatarId} onChange={(event) => setAvatarId(event.target.value)}>
               {PETS.map((pet) => (
                 <option value={pet.id} key={pet.id}>
                   {pet.name} · {pet.breed}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="field">
             <label>이름</label>
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input value={name} onChange={(event) => setName(event.target.value)} required />
           </div>
           <div className="field">
             <label>역할</label>
-            <textarea value={role} onChange={(event) => setRole(event.target.value)} required />
+            <TextArea value={role} onChange={(event) => setRole(event.target.value)} required />
           </div>
           <div className="field">
             <label>설명</label>
-            <textarea
+            <TextArea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
           <fieldset className="skill-selector">
             <legend>스킬 · 선택 사항</legend>
-            <p className="helper-copy">
+            <HelperText>
               스킬은 선택 사항이며, 연결한 스킬에 필요한 권한은 자동으로 적용됩니다.
-            </p>
+            </HelperText>
             <Styled.CheckGrid>
               {(skills.data ?? []).map((skill) => (
                 <Styled.CheckChip key={skill.id}>
-                  <input
+                  <Input
                     type="checkbox"
                     checked={selectedSkills.includes(skill.id)}
                     onChange={() => toggleAgentSkill(skill)}
@@ -1284,7 +1291,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                   <Styled.CheckGrid>
                     {PERMISSIONS.map(({ key, label }) => (
                       <Styled.CheckChip key={key}>
-                        <input
+                        <Input
                           type="checkbox"
                           checked={permissions[key] ?? false}
                           disabled={key === "fileRead" || key === "terminal"}
@@ -1377,13 +1384,13 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                 addTemplate.mutate();
               }}
             >
-              <input
+              <Input
                 value={templateTitle}
                 onChange={(event) => setTemplateTitle(event.target.value)}
                 placeholder="예: UI 검토"
                 required
               />
-              <input
+              <Input
                 value={templateDescription}
                 onChange={(event) => setTemplateDescription(event.target.value)}
                 placeholder="기본 요청"

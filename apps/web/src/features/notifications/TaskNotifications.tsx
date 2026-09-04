@@ -1,3 +1,4 @@
+import { colors, mediaQuery } from "@ai-pixel-office/design-token";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -50,23 +51,23 @@ const snackbarIn = keyframes`
 `;
 
 const TONE_COLORS: Record<SnackbarItem["tone"], { border: string; background: string }> = {
-  info: { border: "#548273", background: "#e9f5ed" },
-  warning: { border: "#b07c34", background: "#fff2cf" },
-  danger: { border: "#ae554d", background: "#ffebe3" },
+  info: colors.feedback.info,
+  warning: colors.feedback.warning,
+  danger: colors.feedback.danger,
 };
 
 const Styled = {
   Region: styled.div`
     position: fixed;
-    z-index: 100;
+    z-index: ${({ theme }) => theme.zIndex.notification};
     right: 22px;
     bottom: 22px;
     width: min(390px, calc(100vw - 28px));
     display: grid;
-    gap: 10px;
+    gap: 12px;
     pointer-events: none;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       right: 14px;
       bottom: 14px;
     }
@@ -77,7 +78,7 @@ const Styled = {
     grid-template-columns: 1fr auto;
     gap: 12px;
     align-items: center;
-    padding: 14px 42px 14px 16px;
+    padding: 16px 44px 16px 16px;
     border: 2px solid ${({ $tone }) => TONE_COLORS[$tone].border};
     background: ${({ $tone }) => TONE_COLORS[$tone].background};
     box-shadow: 5px 5px 0 rgb(73 59 49 / 22%);
@@ -88,32 +89,32 @@ const Styled = {
     > div {
       min-width: 0;
       display: grid;
-      gap: 3px;
+      gap: 4px;
     }
 
     strong {
-      color: #433c37;
-      font-size: 13px;
+      color: ${({ theme }) => theme.colors.text.primary};
+      font-size: ${({ theme }) => theme.typography.fontSize.base};
     }
 
     span {
-      color: #766a61;
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
   `,
   PermissionHint: styled.span`
-    margin-top: 3px;
-    color: #8a5c32;
-    font-size: 9px;
-    font-weight: 700;
+    margin-top: 4px;
+    color: ${({ theme }) => theme.colors.text.secondary};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   `,
   ActionButton: styled.button`
     border: 1px solid currentColor;
     background: rgb(255 255 255 / 55%);
-    padding: 6px 8px;
-    color: #4c695f;
-    font-size: 10px;
-    font-weight: 800;
+    padding: 8px 8px;
+    color: ${({ theme }) => theme.colors.text.positive};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     cursor: pointer;
   `,
   CloseButton: styled.button`
@@ -125,8 +126,8 @@ const Styled = {
     padding: 0;
     border: 0;
     background: transparent;
-    color: #776b62;
-    font-size: 20px;
+    color: ${({ theme }) => theme.colors.text.secondary};
+    font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
     line-height: 1;
     cursor: pointer;
   `,

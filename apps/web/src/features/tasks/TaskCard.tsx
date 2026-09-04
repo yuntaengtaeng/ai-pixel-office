@@ -2,31 +2,26 @@ import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { TrashIcon } from "@ai-pixel-office/ui";
 import type { Agent, Task } from "@ai-pixel-office/domain/entities";
+import { PRIORITY_COLORS } from "../../shared/config/presentation.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { PetPreview } from "../office/PetPreview.tsx";
-
-const PRIORITY_COLORS: Record<NonNullable<Task["priority"]>, string> = {
-  high: "#d5685e",
-  medium: "#d4ac67",
-  low: "#6fa389",
-};
 
 const Styled = {
   Row: styled.article`
     display: grid;
     grid-template-columns: minmax(0, 1fr) 40px;
-    border: 1px solid #d9cdbd;
-    background: #fffdfa;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     &:hover {
-      border-color: #8b7667;
+      border-color: ${({ theme }) => theme.colors.border.default};
       transform: translateY(-1px);
     }
   `,
   Card: styled(Link)`
     position: relative;
-    padding: 11px 10px 10px 16px;
-    background: #fffdfa;
+    padding: 12px 12px 12px 16px;
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     border: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -48,23 +43,23 @@ const Styled = {
     gap: 4px;
 
     strong {
-      font-size: 13px;
+      font-size: ${({ theme }) => theme.typography.fontSize.base};
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     > span {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     small {
-      color: #9b8e83;
-      font-size: 8px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
   `,
   MiniAgent: styled.div`
@@ -78,16 +73,16 @@ const Styled = {
     }
   `,
   Unassigned: styled.span`
-    font-size: 9px;
-    color: #9a9188;
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    color: ${({ theme }) => theme.colors.text.muted};
   `,
   DeleteButton: styled.button`
     display: grid;
     place-items: center;
     border: 0;
-    border-left: 1px solid #e4d8ca;
-    background: #faf7f1;
-    color: #887871;
+    border-left: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    color: ${({ theme }) => theme.colors.text.negative};
     cursor: pointer;
     transition:
       color 0.14s,
@@ -101,13 +96,13 @@ const Styled = {
 
     &:hover:not(:disabled),
     &:focus-visible {
-      color: #9f413d;
-      background: #f7dfdc;
+      color: ${({ theme }) => theme.colors.text.negative};
+      background: ${({ theme }) => theme.colors.background.negativeSubtle};
       outline: none;
     }
 
     &:focus-visible {
-      box-shadow: inset 0 0 0 2px #b6605a;
+      box-shadow: inset 0 0 0 2px ${({ theme }) => theme.colors.border.negative};
     }
 
     &:disabled {
@@ -115,8 +110,8 @@ const Styled = {
     }
   `,
   DeleteLoading: styled.span`
-    font-size: 14px;
-    font-weight: 900;
+    font-size: ${({ theme }) => theme.typography.fontSize.lg};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
   `,
 };
 

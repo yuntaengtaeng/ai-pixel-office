@@ -1,15 +1,17 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, Surface } from "@ai-pixel-office/ui";
+import { Button, Kicker, Select, Surface, TextArea } from "@ai-pixel-office/ui";
 import type { Input, Workspace } from "@ai-pixel-office/domain/entities";
 import { inputApi } from "./api.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 
 const INPUT_TYPES: Array<{ value: Input["type"]; label: string }> = [
   { value: "request", label: "요청" },
@@ -21,11 +23,11 @@ const INPUT_TYPES: Array<{ value: Input["type"]; label: string }> = [
 const Styled = {
   Surface: styled(Surface)`
     margin-bottom: 24px;
-    padding: 22px;
-    border-color: ${({ theme }) => theme.colors.blue};
+    padding: 24px;
+    border-color: ${({ theme }) => theme.colors.brand.secondary};
     background:
       linear-gradient(135deg, rgb(77 127 138 / 10%), transparent 42%),
-      ${({ theme }) => theme.colors.cream};
+      ${({ theme }) => theme.colors.background.surface};
   `,
   Intro: styled.div`
     display: flex;
@@ -35,42 +37,44 @@ const Styled = {
     margin-bottom: 16px;
 
     h2 {
-      margin: 4px 0 5px;
-      font-size: 20px;
+      margin: 4px 0 4px;
+      font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
     }
 
     p {
       max-width: 620px;
       margin: 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 12px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
       line-height: 1.6;
     }
   `,
   Count: styled.span`
     flex: 0 0 auto;
-    padding: 7px 10px;
-    border: 1px solid #9ab8bd;
-    background: #e4f0f2;
-    color: #356974;
-    font: 900 11px monospace;
+    padding: 8px 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
+    color: ${({ theme }) => theme.colors.text.positive};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.compact};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
   `,
   Flow: styled.ol`
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
-    margin: 0 0 14px;
+    margin: 0 0 16px;
     padding: 0;
     list-style: none;
 
     li {
       position: relative;
       min-height: 54px;
-      padding: 10px 12px 10px 40px;
-      border: 1px solid #c8d8d9;
+      padding: 12px 12px 12px 40px;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: rgb(255 255 255 / 64%);
-      color: #526361;
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.45;
     }
 
@@ -82,53 +86,55 @@ const Styled = {
       width: 20px;
       height: 20px;
       place-items: center;
-      background: ${({ theme }) => theme.colors.blue};
+      background: ${({ theme }) => theme.colors.brand.secondary};
       color: white;
-      font: 900 10px monospace;
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     }
 
     strong {
       display: block;
-      color: #354b4f;
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   Form: styled.form`
     display: grid;
     grid-template-columns: 110px minmax(0, 1fr) auto;
-    gap: 10px;
+    gap: 12px;
     align-items: stretch;
     padding: 12px;
-    border: 1px dashed #8eafb5;
-    background: #f8fcfc;
+    border: 1px dashed ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
     select,
     textarea {
-      border: 1px solid #9fb7b9;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: white;
-      color: ${({ theme }) => theme.colors.ink};
+      color: ${({ theme }) => theme.colors.text.primary};
       font: inherit;
     }
 
     select {
-      padding: 0 10px;
-      font-size: 11px;
-      font-weight: 800;
+      padding: 0 12px;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     textarea {
       min-height: 58px;
-      padding: 10px 12px;
+      padding: 12px 12px;
       resize: vertical;
-      font-size: 12px;
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
       line-height: 1.5;
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
 
       select {
@@ -138,9 +144,9 @@ const Styled = {
   `,
   List: styled.div`
     display: grid;
-    gap: 7px;
+    gap: 8px;
     max-height: 280px;
-    margin-top: 10px;
+    margin-top: 12px;
     overflow: auto;
   `,
   Item: styled.article`
@@ -148,11 +154,11 @@ const Styled = {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
     align-items: center;
-    padding: 10px;
-    border: 1px solid #d9cdbd;
-    background: #fffdfa;
+    padding: 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -164,12 +170,12 @@ const Styled = {
     > div {
       display: flex;
       gap: 8px;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
 
       span {
-        color: #397080;
-        font-weight: 900;
+        color: ${({ theme }) => theme.colors.text.positive};
+        font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
       }
     }
 
@@ -182,20 +188,20 @@ const Styled = {
     }
 
     strong {
-      font-size: 12px;
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     p {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
   `,
   ItemActions: styled.div`
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       justify-content: flex-end;
     }
   `,
@@ -204,8 +210,8 @@ const Styled = {
     height: 28px;
     border: 0;
     background: transparent;
-    color: #9b6b66;
-    font-size: 19px;
+    color: ${({ theme }) => theme.colors.text.negative};
+    font-size: ${({ theme }) => theme.typography.fontSize.headingSm};
     cursor: pointer;
   `,
 };
@@ -257,7 +263,7 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
     <Styled.Surface>
       <Styled.Intro>
         <div>
-          <span className="kicker">CAPTURE FIRST</span>
+          <Kicker>CAPTURE FIRST</Kicker>
           <h2>요청 보관함</h2>
           <p>
             여기에 적은 내용은 바로 AI 동료에게 전달되지 않습니다. 먼저 보관한 뒤 “작업으로
@@ -284,7 +290,7 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
         </li>
       </Styled.Flow>
       <Styled.Form onSubmit={submit}>
-        <select
+        <Select
           value={type}
           onChange={(event) => setType(event.target.value as Input["type"])}
           aria-label="입력 종류"
@@ -294,8 +300,8 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
               {option.label}
             </option>
           ))}
-        </select>
-        <textarea
+        </Select>
+        <TextArea
           value={content}
           onChange={(event) => setContent(event.target.value)}
           onKeyDown={(event) => {

@@ -1,10 +1,11 @@
 import styled from "styled-components";
+import { colors } from "@ai-pixel-office/design-token";
 
 export type IconButtonTone = "neutral" | "danger";
 
 const TONE_HOVER: Record<IconButtonTone, { background: string; color: string }> = {
-  neutral: { background: "#e8f1ec", color: "#3f6b5c" },
-  danger: { background: "#f7dfdc", color: "#9f413d" },
+  neutral: { background: colors.background.positiveSubtle, color: colors.text.positive },
+  danger: { background: colors.background.negativeSubtle, color: colors.text.negative },
 };
 
 /**
@@ -20,9 +21,9 @@ export const IconButton = styled.button<{ $size?: number; $tone?: IconButtonTone
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: ${({ theme }) => theme.radius.circle};
   background: transparent;
-  color: #786c63;
+  color: ${({ theme }) => theme.colors.text.secondary};
   cursor: pointer;
   transition:
     color 0.14s,

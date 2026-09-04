@@ -1,9 +1,10 @@
+import { colors, mediaQuery } from "@ai-pixel-office/design-token";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "radix-ui";
 import styled, { keyframes } from "styled-components";
-import { Button, CloseIcon } from "@ai-pixel-office/ui";
+import { Button, CloseIcon, Input, Kicker, Select } from "@ai-pixel-office/ui";
 import type {
   Agent,
   ActivityLog,
@@ -14,12 +15,14 @@ import type {
 import { activityApi } from "../activity/api.ts";
 import { agentApi } from "../agents/api.ts";
 import { taskApi } from "../tasks/api.ts";
-import { PRIORITIES, RUNTIME, STATUS } from "../../shared/config/presentation.ts";
+import { PRIORITIES, PRIORITY_COLORS, RUNTIME, STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner, PageHeader } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
 import { InboxPanel } from "../inbox/InboxPanel.tsx";
@@ -28,16 +31,6 @@ const PixelOffice = lazy(async () => {
   const module = await import("../office/PixelOffice.tsx");
   return { default: module.PixelOffice };
 });
-
-const STATUS_BORDER: Record<TaskStatus, string> = {
-  todo: "#c19a54",
-  working: "#4c8a75",
-  needs_review: "#8b68b5",
-  needs_input: "#487fad",
-  blocked: "#c85f58",
-  failed: "#a54349",
-  done: "#599875",
-};
 
 const dialogFade = keyframes`
   from {
@@ -52,17 +45,11 @@ const dialogPop = keyframes`
   }
 `;
 
-const PRIORITY_DOT_COLORS: Record<NonNullable<Task["priority"]>, string> = {
-  high: "#d5685e",
-  medium: "#d4ac67",
-  low: "#6fa389",
-};
-
 const Styled = {
   DialogOverlay: styled(Dialog.Overlay)`
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: ${({ theme }) => theme.zIndex.notification};
     background: rgb(31 38 36 / 62%);
     backdrop-filter: blur(2px);
     animation: ${dialogFade} 0.16s ease-out;
@@ -71,36 +58,36 @@ const Styled = {
     position: fixed;
     left: 50%;
     top: 50%;
-    z-index: 101;
+    z-index: ${({ theme }) => theme.zIndex.notification};
     width: min(680px, calc(100vw - 28px));
     max-height: calc(100vh - 32px);
-    padding: 22px;
+    padding: 24px;
     overflow: auto;
     transform: translate(-50%, -50%);
-    border: 3px solid #4d5f58;
-    background: #f7f0e5;
+    border: 3px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     box-shadow: 8px 8px 0 rgb(20 31 28 / 48%);
     animation: ${dialogPop} 0.18s ease-out;
 
     > header {
       display: flex;
       justify-content: space-between;
-      gap: 18px;
+      gap: 20px;
       margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 2px dashed #d2c3af;
+      padding-bottom: 16px;
+      border-bottom: 2px dashed ${({ theme }) => theme.colors.border.default};
     }
 
     h2 {
-      margin: 5px 0 6px;
-      font-size: 23px;
+      margin: 4px 0 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
     }
 
     header p {
       margin: 0;
       max-width: 540px;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 10px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.55;
     }
   `,
@@ -108,10 +95,10 @@ const Styled = {
     flex: 0 0 auto;
     width: 32px;
     height: 32px;
-    border: 1px solid #d5c9ba;
-    border-radius: 50%;
-    background: #fffaf2;
-    color: #786c63;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    border-radius: ${({ theme }) => theme.radius.circle};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    color: ${({ theme }) => theme.colors.text.secondary};
     display: grid;
     place-items: center;
     cursor: pointer;
@@ -128,16 +115,16 @@ const Styled = {
 
     &:hover,
     &:focus-visible {
-      border-color: #8fa69b;
-      background: #e8f1ec;
-      color: #3f6b5c;
+      border-color: ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
       outline: none;
     }
   `,
   DialogActions: styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 9px;
+    gap: 8px;
   `,
   PriorityField: styled.fieldset`
     margin: 0;
@@ -145,42 +132,42 @@ const Styled = {
     border: 0;
 
     legend {
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
   `,
   PriorityPicker: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
+    gap: 8px;
 
     button {
       min-height: 36px;
-      border: 1px solid #c9bcaa;
-      background: #f5eee3;
-      color: #74685f;
-      font-weight: 800;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
 
       &.selected {
-        border: 2px solid #477664;
-        background: #e0ece5;
-        color: #315b4c;
+        border: 2px solid ${({ theme }) => theme.colors.border.positive};
+        background: ${({ theme }) => theme.colors.background.positiveSubtle};
+        color: ${({ theme }) => theme.colors.text.positive};
       }
     }
   `,
   PriorityChoiceDot: styled.span<{ $priority: NonNullable<Task["priority"]> }>`
     width: 7px;
     height: 7px;
-    margin-right: 6px;
+    margin-right: 8px;
     display: inline-block;
-    background: ${({ $priority }) => PRIORITY_DOT_COLORS[$priority]};
+    background: ${({ $priority }) => PRIORITY_COLORS[$priority]};
   `,
   ResultField: styled.div`
     min-width: 0;
 
     small {
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   HeadingMeta: styled.div`
@@ -191,26 +178,28 @@ const Styled = {
   RuntimeLegend: styled.div`
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   `,
   RuntimeLegendChip: styled.span`
     display: flex;
     align-items: center;
-    gap: 5px;
-    font: 800 11px monospace;
-    color: #6f5c4c;
+    gap: 4px;
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.compact};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+    color: ${({ theme }) => theme.colors.text.secondary};
   `,
   RuntimeLegendDot: styled.span`
     width: 9px;
     height: 9px;
-    border-radius: 50%;
+    border-radius: ${({ theme }) => theme.radius.circle};
     display: inline-block;
   `,
   OnlineDot: styled.span`
     width: 8px;
     height: 8px;
-    background: #74d39a;
-    box-shadow: 0 0 0 2px #315b4c;
+    background: ${({ theme }) => theme.colors.brand.primary};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.border.positive};
     display: inline-block;
   `,
   Toolbar: styled.section`
@@ -218,9 +207,9 @@ const Styled = {
     grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
     gap: 12px;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 16px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -229,92 +218,92 @@ const Styled = {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     min-height: 38px;
-    padding: 0 10px;
-    border: 1px solid #bcae9c;
-    background: #fffdfa;
-    color: #8e7d70;
+    padding: 0 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    color: ${({ theme }) => theme.colors.text.muted};
 
     input {
       min-width: 0;
       padding: 8px;
       border: 0;
       outline: 0;
-      font-size: 11px;
-      background: #fffdfa;
-      color: #4a4039;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      color: ${({ theme }) => theme.colors.text.primary};
       font-family: inherit;
     }
 
     button {
       border: 0;
       background: transparent;
-      color: #8e7d70;
+      color: ${({ theme }) => theme.colors.text.muted};
       cursor: pointer;
     }
   `,
   StatusFilterList: styled.div`
     display: flex;
-    gap: 5px;
+    gap: 4px;
     overflow-x: auto;
-    padding: 2px 0 4px;
+    padding: 4px 0 4px;
 
     button {
       flex: 0 0 auto;
-      padding: 7px 8px;
-      border: 1px solid #cbbdac;
-      background: #eee3d2;
-      color: #685b52;
-      font-size: 9px;
-      font-weight: 800;
+      padding: 8px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.shadow.default};
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
 
       &.selected {
-        border-color: #426e60;
-        background: #426e60;
-        color: #fffaf0;
+        border-color: ${({ theme }) => theme.colors.border.positive};
+        background: ${({ theme }) => theme.colors.brand.primary};
+        color: ${({ theme }) => theme.colors.background.surface};
       }
     }
 
     b {
-      margin-left: 3px;
+      margin-left: 4px;
       font-family: monospace;
     }
   `,
   TodayGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 15px;
+    gap: 16px;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   TaskSection: styled.section<{ $status: TaskStatus }>`
     min-height: 185px;
     padding: 16px;
-    border-top-color: ${({ $status }) => STATUS_BORDER[$status]};
+    border-top-color: ${({ $status }) => STATUS[$status].color};
   `,
   TaskList: styled.div`
     display: grid;
-    gap: 9px;
+    gap: 8px;
     max-height: 360px;
     overflow: auto;
   `,
   LowerGrid: styled.div`
     display: grid;
     grid-template-columns: 1.2fr 0.8fr;
-    gap: 18px;
-    margin-top: 18px;
+    gap: 20px;
+    margin-top: 20px;
 
     > :only-child {
       grid-column: 1 / -1;
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -325,11 +314,11 @@ const Styled = {
       min-width: 0;
       flex: 1 1 auto;
       margin-left: 12px;
-      padding: 4px 6px;
-      font-size: 9px;
-      border: 1px solid #bcae9c;
-      background: #fffdfa;
-      color: #4a4039;
+      padding: 4px 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      color: ${({ theme }) => theme.colors.text.primary};
       font-family: inherit;
     }
 
@@ -346,23 +335,23 @@ const Styled = {
   ActivityItem: styled.div<{ $category: "input" | "task" | "approval" | "agent" }>`
     display: grid;
     grid-template-columns: 12px 1fr;
-    gap: 9px;
-    padding: 9px 2px;
-    border-bottom: 1px solid #e8dfd2;
+    gap: 8px;
+    padding: 8px 4px;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
     div {
       display: grid;
-      gap: 3px;
+      gap: 4px;
     }
 
     strong {
-      font-size: 11px;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     a {
-      color: #3f5f55;
-      font-size: 11px;
-      font-weight: 800;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       text-decoration: none;
 
       &:hover {
@@ -371,33 +360,33 @@ const Styled = {
     }
 
     time {
-      font-size: 9px;
-      color: ${({ theme }) => theme.colors.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      color: ${({ theme }) => theme.colors.text.muted};
     }
   `,
   ActivityPixel: styled.span<{ $category: "input" | "task" | "approval" | "agent" }>`
     width: 7px;
     height: 7px;
-    margin-top: 5px;
-    box-shadow: 2px 2px 0 #b9d0c2;
+    margin-top: 4px;
+    box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.border.positive};
     background: ${({ $category }) =>
       $category === "input"
-        ? "#4d8391"
+        ? colors.semantic.info
         : $category === "approval"
-          ? "#8b68b5"
+          ? colors.status.needsReview
           : $category === "agent"
-            ? "#c08b4f"
-            : "#71a48b"};
+            ? colors.semantic.warning
+            : colors.semantic.positive};
   `,
   ActivityMore: styled.button`
     width: 100%;
     margin-top: 8px;
-    padding: 7px;
-    border: 1px solid #cbbdac;
-    background: #eee3d2;
-    color: #685b52;
-    font-size: 10px;
-    font-weight: 800;
+    padding: 8px;
+    border: 1px solid ${({ theme }) => theme.colors.shadow.default};
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
+    color: ${({ theme }) => theme.colors.text.secondary};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     cursor: pointer;
   `,
   Composer: styled.form`
@@ -510,7 +499,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           <Styled.DialogContent>
             <header>
               <div>
-                <span className="kicker">NEW TASK</span>
+                <Kicker>NEW TASK</Kicker>
                 <Dialog.Title>새 작업 만들기</Dialog.Title>
                 <Dialog.Description>
                   할 일을 먼저 만들고 다음 화면에서 프로젝트와 담당 에이전트를 정할 수 있어요.
@@ -529,7 +518,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
         <section className="office-card">
           <div className="section-heading">
             <div>
-              <span className="kicker">LIVE OFFICE</span>
+              <Kicker>LIVE OFFICE</Kicker>
               <h2>우리 팀은 지금</h2>
             </div>
             <Styled.HeadingMeta>
@@ -566,7 +555,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
         <Styled.Toolbar aria-label="작업 검색과 상태 필터">
           <Styled.Search>
             <span>⌕</span>
-            <input
+            <Input
               value={taskSearch}
               onChange={(event) => setTaskSearch(event.target.value)}
               placeholder="작업 제목이나 설명 검색"
@@ -624,7 +613,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           <Styled.ActivityPanel className="panel">
             <div className="section-heading compact">
               <h2>최근 활동</h2>
-              <select
+              <Select
                 value={activityFilter}
                 onChange={(event) => setActivityFilter(event.target.value)}
                 aria-label="활동 종류 필터"
@@ -634,7 +623,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                 <option value="task">작업</option>
                 <option value="approval">승인</option>
                 <option value="agent">에이전트</option>
-              </select>
+              </Select>
             </div>
             <Styled.ActivityList>
               {filteredActivities.slice(0, showAllActivity ? 20 : 8).map((activity) => (
@@ -713,7 +702,7 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
     >
       <div className="field grow">
         <label>무엇을 만들거나 해결할까요?</label>
-        <input
+        <Input
           autoFocus
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -741,7 +730,7 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
       </Styled.PriorityField>
       <Styled.ResultField className="field grow">
         <label>원하는 결과 · 선택 사항</label>
-        <input
+        <Input
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="예: 선택한 화면의 버튼과 입력창을 React 컴포넌트로 분리해 주세요"

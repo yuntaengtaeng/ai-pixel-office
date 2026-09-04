@@ -70,8 +70,8 @@ export const ResetCss = createGlobalStyle`
     min-width: 320px;
     min-height: 100vh;
     line-height: 1;
-    color: ${({ theme }) => theme.colors.ink};
-    background: ${({ theme }) => theme.colors.canvas};
+    color: ${({ theme }) => theme.colors.text.primary};
+    background: ${({ theme }) => theme.colors.background.canvas};
     font-family: ${({ theme }) => theme.typography.fontFamily.base};
     font-synthesis: none;
   }

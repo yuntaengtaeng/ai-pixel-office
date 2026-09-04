@@ -132,6 +132,9 @@ importers:
       '@ai-pixel-office/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@ai-pixel-office/pet':
+        specifier: workspace:*
+        version: link:../../packages/pet
       '@ai-pixel-office/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -189,6 +192,12 @@ importers:
         version: 5.9.3
 
   packages/domain:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/pet:
     devDependencies:
       typescript:
         specifier: 'catalog:'

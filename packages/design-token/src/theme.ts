@@ -3,6 +3,9 @@ import { space } from "./space.ts";
 import { shadow } from "./shadow.ts";
 import { fontFamily, fontSize, fontWeight, lineHeight } from "./typography.ts";
 import { duration, easing } from "./animation.ts";
+import { breakpoints, mediaQuery } from "./breakpoint.ts";
+import { radius } from "./radius.ts";
+import { zIndex } from "./z-index.ts";
 
 export const officeTheme = {
   colors: color,
@@ -10,6 +13,10 @@ export const officeTheme = {
   shadow,
   typography: { fontFamily, fontSize, fontWeight, lineHeight },
   animation: { duration, easing },
+  breakpoints,
+  mediaQuery,
+  radius,
+  zIndex,
 } as const;
 
 export type OfficeTheme = typeof officeTheme;

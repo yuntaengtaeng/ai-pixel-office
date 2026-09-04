@@ -1,8 +1,9 @@
+import { colors, mediaQuery } from "@ai-pixel-office/design-token";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button } from "@ai-pixel-office/ui";
+import { Button, Input, Kicker, Select, TextArea } from "@ai-pixel-office/ui";
 import type { Project, Workspace } from "@ai-pixel-office/domain/entities";
 import { agentApi } from "../agents/api.ts";
 import { taskApi } from "../tasks/api.ts";
@@ -12,7 +13,10 @@ import { PetPreview } from "../office/PetPreview.tsx";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner, FullScreenMessage, PageHeader } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
+import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
 
@@ -20,9 +24,9 @@ const STATUS_COLORS: Record<
   Project["status"],
   { border: string; background: string; color: string }
 > = {
-  active: { border: "#739786", background: "#e2efe8", color: "#3b6b59" },
-  paused: { border: "#b89259", background: "#f5e8cf", color: "#815e31" },
-  done: { border: "#8b8990", background: "#e9e7eb", color: "#626068" },
+  active: { ...colors.projectStatus.active, color: colors.projectStatus.active.foreground },
+  paused: { ...colors.projectStatus.paused, color: colors.projectStatus.paused.foreground },
+  done: { ...colors.projectStatus.done, color: colors.projectStatus.done.foreground },
 };
 
 const Styled = {
@@ -32,30 +36,30 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: 1fr;
     }
   `,
   CreateForm: styled.form`
-    padding: 21px;
+    padding: 20px;
     display: grid;
-    gap: 14px;
+    gap: 16px;
     position: sticky;
     top: 24px;
 
     h2 {
-      margin: 5px 0 7px;
-      font-size: 20px;
+      margin: 4px 0 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
     }
 
     > div:first-child p {
       margin: 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.6;
     }
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       position: static;
     }
   `,
@@ -67,24 +71,24 @@ const Styled = {
   CardGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 13px;
+    gap: 12px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   Card: styled(Link)`
     min-width: 0;
     min-height: 190px;
-    padding: 17px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     color: inherit;
 
     &:hover {
-      border-color: #56816f;
-      background: #fffdf8;
-      box-shadow: 4px 4px 0 #b7cbbf;
+      border-color: ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.border.positive};
       transform: translate(-1px, -1px);
     }
 
@@ -96,14 +100,14 @@ const Styled = {
     }
 
     h3 {
-      margin: 13px 0 8px;
-      font-size: 16px;
+      margin: 12px 0 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.subtitle};
     }
 
     p {
       margin: 0 0 16px;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 11px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.55;
       display: -webkit-box;
       overflow: hidden;
@@ -113,49 +117,53 @@ const Styled = {
 
     footer {
       margin-top: auto;
-      padding-top: 11px;
-      border-top: 1px dashed #d6c8b6;
+      padding-top: 12px;
+      border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
       display: flex;
       align-items: center;
-      gap: 10px;
-      color: #776c63;
-      font-size: 9px;
+      gap: 12px;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
 
       strong {
         margin-left: auto;
-        color: #3f705f;
+        color: ${({ theme }) => theme.colors.text.positive};
       }
     }
   `,
   StatusBadge: styled.span<{ $status: Project["status"] }>`
     width: fit-content;
-    padding: 4px 7px;
+    padding: 4px 8px;
     border: 1px solid ${({ $status }) => STATUS_COLORS[$status].border};
     background: ${({ $status }) => STATUS_COLORS[$status].background};
     color: ${({ $status }) => STATUS_COLORS[$status].color};
-    font: 800 9px monospace;
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   `,
   FigmaBadge: styled.span`
-    color: #7b5791;
-    font: 900 8px monospace;
+    color: ${({ theme }) => theme.colors.text.secondary};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.xs};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
   `,
   DetailHeading: styled.div`
     margin: 24px 0;
     display: flex;
     align-items: end;
     justify-content: space-between;
-    gap: 18px;
+    gap: 20px;
 
     h1 {
-      margin: 10px 0 6px;
-      font-size: 34px;
+      margin: 12px 0 8px;
+      font-size: ${({ theme }) => theme.typography.fontSize.displayMd};
     }
 
     p {
       max-width: 720px;
       margin: 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 12px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
       line-height: 1.6;
     }
   `,
@@ -165,27 +173,27 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 1100px) {
+    @media ${mediaQuery.desktopSmall} {
       grid-template-columns: 1fr;
     }
   `,
   MainColumn: styled.div`
     display: grid;
-    gap: 18px;
+    gap: 20px;
   `,
   TaskCreateForm: styled.form`
     padding: 20px;
     display: grid;
     grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr) auto;
     align-items: end;
-    gap: 10px;
+    gap: 12px;
 
     > .section-heading,
     > .error-banner {
       grid-column: 1 / -1;
     }
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
@@ -194,60 +202,60 @@ const Styled = {
   `,
   TaskList: styled.div`
     display: grid;
-    gap: 7px;
+    gap: 8px;
   `,
   ContextForm: styled.form`
     padding: 20px;
     display: grid;
-    gap: 13px;
+    gap: 12px;
 
     h2 {
-      margin: 0 0 3px;
-      font-size: 15px;
+      margin: 0 0 4px;
+      font-size: ${({ theme }) => theme.typography.fontSize.lead};
     }
   `,
   FigmaLink: styled(Button).attrs({ $variant: "secondary" })`
     text-align: center;
   `,
   Members: styled.div`
-    padding-top: 13px;
-    border-top: 1px dashed #d4c7b7;
+    padding-top: 12px;
+    border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
     display: grid;
     gap: 8px;
 
     > strong {
-      font-size: 11px;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     > div {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
     }
 
     a {
-      padding: 4px 7px 4px 4px;
-      border: 1px solid #c9bcab;
-      background: #faf4e9;
+      padding: 4px 8px 4px 4px;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: 9px;
-      font-weight: 800;
+      gap: 4px;
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     small {
       margin: 0;
-      color: ${({ theme }) => theme.colors.muted};
-      font-size: 9px;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
       line-height: 1.5;
       overflow-wrap: anywhere;
     }
   `,
   PathNote: styled.p`
     margin: 0;
-    color: ${({ theme }) => theme.colors.muted};
-    font-size: 9px;
+    color: ${({ theme }) => theme.colors.text.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
     line-height: 1.5;
     overflow-wrap: anywhere;
   `,
@@ -293,13 +301,13 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
           }}
         >
           <div>
-            <span className="kicker">NEW PROJECT</span>
+            <Kicker>NEW PROJECT</Kicker>
             <h2>새 프로젝트 시작하기</h2>
             <p>목표와 작업을 한곳에 모아 팀이 같은 맥락에서 일하게 합니다.</p>
           </div>
           <div className="field">
             <label>프로젝트 이름</label>
-            <input
+            <Input
               autoFocus
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -309,7 +317,7 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
           </div>
           <div className="field">
             <label>이 프로젝트에서 이루고 싶은 것 · 선택 사항</label>
-            <textarea
+            <TextArea
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -332,7 +340,7 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
             <summary>디자인 연결 · 선택 사항</summary>
             <div className="field">
               <label>Figma 링크</label>
-              <input
+              <Input
                 value={figmaUrl}
                 onChange={(event) => setFigmaUrl(event.target.value)}
                 placeholder="https://figma.com/design/..."
@@ -492,7 +500,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
             </div>
             <div className="field">
               <label>무엇을 맡길까요?</label>
-              <input
+              <Input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="예: 결제 화면 사용성 검토"
@@ -501,7 +509,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
             </div>
             <div className="field">
               <label>원하는 결과 · 선택 사항</label>
-              <input
+              <Input
                 value={result}
                 onChange={(event) => setResult(event.target.value)}
                 placeholder="예: 문제와 개선안을 우선순위로 정리해 주세요"
@@ -540,11 +548,11 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
           <h2>프로젝트 맥락</h2>
           <div className="field">
             <label>이름</label>
-            <input value={name} onChange={(event) => setName(event.target.value)} />
+            <Input value={name} onChange={(event) => setName(event.target.value)} />
           </div>
           <div className="field">
             <label>목표</label>
-            <textarea
+            <TextArea
               rows={5}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -552,18 +560,18 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
           </div>
           <div className="field">
             <label>상태</label>
-            <select
+            <Select
               value={status}
               onChange={(event) => setStatus(event.target.value as Project["status"])}
             >
               <option value="active">진행 중</option>
               <option value="paused">잠시 멈춤</option>
               <option value="done">완료</option>
-            </select>
+            </Select>
           </div>
           <div className="field">
             <label>Figma 링크</label>
-            <input
+            <Input
               value={figmaUrl}
               onChange={(event) => setFigmaUrl(event.target.value)}
               placeholder="선택 사항"

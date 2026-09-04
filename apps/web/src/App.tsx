@@ -1,3 +1,4 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +8,7 @@ import { systemApi } from "./features/system/api.ts";
 import { workspaceApi } from "./features/workspaces/api.ts";
 import { TaskNotifications } from "./features/notifications/TaskNotifications.tsx";
 import { messageOf } from "./shared/lib/errors.ts";
-import { FullScreenMessage } from "./shared/ui/common.tsx";
+import { FullScreenMessage } from "./shared/ui/FullScreenMessage.tsx";
 import { Sidebar } from "./shared/ui/Sidebar.tsx";
 
 const TodayPage = lazy(() =>
@@ -62,7 +63,7 @@ const Styled = {
     display: grid;
     grid-template-columns: 228px minmax(0, 1fr);
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       display: block;
     }
   `,

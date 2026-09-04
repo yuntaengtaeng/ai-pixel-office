@@ -4,21 +4,24 @@ import type {
   Task,
   TaskStatus,
 } from "@ai-pixel-office/domain/entities";
+import { colors } from "@ai-pixel-office/design-token";
 
 export const RUNTIME: Record<AgentModel, { label: string; color: string }> = {
-  claude: { label: "Claude", color: "#72549a" },
-  codex: { label: "Codex", color: "#397861" },
+  claude: { label: "Claude", color: colors.runtime.claude },
+  codex: { label: "Codex", color: colors.runtime.codex },
 };
 
-export const STATUS: Record<TaskStatus, { label: string; icon: string }> = {
-  todo: { label: "할 일", icon: "□" },
-  working: { label: "작업 중", icon: "▣" },
-  needs_review: { label: "검토 필요", icon: "◇" },
-  needs_input: { label: "입력 필요", icon: "?" },
-  blocked: { label: "막힘", icon: "!" },
-  done: { label: "완료", icon: "✓" },
-  failed: { label: "실패", icon: "×" },
+export const STATUS: Record<TaskStatus, { label: string; icon: string; color: string }> = {
+  todo: { label: "할 일", icon: "□", color: colors.status.todo },
+  working: { label: "작업 중", icon: "▣", color: colors.status.working },
+  needs_review: { label: "검토 필요", icon: "◇", color: colors.status.needsReview },
+  needs_input: { label: "입력 필요", icon: "?", color: colors.status.needsInput },
+  blocked: { label: "막힘", icon: "!", color: colors.status.blocked },
+  done: { label: "완료", icon: "✓", color: colors.status.done },
+  failed: { label: "실패", icon: "×", color: colors.status.failed },
 };
+
+export const PRIORITY_COLORS: Record<NonNullable<Task["priority"]>, string> = colors.priority;
 
 export const PERMISSIONS: Array<{ key: keyof AgentPermissions; label: string }> = [
   { key: "fileRead", label: "파일 읽기" },

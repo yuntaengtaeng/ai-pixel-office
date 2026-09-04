@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
-import { getPet, plotPet } from "./pets.ts";
+import { colors } from "@ai-pixel-office/design-token";
+import { getPet, plotPet } from "@ai-pixel-office/pet";
 
 const Styled = {
   Canvas: styled.canvas`
     image-rendering: pixelated;
-    border: 1px solid #d5c8b5;
-    background: #f8f2e7;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
   `,
 };
 
@@ -20,7 +21,7 @@ export function PetPreview({ petId, size = 56 }: { petId: string; size?: number 
     const scale = 3;
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.imageSmoothingEnabled = false;
-    context.fillStyle = "#f8f2e7";
+    context.fillStyle = colors.background.surfaceMuted;
     context.fillRect(0, 0, canvas.width, canvas.height);
     plotPet(getPet(petId), (x, y, width, height, color) => {
       context.fillStyle = color;

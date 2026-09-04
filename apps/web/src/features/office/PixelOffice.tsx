@@ -1,11 +1,12 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Application, Container, Graphics, Text, type Ticker } from "pixi.js";
 import { Popover } from "radix-ui";
 import styled, { keyframes } from "styled-components";
-import { Button } from "@ai-pixel-office/ui";
+import { Button, Input } from "@ai-pixel-office/ui";
 import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { RUNTIME } from "../../shared/config/presentation.ts";
-import { getPet, plotPet } from "./pets.ts";
+import { getPet, plotPet } from "@ai-pixel-office/pet";
 
 const OFFICE_WIDTH = 760;
 const COLUMN_X = [68, 244, 420, 596] as const;
@@ -211,7 +212,7 @@ const Office = styled.div`
   aspect-ratio: 760 / 420;
   overflow: hidden;
   background: #ead8bd;
-  border: 3px solid #6d5347;
+  border: 3px solid ${({ theme }) => theme.colors.border.strong};
   box-shadow: inset 0 0 0 3px #f8e9ce;
   line-height: 0;
 `;
@@ -224,15 +225,18 @@ const Stage = styled.div`
 
 const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
   position: absolute;
-  z-index: 3;
+  z-index: ${({ theme }) => theme.zIndex.floating};
   inset: 0;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 10px;
+  gap: 12px;
   color: #6f5c4c;
   background: linear-gradient(to bottom, #f2dfbf 0 30%, #9f6d4e 30% 32%, #d6aa76 32% 100%);
-  font: 800 11px/1.4 monospace;
+  font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+  font-size: ${({ theme }) => theme.typography.fontSize.compact};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+  line-height: 1.4;
   line-height: 1.4;
   pointer-events: none;
   opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
@@ -243,8 +247,8 @@ const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
 
   > span {
     width: 42px;
-    padding: 6px 0;
-    border: 2px solid #6d5347;
+    padding: 8px 0;
+    border: 2px solid ${({ theme }) => theme.colors.border.strong};
     background: #f8e9ce;
     box-shadow: 3px 3px 0 #9f6d4e;
     color: ${({ $error }) => ($error ? "#9b403d" : "#4e8874")};
@@ -270,15 +274,15 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
   height: 27%;
   padding: 0 5%;
   border: 2px solid #748c83;
-  border-radius: 7px;
-  background: #fffaf0;
+  border-radius: ${({ theme }) => theme.radius.standard};
+  background: ${({ theme }) => theme.colors.background.surface};
   display: grid;
   place-items: center;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: clamp(5px, 0.82vw, 10px);
-  font-weight: 800;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   transition:
     opacity 0.18s ease-out,
     transform 0.18s ease-out;
@@ -290,21 +294,21 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
       transform: translateY(4px) scale(0.96);
     `}
 
-  @media (prefers-reduced-motion: reduce) {
+  @media ${mediaQuery.reducedMotion} {
     animation: none;
   }
 `;
 
 const AgentName = styled.button<{ $hasTask: boolean }>`
   position: absolute;
-  z-index: 2;
+  z-index: ${({ theme }) => theme.zIndex.raised};
   left: 3%;
   bottom: -9%;
   width: 94%;
   min-height: 23%;
   padding: 2% 4%;
   border: 1px solid rgb(109 83 71 / 42%);
-  border-radius: 4px;
+  border-radius: ${({ theme }) => theme.radius.subtle};
   background: rgb(255 250 240 / 88%);
   box-shadow: 0 2px 0 rgb(109 83 71 / 30%);
   display: grid;
@@ -323,10 +327,10 @@ const AgentName = styled.button<{ $hasTask: boolean }>`
   }
 
   small {
-    margin-top: 2px;
+    margin-top: 4px;
     color: #6f786e;
     font-size: clamp(4px, 0.62vw, 7px);
-    font-weight: 800;
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   }
 
   ${({ $hasTask }) =>
@@ -346,11 +350,13 @@ const RuntimeChip = styled.span`
   position: absolute;
   top: -22%;
   right: -8%;
-  z-index: 3;
-  padding: 1px 5px;
-  border-radius: 999px;
+  z-index: ${({ theme }) => theme.zIndex.floating};
+  padding: 4px 4px;
+  border-radius: ${({ theme }) => theme.radius.pill};
   color: #fff;
-  font: 800 clamp(5px, 0.6vw, 8px) monospace;
+  font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+  font-size: clamp(5px, 0.6vw, ${({ theme }) => theme.typography.fontSize.xs});
+  font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   letter-spacing: 0.02em;
   white-space: nowrap;
   box-shadow: 0 1px 0 rgb(0 0 0 / 25%);
@@ -358,14 +364,14 @@ const RuntimeChip = styled.span`
 
 const AgentHitbox = styled.button`
   position: absolute;
-  z-index: 1;
+  z-index: ${({ theme }) => theme.zIndex.content};
   left: 12%;
   top: 28%;
   width: 76%;
   height: 81%;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: ${({ theme }) => theme.radius.comfortable};
   background: transparent;
   pointer-events: auto;
   cursor: pointer;
@@ -385,7 +391,7 @@ const AgentSlot = styled.div`
   animation: ${agentFloat} 1.5s ease-in-out infinite alternate;
   pointer-events: none;
 
-  @media (prefers-reduced-motion: reduce) {
+  @media ${mediaQuery.reducedMotion} {
     animation: none;
   }
 
@@ -413,20 +419,20 @@ const EmptyLabel = styled.div`
   transform: translate(-50%, -50%);
   color: #705b4e;
   font-size: clamp(11px, 1.6vw, 18px);
-  font-weight: 800;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 `;
 
 const QuickPopover = styled(Popover.Content)`
-  z-index: 50;
+  z-index: ${({ theme }) => theme.zIndex.popover};
   width: min(320px, calc(100vw - 24px));
-  padding: 15px;
+  padding: 16px;
   border: 2px solid #5a766c;
-  background: #fffaf0;
+  background: ${({ theme }) => theme.colors.background.surface};
   box-shadow: 5px 5px 0 #9eafa6;
 
   small {
     color: #7d6f65;
-    font-size: 9px;
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
   }
 
   form {
@@ -436,8 +442,8 @@ const QuickPopover = styled(Popover.Content)`
 
   label {
     color: #796b60;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     display: grid;
     gap: 4px;
   }
@@ -447,24 +453,24 @@ const PopoverHeading = styled.div`
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 `;
 
 const TaskListPopover = styled.div`
   display: grid;
-  gap: 5px;
+  gap: 4px;
   max-height: 180px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   overflow: auto;
 
   button {
     min-width: 0;
     padding: 8px;
     border: 1px solid #d5c8b5;
-    background: #fffdfa;
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 7px;
+    gap: 8px;
     align-items: center;
     color: #4b4541;
     text-align: left;
@@ -480,13 +486,13 @@ const TaskListPopover = styled.div`
     > span,
     > small {
       color: #756960;
-      font-size: 8px;
-      font-weight: 800;
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     > strong {
       overflow: hidden;
-      font-size: 10px;
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -822,7 +828,7 @@ function AgentQuickAssign({
             <form onSubmit={submit}>
               <label>
                 할 일
-                <input
+                <Input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="예: 화면 문구 검토"
@@ -831,7 +837,7 @@ function AgentQuickAssign({
               </label>
               <label>
                 원하는 결과 · 선택
-                <input
+                <Input
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder="비워도 괜찮아요"

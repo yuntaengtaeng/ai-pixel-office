@@ -1,7 +1,8 @@
+import { mediaQuery } from "@ai-pixel-office/design-token";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button } from "@ai-pixel-office/ui";
+import { Button, Input, Select, TextArea } from "@ai-pixel-office/ui";
 import type { Skill, Workspace } from "@ai-pixel-office/domain/entities";
 import { skillApi } from "./api.ts";
 import { localizeSkillCategory } from "./presentation.ts";
@@ -9,7 +10,9 @@ import { PERMISSIONS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
-import { Empty, ErrorBanner, PageHeader } from "../../shared/ui/common.tsx";
+import { Empty } from "../../shared/ui/Empty.tsx";
+import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 
 const Styled = {
@@ -19,31 +22,31 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
     }
   `,
   Library: styled.section`
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
     max-height: calc(100vh - 155px);
     overflow: auto;
     align-content: start;
-    padding: 2px 7px 9px 2px;
+    padding: 4px 8px 8px 4px;
 
-    @media (max-width: 760px) {
+    @media ${mediaQuery.mobile} {
       grid-template-columns: 1fr;
       max-height: none;
       overflow: visible;
-      padding-right: 2px;
+      padding-right: 4px;
     }
   `,
   Card: styled.article`
-    padding: 17px;
+    padding: 16px;
     display: grid;
     grid-template-columns: 42px minmax(0, 1fr);
-    gap: 13px;
+    gap: 12px;
     min-height: 210px;
     max-width: 100%;
     overflow: hidden;
@@ -53,16 +56,18 @@ const Styled = {
     height: 40px;
     display: grid;
     place-items: center;
-    background: #e6d2a8;
-    border: 2px solid #9c7952;
-    box-shadow: 2px 2px 0 #c6ae83;
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
+    border: 2px solid ${({ theme }) => theme.colors.border.default};
+    box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.border.default};
   `,
   CardBody: styled.div`
     min-width: 0;
 
     small {
-      color: #9a704d;
-      font: 800 9px monospace;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       text-transform: uppercase;
     }
 
@@ -75,8 +80,8 @@ const Styled = {
 
     p {
       margin: 0;
-      font-size: 12px;
-      color: #71675f;
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
+      color: ${({ theme }) => theme.colors.text.secondary};
       line-height: 1.5;
       overflow: hidden;
       overflow-wrap: anywhere;
@@ -92,12 +97,12 @@ const Styled = {
     gap: 8px;
 
     button {
-      padding: 4px 7px;
-      border: 1px solid #c7938e;
-      background: #fae9e6;
-      color: #934b46;
-      font-size: 9px;
-      font-weight: 800;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.negative};
+      background: ${({ theme }) => theme.colors.background.negativeSubtle};
+      color: ${({ theme }) => theme.colors.text.negative};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
       cursor: pointer;
 
       &:disabled {
@@ -109,36 +114,38 @@ const Styled = {
   Bindings: styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 10px;
+    gap: 4px;
+    margin-top: 12px;
     max-height: 51px;
     overflow: auto;
 
     span {
       max-width: 100%;
-      padding: 4px 6px;
-      border: 1px solid #b7a88f;
-      background: #f2e8d7;
-      color: #6f5a48;
-      font-size: 8px;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     span[data-kind="permission"] {
-      border-color: #82a797;
-      background: #dfede6;
-      color: #386b59;
+      border-color: ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
     }
   `,
   InstructionPreview: styled.span`
     display: -webkit-box;
-    margin-top: 10px;
+    margin-top: 12px;
     padding-top: 8px;
-    border-top: 1px dashed #cfc2b1;
-    font: 10px/1.4 monospace;
-    color: #82786e;
+    border-top: 1px dashed ${({ theme }) => theme.colors.border.default};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    line-height: 1.4;
+    color: ${({ theme }) => theme.colors.text.secondary};
     overflow: hidden;
     overflow-wrap: anywhere;
     -webkit-line-clamp: 2;
@@ -146,80 +153,84 @@ const Styled = {
   `,
   Instructions: styled.details`
     margin-top: 8px;
-    font-size: 9px;
-    color: #74685f;
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    color: ${({ theme }) => theme.colors.text.secondary};
 
     summary {
       cursor: pointer;
-      font-weight: 800;
-      color: #4b7466;
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+      color: ${({ theme }) => theme.colors.text.positive};
     }
 
     pre {
       max-height: 190px;
       margin: 8px 0 0;
-      padding: 9px;
+      padding: 8px;
       overflow: auto;
-      border: 1px solid #cfc2b1;
-      background: #f5ecdf;
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      font: 9px/1.5 monospace;
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      line-height: 1.5;
     }
   `,
   AiDraftBox: styled.div`
-    padding: 13px;
-    border: 2px solid #b89259;
-    background: #fbf3e3;
-    box-shadow: 3px 3px 0 #dfcfad;
+    padding: 12px;
+    border: 2px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.subtle};
     display: grid;
-    gap: 10px;
+    gap: 12px;
   `,
   FormDivider: styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #8b7e74;
-    font-size: 10px;
+    color: ${({ theme }) => theme.colors.text.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
 
     &::before,
     &::after {
       content: "";
       height: 1px;
       flex: 1;
-      background: #d8ccbc;
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
     }
   `,
   GeneratedSettings: styled.div`
     display: grid;
-    gap: 7px;
+    gap: 8px;
 
     > label {
-      color: #796b60;
-      font: 800 11px monospace;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     > div {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
     span {
-      padding: 5px 7px;
-      border: 1px solid #8dad9f;
-      background: #e2efe8;
-      color: #3d6b5b;
-      font-size: 9px;
+      padding: 4px 8px;
+      border: 1px solid ${({ theme }) => theme.colors.border.positive};
+      background: ${({ theme }) => theme.colors.background.positiveSubtle};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   Suggestions: styled.div`
-    margin-bottom: 2px;
+    margin-bottom: 4px;
   `,
   Form: styled.form`
-    padding: 22px;
+    padding: 24px;
     display: grid;
-    gap: 18px;
+    gap: 20px;
 
     h2 {
       margin: 0;
@@ -292,7 +303,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
           <Styled.AiDraftBox>
             <div className="field">
               <label>이 스킬이 반복해서 어떤 일을 잘했으면 하나요?</label>
-              <textarea
+              <TextArea
                 rows={3}
                 value={brief}
                 onChange={(event) => setBrief(event.target.value)}
@@ -336,7 +347,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
           <Styled.FormDivider>AI 초안을 확인하고 필요하면 수정하세요</Styled.FormDivider>
           <div className="field">
             <label>이름</label>
-            <input
+            <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="예: React 컴포넌트 제작"
@@ -345,18 +356,18 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
           </div>
           <div className="field">
             <label>카테고리</label>
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
+            <Select value={category} onChange={(event) => setCategory(event.target.value)}>
               <option>개발</option>
               <option>디자인</option>
               <option>조사</option>
               <option>문서</option>
               <option>운영</option>
               <option>기타</option>
-            </select>
+            </Select>
           </div>
           <div className="field">
             <label>설명</label>
-            <input
+            <Input
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="언제 사용하는 스킬인가요?"
@@ -365,7 +376,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
           </div>
           <div className="field">
             <label>지시문</label>
-            <textarea
+            <TextArea
               rows={7}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}

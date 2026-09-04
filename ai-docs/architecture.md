@@ -14,6 +14,7 @@ packages/
   domain/              제품 entity, validation, task state
   runtime-protocol/    Claude/Codex 공통 event와 capability 계약
   design-token/        색상·spacing·shadow 등 원시 design token
+  pet/                 펫 카탈로그, 픽셀 스프라이트, 렌더러 독립 이동 상태
   ui/                  styled-components 공통 primitive(design-token을 주입받아 소비)
 scripts/runtime-spike/ 런타임 capability 검증 도구
 test/                  domain/API/orchestrator 통합 테스트
@@ -54,6 +55,7 @@ Node/Electron 조합은 SQLite API 포함 여부를 compatibility test에서 확
 web --------> domain
 web --------> ui
 web --------> design-token
+web --------> pet
 ui ---------> design-token
 desktop - - > server executable (process lifecycle contract)
 server -----> domain
@@ -67,15 +69,24 @@ import하지 않는다. OS 기능은 preload가 명시적으로 공개한 메서
 
 ## Styling 전환 상태
 
-`apps/web/src/styles/*.css`(11개 feature 파일, 3878줄)는 전부 각 feature 파일 안의 `const Styled = {...}`
-객체(styled-components)로 이관을 마쳤다. 남은 건 `base.css` 하나뿐이며, 리셋을 뺀 순수 legacy CSS다
-(아래 참고). `AppGlobalStyles`는 이제 `base.css` 하나만 `?inline`으로 주입하는 얇은 wrapper다.
+`apps/web/src/styles/*.css`의 feature 스타일과 마지막 `base.css`까지 styled-components로 이관했다.
+`AppGlobalStyles`는 아직 여러 feature가 className으로 공유하는 전역 유틸리티를 소유하지만 색상과
+breakpoint는 `officeTheme`을 직접 참조한다.
 
-`packages/design-token`이 원시 design token을 소유한다 — `color`, `space`, `shadow`, `typography`
-(fontFamily/fontSize/fontWeight/lineHeight), `animation`(duration/easing)을 각각 별 파일로 나누고
-`theme.ts`가 `officeTheme` 하나로 합쳐 export한다. React나 styled-components에 의존하지 않는 순수 값
-패키지라, 나중에 다른 렌더링 스택(예: Community 웹의 다른 UI 레이어)이 같은 token을 재사용해도
-`ui`의 React/styled-components 의존을 끌고 오지 않는다.
+`packages/design-token`이 원시 design token을 소유한다 — semantic `colors`, 4px grid `space`, `shadow`,
+`typography`(fontFamily/fontSize/fontWeight/lineHeight), `animation`(duration/easing), `breakpoints`와
+`mediaQuery`, `radius`, `zIndex`를 각각 별 파일로 나누고 `theme.ts`가 `officeTheme` 하나로 합쳐 export한다.
+React나 styled-components에 의존하지 않는 순수 값 패키지라, 나중에 다른 렌더링 스택(예: Community
+웹의 다른 UI 레이어)이 같은 token을 재사용해도 `ui`의 React/styled-components 의존을 끌고 오지 않는다.
+
+색상은 실제 UI 역할에 따라 `brand`, `background`, `text`, `semantic`, `status`, `priority`, `runtime`,
+`border`, `shadow`, `action`으로 구분한다. styled-component와 `AppGlobalStyles`는 theme token을 직접
+참조한다. 픽셀 캔버스와 pet처럼 콘텐츠 자체를 구성하는 에셋 팔레트는 UI theme 색상과 수명이 다르므로
+`packages/pet`에서 독립적으로 소유한다.
+
+`packages/pet`은 펫 카탈로그와 픽셀 스프라이트를 단일 공개 API로 제공한다. `createPet()`이 반환하는
+`PetActor`는 `move`, `tick`, `stop`, `snapshot`으로 이동 상태를 관리하며 React, Pixi, Canvas에 의존하지
+않는다. web의 Canvas와 Pixi 코드는 이 상태와 픽셀 plot 결과를 각 렌더러 명령으로 변환한다.
 
 `packages/ui`는 그 token을 주입받아 소비하는 component만 소유한다.
 
@@ -84,6 +95,9 @@ import하지 않는다. OS 기능은 preload가 명시적으로 공개한 메서
   `min-height`로 고정하고 너비만 `$fullWidth`로 가변(auto ↔ 100%), `IconButton`은 정사각형이라 `$size`
   하나가 두 축을 함께 결정한다. `apps/web` 전체 43곳의 리터럴 `className="primary-button"` 등을
   전부 `Button`으로 교체 완료 — `base.css`에는 이제 그 클래스들이 남아 있지 않다.
+- `Input`/`TextArea`/`Select`(`Input.tsx`) — 너비, padding, border, focus, disabled와 textarea resize를
+  공통 소유한다. `apps/web`의 폼은 raw HTML control 대신 이 primitive를 사용하고, label과 field 배치는
+  각 feature 책임으로 둔다.
 - `ResetCss`(`ResetCss.tsx`) — 브라우저 기본 스타일 reset(`merchant`의 `@repo/ui-kit` `ResetCss`를
   반영)을 `createGlobalStyle`로 소유한다. `apps/web/src/main.tsx`가 `<ThemeProvider>` 안에서
   `<ResetCss />`로 렌더링하며, body 기본 색상/배경/폰트는 `var(--x)` 커스텀 프로퍼티가 아니라
@@ -102,6 +116,11 @@ import하지 않는다. OS 기능은 preload가 명시적으로 공개한 메서
 `apps/web`은 자기 앱 전용 레이아웃 조각을 `packages/ui`가 아니라 `apps/web/src/shared/ui/`에 둔다
 (다른 앱이 재사용할 primitive가 아니라 이 앱의 셸/페이지 구조 그 자체이기 때문).
 
+공용 UI 구현은 `common.tsx` 같은 단일 파일에 모으지 않고 `PageHeader.tsx`, `Empty.tsx`,
+`ErrorBanner.tsx`, `FullScreenMessage.tsx`처럼 컴포넌트별 파일로 둔다. `padding`, `gap`, `margin`은
+4px grid를 사용하고 그림자 offset은 이 규칙에서 제외한다. overlay 계층은 숫자를 직접 쓰지 않고
+`theme.zIndex`의 역할별 토큰을 사용한다.
+
 - `Sidebar.tsx` — 사이드바 전체(브랜드, 런타임 상태, workspace chip, nav, note)를 소유하는 독립
   컴포넌트. `App.tsx`는 `workspace`/`runtimeStatus`만 넘긴다.
 - `BaseLayout.tsx` — padding/max-width 프레임 하나만 가진 얇은 wrapper. **App 셸이 아니라 각 페이지가
@@ -113,11 +132,10 @@ import하지 않는다. OS 기능은 preload가 명시적으로 공개한 메서
 - `App.tsx`의 `AppShell`은 이제 `Sidebar` + grid-column 배치만 하는 얇은 `Shell`/`Content`
   컨테이너다 — padding 로직은 전혀 없다.
 
-아직 남은 일: `base.css`에는 여러 feature가 리터럴 className으로 공유하는 전역 유틸리티가 남아 있다
-(`.panel`, `.field`, `.helper-copy`, `.prompt-suggestions`, `.kicker`, `.back-button`,
-`.technical-details`, `input`/`textarea`/`select`/`fieldset` 기본 스타일 등). `Button`/`IconButton`처럼
-아직 `packages/ui` component로 옮기지 않았다 — 특히 `Input`/`TextField` 대응 component가 없다는 게
-가장 큰 공백이다.
+아직 남은 일: `AppGlobalStyles`에는 여러 feature가 리터럴 className으로 공유하는 전역 유틸리티가 남아
+있다 (`.panel`, `.field`, `.helper-copy`, `.prompt-suggestions`, `.kicker`, `.back-button`,
+`.technical-details`, `fieldset` 기본 스타일 등). 이 selector들은 `Button`/`Input`처럼 아직
+`packages/ui` component로 옮기지 않았다.
 
 ## Community 목표 구조
 
