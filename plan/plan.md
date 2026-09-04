@@ -1,5 +1,37 @@
 # AI Pixel Office — Development Plan
 
+## 0. 2026-09-04 제품 피드백 반영
+
+확인된 문제:
+
+- Inbox 입력이 즉시 Agent에게 전달되는지, 보관만 되는지 흐름이 불명확하다.
+- 화면별 panel과 form의 모양이 유사해 정보 위계와 기능 구분이 약하다.
+- CLI 명령을 직접 실행하는 연결 방식은 개발자에게 치우쳐 있다.
+- 브라우저를 열고 로컬 서버를 관리해야 하는 방식은 일반 사용자 접근성이 낮다.
+
+제품 방향:
+
+```text
+설치형 Electron App
+  -> 첫 실행 연결 마법사
+  -> Codex / Claude 브라우저 인증
+  -> 요청 보관 -> 작업 전환 -> Agent 배정 -> 실행
+  -> 로컬 Office
+  -> Community에서 Agent / Skill 설치
+```
+
+구조 방향:
+
+- pnpm workspace의 `apps/*`, `packages/*` 모노레포로 관리한다.
+- Electron main이 로컬 API, SQLite 경로와 OS integration을 소유한다.
+- 기존 React Web은 Electron renderer로 재사용하되 Community는 독립 원격 앱/registry로 분리한다.
+- 공통 UI는 styled-components theme과 primitive로 이동한다.
+- Codex와 Claude가 동일한 canonical 문서를 읽도록 `AGENTS.md`, `CLAUDE.md`는 `ai-docs/`를
+  가리키는 얇은 진입점으로 유지한다.
+- 인증은 runtime별 capability로 관리하며 지원하지 않는 OAuth/approval 흐름을 UI로 가장하지 않는다.
+
+세부 기술 구조와 결정 근거는 `ai-docs/architecture.md`와 `ai-docs/adr/`가 소유한다.
+
 ## 1. Product Summary
 
 AI Pixel Office is a workspace where users create and manage custom AI agents powered only by **Claude** and **Codex**.

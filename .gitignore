@@ -1,8 +1,11 @@
 # Dependencies
 node_modules/
+.turbo/
 
 # Build and test output
 dist/
+**/dist/
+**/release/
 coverage/
 *.tsbuildinfo
 

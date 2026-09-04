@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Agent, Task } from "../packages/domain/src/entities.ts";
+import type { Agent, Task } from "@ai-pixel-office/domain/entities";
 import { selectModel } from "../apps/server/src/model-routing.ts";
 
 const task = (priority: Task["priority"]): Task => ({

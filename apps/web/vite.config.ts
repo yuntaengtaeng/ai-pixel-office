@@ -6,6 +6,7 @@ export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [react()],
   server: {
+    host: "127.0.0.1",
     port: 47371,
     strictPort: true,
     proxy: {
@@ -14,7 +15,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "../../dist/web",
+    outDir: "dist",
     emptyOutDir: true,
   },
 });

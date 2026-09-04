@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import { CodexAppServerClient } from "./json-rpc.ts";
 import { createNormalizationState, normalizeAppServerMessage } from "./normalize-event.ts";
 import { BoundedJsonlWriter, pruneRuntimeLogs } from "./runtime-log.ts";
 import type { AgentEvent, ApprovalDecision, JsonRpcMessage } from "./types.ts";
-import type { ReasoningEffort } from "../../packages/domain/src/entities.ts";
+import type { ReasoningEffort } from "@ai-pixel-office/domain/entities";
 
 type ThreadStartResult = { thread: { id: string } };
 type TurnStartResult = { turn: { id: string } };
@@ -199,9 +198,8 @@ function formatEvent(event: AgentEvent): string {
   }
 }
 
-async function main(): Promise<void> {
-  const prompt =
-    process.argv.slice(2).join(" ").trim() || "Summarize the purpose of plan.md in three bullets.";
+export async function runCodexSpikeCli(args = process.argv.slice(2)): Promise<void> {
+  const prompt = args.join(" ").trim() || "Summarize the purpose of plan.md in three bullets.";
   const result = await runCodexSpike({
     prompt,
     approvalDecision: "decline",
@@ -210,11 +208,4 @@ async function main(): Promise<void> {
   console.log(
     JSON.stringify({ threadId: result.threadId, eventLogRef: result.eventLogRef }, null, 2),
   );
-}
-
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
-  });
 }

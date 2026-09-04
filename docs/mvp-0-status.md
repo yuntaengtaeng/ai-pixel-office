@@ -10,7 +10,7 @@
 - [x] 구조화 이벤트와 tool activity 정규화
 - [x] 실행 중 승인 요청과 동일 turn 재개
 - [x] Workspace, Agent, Skill, Task, AgentRun 영속화
-- [x] better-sqlite3 전환과 기존 DB 자동 마이그레이션
+- [x] Node SQLite 전환과 기존 DB 자동 마이그레이션
 - [x] Fastify API와 SSE
 - [x] 권한 검증, 실행 guardrail, bounded JSONL log
 - [x] 결과 승인, 변경 요청, 취소

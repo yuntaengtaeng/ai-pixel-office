@@ -1,6 +1,11 @@
 node_modules/
 dist/
+**/dist/
+**/release/
+.turbo/
 coverage/
 data/
 .runtime-logs/
 package-lock.json
+pnpm-lock.yaml
+plan/

@@ -18,13 +18,13 @@ if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number
 fi
 
 dependencies_ready() {
-  [ -d "$PROJECT_ROOT/node_modules" ] &&
-    node --input-type=module -e "Promise.all([import('better-sqlite3'), import('vite')]).catch(() => process.exit(1))" >/dev/null 2>&1
+  [ -d "$PROJECT_ROOT/node_modules/.pnpm" ] &&
+    [ -d "$PROJECT_ROOT/apps/web/node_modules/vite" ]
 }
 
 if ! dependencies_ready; then
   echo "처음 실행에 필요한 패키지를 설치합니다..."
-  npm ci --ignore-scripts --no-audit --no-fund || {
+  pnpm install --frozen-lockfile || {
     read -r -p "설치에 실패했습니다. Enter를 누르면 창이 닫힙니다."
     exit 1
   }
@@ -61,12 +61,12 @@ fi
 echo "AI Pixel Office를 시작합니다. 이 창을 닫으면 앱도 종료됩니다."
 if [ "$api_running" = true ]; then
   echo "기존 API 서버를 사용합니다."
-  npm run dev:web
+  pnpm run dev:web
 elif [ "$web_running" = true ]; then
   echo "기존 웹 서버를 사용합니다."
-  npm start
+  pnpm start
 else
-  npm run office
+  pnpm run office
 fi
 
 status=$?

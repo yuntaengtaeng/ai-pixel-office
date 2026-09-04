@@ -12,16 +12,13 @@ if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) {
 }
 
 function Test-DependenciesReady {
-  if (-not (Test-Path -LiteralPath (Join-Path $projectRoot "node_modules"))) {
-    return $false
-  }
-  & node.exe --input-type=module -e "Promise.all([import('better-sqlite3'), import('vite')]).catch(() => process.exit(1))" 2>$null
-  return $LASTEXITCODE -eq 0
+  return (Test-Path -LiteralPath (Join-Path $projectRoot "node_modules\.pnpm")) -and
+    (Test-Path -LiteralPath (Join-Path $projectRoot "apps\web\node_modules\vite"))
 }
 
 if (-not (Test-DependenciesReady)) {
   Write-Host "처음 실행에 필요한 패키지를 설치합니다..." -ForegroundColor Cyan
-  & npm.cmd ci --ignore-scripts --no-audit --no-fund
+  & pnpm.cmd install --frozen-lockfile
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
@@ -57,12 +54,12 @@ Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @(
 Write-Host "AI Pixel Office를 시작합니다. 이 창을 닫으면 앱도 종료됩니다." -ForegroundColor Green
 if ($apiRunning) {
   Write-Host "기존 API 서버를 사용합니다." -ForegroundColor DarkGray
-  & npm.cmd run dev:web
+  & pnpm.cmd run dev:web
 } elseif ($webRunning) {
   Write-Host "기존 웹 서버를 사용합니다." -ForegroundColor DarkGray
-  & npm.cmd start
+  & pnpm.cmd start
 } else {
-  & npm.cmd run office
+  & pnpm.cmd run office
 }
 
 exit $LASTEXITCODE

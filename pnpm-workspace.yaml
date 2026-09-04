@@ -1,0 +1,18 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - electron
+  - electron-winstaller
+  - esbuild
+
+catalog:
+  react: ^19.2.0
+  react-dom: ^19.2.0
+  typescript: ^5.9.0
+  zustand: ^5.0.0
+  styled-components: ^6.5.3
+  "@types/node": ^24.0.0
+  "@types/react": ^19.2.0
+  "@types/react-dom": ^19.2.0

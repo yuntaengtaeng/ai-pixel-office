@@ -182,7 +182,7 @@ export function createCodexExitError(
 ): Error {
   if (detail.includes("Could not find home directory")) {
     return new Error(
-      "Codex 설정 폴더에 접근할 수 없습니다. Codex 샌드박스 내부 터미널이 아닌 일반 Windows PowerShell 또는 Windows Terminal에서 npm.cmd run dev를 실행해 주세요.",
+      "Codex 설정 폴더에 접근할 수 없습니다. Codex 샌드박스 내부 터미널이 아닌 일반 Windows PowerShell 또는 Windows Terminal에서 pnpm dev를 실행해 주세요.",
     );
   }
   return new Error(

@@ -1,0 +1,52 @@
+{
+  "name": "@ai-pixel-office/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.23.0",
+  "description": "Local-first desktop workspace for Claude and Codex agents",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "pnpm run build && wait-on http://127.0.0.1:47371 http://127.0.0.1:47372/health && node scripts/launch-electron.mjs .",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "package": "pnpm --filter @ai-pixel-office/server build && pnpm --filter @ai-pixel-office/web build && pnpm run build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3",
+    "tsup": "^8.5.1",
+    "typescript": "catalog:",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "io.aipixeloffice.desktop",
+    "productName": "AI Pixel Office",
+    "asar": true,
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      },
+      {
+        "from": "../server/dist",
+        "to": "server"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    }
+  }
+}

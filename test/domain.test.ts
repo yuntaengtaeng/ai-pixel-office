@@ -8,7 +8,7 @@ import {
   type Agent,
   type Skill,
   type Task,
-} from "../packages/domain/src/index.ts";
+} from "@ai-pixel-office/domain";
 
 const timestamp = "2026-09-03T00:00:00.000Z";
 const skill: Skill = {

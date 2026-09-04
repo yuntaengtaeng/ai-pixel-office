@@ -7,7 +7,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "data/**", ".runtime-logs/**"],
+    ignores: [
+      "**/dist/**",
+      "**/release/**",
+      "node_modules/**",
+      "coverage/**",
+      "data/**",
+      ".runtime-logs/**",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -41,9 +48,21 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/server/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+    files: [
+      "apps/server/**/*.ts",
+      "apps/desktop/**/*.{ts,mjs}",
+      "packages/**/*.ts",
+      "scripts/**/*.{ts,mjs}",
+      "test/**/*.ts",
+    ],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: ["**/*.d.ts"],
+    rules: {
+      "@typescript-eslint/no-empty-object-type": "off",
     },
   },
   eslintConfigPrettier,
