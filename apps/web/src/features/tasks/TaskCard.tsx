@@ -20,12 +20,12 @@ const Styled = {
   `,
   Card: styled(Link)`
     position: relative;
-    padding: 12px 12px 12px 16px;
+    padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3} ${theme.space.x3} ${theme.space.x4}`};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     border: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     align-items: center;
     min-width: 0;
   `,
@@ -40,7 +40,7 @@ const Styled = {
   Copy: styled.div`
     min-width: 0;
     display: grid;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     strong {
       font-size: ${({ theme }) => theme.typography.fontSize.base};

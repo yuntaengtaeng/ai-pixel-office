@@ -20,7 +20,7 @@ const Styled = {
   Layout: styled.div`
     display: grid;
     grid-template-columns: minmax(270px, 0.75fr) minmax(0, 1.4fr);
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.md} {
@@ -30,24 +30,24 @@ const Styled = {
   Library: styled.section`
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
     max-height: calc(100vh - 155px);
     overflow: auto;
     align-content: start;
-    padding: 4px 8px 8px 4px;
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2} ${theme.space.x2} ${theme.space.x1}`};
 
     @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
       max-height: none;
       overflow: visible;
-      padding-right: 4px;
+      padding-right: ${({ theme }) => theme.space.x1};
     }
   `,
   Card: styled(Panel).attrs({ as: "article" })`
     padding: ${({ theme }) => theme.space.x4};
     display: grid;
     grid-template-columns: 42px minmax(0, 1fr);
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     min-height: 210px;
     max-width: 100%;
     overflow: hidden;
@@ -73,7 +73,7 @@ const Styled = {
     }
 
     h3 {
-      margin: 4px 0 8px;
+      margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x2}`};
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -95,10 +95,10 @@ const Styled = {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     button {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.negative};
       background: ${({ theme }) => theme.colors.background.negativeSubtle};
       color: ${({ theme }) => theme.colors.text.negative};
@@ -115,14 +115,14 @@ const Styled = {
   Bindings: styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 12px;
+    gap: ${({ theme }) => theme.space.x1};
+    margin-top: ${({ theme }) => theme.space.x3};
     max-height: 51px;
     overflow: auto;
 
     span {
       max-width: 100%;
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceMuted};
       color: ${({ theme }) => theme.colors.text.secondary};
@@ -140,8 +140,8 @@ const Styled = {
   `,
   InstructionPreview: styled.span`
     display: -webkit-box;
-    margin-top: 12px;
-    padding-top: 8px;
+    margin-top: ${({ theme }) => theme.space.x3};
+    padding-top: ${({ theme }) => theme.space.x2};
     border-top: 1px dashed ${({ theme }) => theme.colors.border.default};
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
@@ -153,7 +153,7 @@ const Styled = {
     -webkit-box-orient: vertical;
   `,
   Instructions: styled.details`
-    margin-top: 8px;
+    margin-top: ${({ theme }) => theme.space.x2};
     font-size: ${({ theme }) => theme.typography.fontSize.micro};
     color: ${({ theme }) => theme.colors.text.secondary};
 
@@ -165,8 +165,8 @@ const Styled = {
 
     pre {
       max-height: 190px;
-      margin: 8px 0 0;
-      padding: 8px;
+      margin: ${({ theme }) => `${theme.space.x2} 0 0`};
+      padding: ${({ theme }) => theme.space.x2};
       overflow: auto;
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
@@ -178,17 +178,17 @@ const Styled = {
     }
   `,
   AiDraftBox: styled.div`
-    padding: 12px;
+    padding: ${({ theme }) => theme.space.x3};
     border: 2px solid ${({ theme }) => theme.colors.border.default};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.subtle};
     display: grid;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
   `,
   FormDivider: styled.span`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     color: ${({ theme }) => theme.colors.text.muted};
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
 
@@ -202,7 +202,7 @@ const Styled = {
   `,
   GeneratedSettings: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     > label {
       color: ${({ theme }) => theme.colors.text.secondary};
@@ -213,12 +213,12 @@ const Styled = {
 
     > div {
       display: flex;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
       flex-wrap: wrap;
     }
 
     span {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       color: ${({ theme }) => theme.colors.text.positive};

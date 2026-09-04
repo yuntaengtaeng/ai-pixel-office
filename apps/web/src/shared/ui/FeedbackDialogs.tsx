@@ -6,10 +6,10 @@ const Styled = {
     .dialog-content {
       display: grid;
       grid-template-columns: 44px minmax(0, 1fr);
-      gap: 16px;
+      gap: ${({ theme }) => theme.space.x4};
 
       h2 {
-        margin: 4px 0 8px;
+        margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x2}`};
         color: ${({ theme }) => theme.colors.text.primary};
         font-size: ${({ theme }) => theme.typography.fontSize.headingSm};
       }
@@ -50,8 +50,8 @@ const Styled = {
     grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    margin-top: 8px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin-top: ${({ theme }) => theme.space.x2};
   `,
 };
 

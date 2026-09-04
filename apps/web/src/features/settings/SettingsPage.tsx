@@ -21,7 +21,7 @@ const Styled = {
   Grid: styled.div`
     display: grid;
     grid-template-columns: 1.2fr 0.8fr;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.xl} {
@@ -42,10 +42,10 @@ const Styled = {
     grid-column: 1 / -1;
 
     > summary {
-      padding: 16px 20px;
+      padding: ${({ theme }) => `${theme.space.x4} ${theme.space.x5}`};
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: ${({ theme }) => theme.space.x3};
       cursor: pointer;
       list-style-position: inside;
 
@@ -64,15 +64,15 @@ const Styled = {
     }
   `,
   AdvancedSettingsBody: styled.div`
-    padding: 20px;
+    padding: ${({ theme }) => theme.space.x5};
     display: grid;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
   `,
   AdvancedDefaultRow: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
@@ -81,7 +81,7 @@ const Styled = {
   ProjectAddForm: styled.form`
     display: flex;
     align-items: end;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       display: grid;
@@ -89,7 +89,7 @@ const Styled = {
   `,
   ProjectDirectoryList: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   ProjectRow: styled.article<{ $selected: boolean }>`
     display: grid;
@@ -107,7 +107,7 @@ const Styled = {
       `}
 
     > span {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       color: ${({ theme }) => theme.colors.text.positive};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -115,12 +115,12 @@ const Styled = {
   `,
   ProjectSelectButton: styled.button`
     min-width: 0;
-    padding: 12px 12px;
+    padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
     border: 0;
     background: transparent;
     text-align: left;
     display: grid;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
     cursor: pointer;
 
     strong {
@@ -138,7 +138,7 @@ const Styled = {
   `,
   ProjectDeleteButton: styled.button`
     align-self: stretch;
-    padding: 0 12px;
+    padding: ${({ theme }) => `0 ${theme.space.x3}`};
     border: 0;
     border-left: 1px dashed ${({ theme }) => theme.colors.shadow.default};
     background: ${({ theme }) => theme.colors.background.negativeSubtle};
@@ -149,13 +149,13 @@ const Styled = {
   `,
   ConnectionList: styled.div`
     display: grid;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
   `,
   ConnectionCard: styled.article`
     display: grid;
     grid-template-columns: 12px minmax(0, 1fr);
-    gap: 12px;
-    padding: 12px;
+    gap: ${({ theme }) => theme.space.x3};
+    padding: ${({ theme }) => theme.space.x3};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
@@ -164,7 +164,7 @@ const Styled = {
     }
 
     p {
-      margin: 4px 0;
+      margin: ${({ theme }) => `${theme.space.x1} 0`};
       color: ${({ theme }) => theme.colors.text.muted};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
@@ -178,7 +178,7 @@ const Styled = {
   ConnectionLight: styled.span<{ $state: "connected" | "warning" | "default" }>`
     width: 10px;
     height: 10px;
-    margin-top: 4px;
+    margin-top: ${({ theme }) => theme.space.x1};
     background: ${({ theme }) => theme.colors.semantic.negative};
     box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.border.negative};
 
@@ -198,11 +198,11 @@ const Styled = {
   CommandRow: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    margin-top: 8px;
+    margin-top: ${({ theme }) => theme.space.x2};
 
     code {
       min-width: 0;
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       overflow: auto;
       background: ${({ theme }) => theme.colors.background.surfaceMuted};
       color: ${({ theme }) => theme.colors.text.primary};
@@ -220,11 +220,11 @@ const Styled = {
   SettingsActions: styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   DesktopConnectButton: styled.button`
-    margin-top: 8px;
-    padding: 8px 12px;
+    margin-top: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
     border: 1px solid ${({ theme }) => theme.colors.brand.primaryDark};
     background: ${({ theme }) => theme.colors.brand.primary};
     color: white;
@@ -238,8 +238,8 @@ const Styled = {
     }
   `,
   DesktopInstallButton: styled.button`
-    margin-top: 8px;
-    padding: 8px 12px;
+    margin-top: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
     border: 1px solid ${({ theme }) => theme.colors.brand.secondary};
     background: white;
     color: ${({ theme }) => theme.colors.brand.secondary};
@@ -254,7 +254,7 @@ const Styled = {
   `,
   ConnectionHint: styled.p`
     && {
-      margin-top: 8px;
+      margin-top: ${({ theme }) => theme.space.x2};
       color: ${({ theme }) => theme.colors.brand.primaryDark};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }

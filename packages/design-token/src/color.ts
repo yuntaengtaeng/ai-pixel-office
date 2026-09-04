@@ -1,8 +1,11 @@
+const BRAND_SECONDARY = "#4d7f8a";
+
 export const colors = {
   brand: {
     primary: "#4e8874",
     primaryDark: "#386758",
-    secondary: "#4d7f8a",
+    secondary: BRAND_SECONDARY,
+    secondaryTint: `${BRAND_SECONDARY}1A`,
   },
   background: {
     canvas: "#eee7dc",
@@ -11,6 +14,8 @@ export const colors = {
     surfaceMuted: "#eee3d2",
     positiveSubtle: "#e8f1ec",
     negativeSubtle: "#f7dfdc",
+    surfaceTranslucent: "#FFFFFFA3",
+    actionTranslucent: "#FFFFFF8C",
   },
   text: {
     primary: "#453d38",
@@ -75,6 +80,11 @@ export const colors = {
     positive: "#b9cfc4",
     negative: "#d4aaa4",
     glow: "#63b48655",
+    dialog: "#141F1C7A",
+    snackbar: "#493B3138",
+  },
+  overlay: {
+    scrim: "#1F26249E",
   },
   action: {
     primary: {

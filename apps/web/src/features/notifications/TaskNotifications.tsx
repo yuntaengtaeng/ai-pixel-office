@@ -64,7 +64,7 @@ const Styled = {
     bottom: 22px;
     width: min(390px, calc(100vw - 28px));
     display: grid;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     pointer-events: none;
 
     @media ${mediaQuery.md} {
@@ -76,12 +76,12 @@ const Styled = {
     position: relative;
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     align-items: center;
-    padding: 16px 44px 16px 16px;
+    padding: ${({ theme }) => `${theme.space.x4} ${theme.space.x11} ${theme.space.x4} ${theme.space.x4}`};
     border: 2px solid ${({ $tone }) => TONE_COLORS[$tone].border};
     background: ${({ $tone }) => TONE_COLORS[$tone].background};
-    box-shadow: 5px 5px 0 rgb(73 59 49 / 22%);
+    box-shadow: 5px 5px 0 ${({ theme }) => theme.colors.shadow.snackbar};
     line-height: 1.35;
     pointer-events: auto;
     animation: ${snackbarIn} 180ms ease-out;
@@ -89,7 +89,7 @@ const Styled = {
     > div {
       min-width: 0;
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     strong {
@@ -103,15 +103,15 @@ const Styled = {
     }
   `,
   PermissionHint: styled.span`
-    margin-top: 4px;
+    margin-top: ${({ theme }) => theme.space.x1};
     color: ${({ theme }) => theme.colors.text.secondary};
     font-size: ${({ theme }) => theme.typography.fontSize.micro};
     font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   `,
   ActionButton: styled.button`
     border: 1px solid currentColor;
-    background: rgb(255 255 255 / 55%);
-    padding: 8px 8px;
+    background: ${({ theme }) => theme.colors.background.actionTranslucent};
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
     color: ${({ theme }) => theme.colors.text.positive};
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};

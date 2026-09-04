@@ -78,7 +78,8 @@ import하지 않는다. OS 기능은 preload가 명시적으로 공개한 메서
 `officeCanvasStyles.ts`의 `createGlobalStyle`로 유지)는 `apps/web/src/features/office/`가 소유한다.
 
 `packages/design-token`이 원시 design token을 소유한다 — semantic `colors`, 4px grid `space`
-(`space.x1`~`space.x8`), `shadow`, `typography`(fontFamily/fontSize/fontWeight/lineHeight),
+(`space.x1`~`space.x8`, 실제 레이아웃에 있던 초과값(44/48/56/72px)을 위해 `x11`/`x12`/`x14`/`x18`을
+필요한 값만 추가 — 중간 키를 미리 채우지 않는다), `shadow`, `typography`(fontFamily/fontSize/fontWeight/lineHeight),
 `animation`(duration/easing), `breakpoints`와 `mediaQuery`(`sm`/`md`/`lg`/`xl`/`2xl`, 기존 425/760/896/
 1100/1280 px 값은 유지), `radius`(`xs`/`sm`/`md`/`lg`/`xl`/`pill`/`circle`), `zIndex`를 각각 별 파일로
 나누고 `theme.ts`가 `officeTheme` 하나로 합쳐 export한다. React나 styled-components에 의존하지 않는
@@ -97,10 +98,25 @@ Radix(`radix-ui`)는 web에서 완전히 제거했다. `Dialog`(`packages/design
 위치 계산과 open/close 상태만 책임진다(화살표 마커는 동적 side 대응 복잡도 대비 가치가 낮아 이번
 전환에서 생략했다).
 
+`Popover`의 panel은 `createPortal`로 `document.body`에 렌더링한다 — `PixelOffice`의 `AgentSlot`처럼
+`transform`을 쓰는 CSS `animation`이 걸린 조상 안에 두면, 네이티브 Popover API 스펙상 top layer 승격이
+그 조상의 stacking context 안에 갇혀버린다. 그러면 형제 `AgentSlot`의 다른 엘리먼트가 popover 위를
+덮어서, popover 안의 input을 클릭해도 실제로는 그 엘리먼트가 클릭을 가로채 "바깥 클릭"으로 오인되어
+즉시 닫힌다(CDP로 실제 클릭을 재현해 확인한 회귀였다). `Popover`를 어떤 조상 트리에 두든 이 문제가
+재발하지 않도록 위치 계산은 그대로 두고 렌더링 위치만 `document.body`로 옮겨 top layer 승격을
+보장한다.
+
 색상은 실제 UI 역할에 따라 `brand`, `background`, `text`, `semantic`, `status`, `priority`, `runtime`,
-`border`, `shadow`, `action`으로 구분한다. styled-component와 `AppGlobalStyles`는 theme token을 직접
-참조한다. 픽셀 캔버스와 pet처럼 콘텐츠 자체를 구성하는 에셋 팔레트는 UI theme 색상과 수명이 다르므로
-`packages/pet`에서 독립적으로 소유한다.
+`border`, `shadow`, `action`, `overlay`로 구분한다. styled-component와 `AppGlobalStyles`는 theme token을
+직접 참조한다. 반투명 색은 `rgb(... / %)` 대신 8자리 hex(`RRGGBBAA`)로 alpha를 박아 넣는다(기존
+`colors.shadow.glow` 컨벤션) — `colors.overlay.scrim`(Dialog backdrop), `colors.shadow.dialog`/
+`shadow.snackbar`, `colors.background.surfaceTranslucent`/`background.actionTranslucent`가 그 예다.
+원본 색상이 이미 다른 token과 같은 hex라면(`colors.brand.secondaryTint` = `brand.secondary` + alpha처럼)
+값을 복제하지 않고 그 token에서 파생시킨다. 픽셀 캔버스와 pet처럼 콘텐츠 자체를 구성하는 에셋 팔레트는
+UI theme 색상과 수명이 다르므로 `packages/pet`에서 독립적으로 소유하고, `PixelOffice`의 캐릭터
+카드·칩처럼 오피스 화면 전용 색(hex와 반투명 `rgb()` 둘 다)도 같은 이유로 theme token 대상에서 제외한다
+— 이 파일은 이미 `#4b4541`류 리터럴을 전역적으로 쓰고 있어 UI chrome이 아니라 콘텐츠 데이터로
+취급한다.
 
 `packages/pet`은 펫 카탈로그와 픽셀 스프라이트를 단일 공개 API로 제공한다. `createPet()`이 반환하는
 `PetActor`는 `move`, `tick`, `stop`, `snapshot`으로 이동 상태를 관리하며 React, Pixi, Canvas에 의존하지
@@ -125,7 +141,11 @@ Radix(`radix-ui`)는 web에서 완전히 제거했다. `Dialog`(`packages/design
   line-height를 일부러 뺀다. 아이콘+텍스트가 한 줄에 나란히 있는 버튼/입력/배지는 텍스트 자체의
   line box가 아니라 flex 컨테이너의 `align-items: center`로 정렬해야 정확히 중앙에 맞는다.
   (`Label.md`를 처음에 mono로 잘못 설계해서 버튼 43개의 폰트가 전부 바뀌는 회귀가 났었다 — 배지용
-  모노와 버튼용 sans을 같은 토큰으로 뭉뚱그린 게 원인이었다.)
+  모노와 버튼용 sans을 같은 토큰으로 뭉뚱그린 게 원인이었다.) `HelperText`는 자체 margin을 갖지 않는다
+  — margin은 이 텍스트를 배치하는 부모(예: grid `gap`을 가진 컨테이너, 또는 caller가 만든
+  `styled(HelperText)` wrapper)가 문맥에 맞게 책임진다. 처음엔 `margin: -4px 0 15px`로 앞 요소의
+  margin과 상쇄하도록 만들어져 있었는데, 앞 요소가 이미 자기 margin-bottom을 갖고 있어서 이중으로
+  보정하는 모순이었다.
 - `fadeIn`/`popIn`/`slideUpIn`(`animation.ts`) — 여러 화면에서 그대로 반복되던 dialog/snackbar 진입
   keyframes를 하나로 모았다. `duration`/`easing`도 `design-token`에서 재노출한다.
 - `icons/`(`TrashIcon`, `CloseIcon`) — 파일마다 따로 박혀 있던 인라인 `<svg>` 아이콘을 컴포넌트로
@@ -150,9 +170,9 @@ Radix(`radix-ui`)는 web에서 완전히 제거했다. `Dialog`(`packages/design
 - `App.tsx`의 `AppShell`은 이제 `Sidebar` + grid-column 배치만 하는 얇은 `Shell`/`Content`
   컨테이너다 — padding 로직은 전혀 없다.
 
-아직 남은 일: `AppGlobalStyles`의 전역 유틸리티 selector를 component로 옮기는 작업은 `design-system.md`
-계획에 남아 있다(위 Styling 전환 상태 참고) — `Button`/`Input`처럼 아직 `packages/design-system`
-component로 옮기지 않았다.
+아직 남은 일: `Dialog`/`Popover`의 동작 계약(controlled open, focus 복원, 충돌 보정 등)을 지켜주는
+component test가 없다 — jsdom/testing-library 도입 방향은 `ai-docs/adr/004-component-test-library.md`에
+제안만 해 뒀고 실제 구현은 하지 않았다.
 
 ## Community 목표 구조
 

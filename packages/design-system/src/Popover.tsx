@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import styled from "styled-components";
 import {
   usePopoverPosition,
@@ -80,7 +81,7 @@ export function Popover({
     return () => el.removeEventListener("toggle", onToggle);
   }, [onOpenChange]);
 
-  return (
+  return createPortal(
     <Panel
       ref={ref}
       id={panelId}
@@ -89,6 +90,7 @@ export function Popover({
       style={position ? { top: position.top, left: position.left } : undefined}
     >
       {children}
-    </Panel>
+    </Panel>,
+    document.body,
   );
 }

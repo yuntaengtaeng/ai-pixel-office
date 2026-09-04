@@ -230,7 +230,7 @@ const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 12px;
+  gap: ${({ theme }) => theme.space.x3};
   color: #6f5c4c;
   background: linear-gradient(to bottom, #f2dfbf 0 30%, #9f6d4e 30% 32%, #d6aa76 32% 100%);
   font-family: ${({ theme }) => theme.typography.fontFamily.mono};
@@ -247,7 +247,7 @@ const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
 
   > span {
     width: 42px;
-    padding: 8px 0;
+    padding: ${({ theme }) => `${theme.space.x2} 0`};
     border: 2px solid ${({ theme }) => theme.colors.border.strong};
     background: #f8e9ce;
     box-shadow: 3px 3px 0 #9f6d4e;
@@ -327,7 +327,7 @@ const AgentName = styled.button<{ $hasTask: boolean }>`
   }
 
   small {
-    margin-top: 4px;
+    margin-top: ${({ theme }) => theme.space.x1};
     color: #6f786e;
     font-size: clamp(4px, 0.62vw, 7px);
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -351,7 +351,7 @@ const RuntimeChip = styled.span`
   top: -22%;
   right: -8%;
   z-index: ${({ theme }) => theme.zIndex.floating};
-  padding: 4px 4px;
+  padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
   border-radius: ${({ theme }) => theme.radius.pill};
   color: #fff;
   font-family: ${({ theme }) => theme.typography.fontFamily.mono};
@@ -425,7 +425,7 @@ const EmptyLabel = styled.div`
 const QuickPopover = styled(Popover)`
   z-index: ${({ theme }) => theme.zIndex.popover};
   width: min(320px, calc(100vw - 24px));
-  padding: 16px;
+  padding: ${({ theme }) => theme.space.x4};
   border: 2px solid #5a766c;
   background: ${({ theme }) => theme.colors.background.surface};
   box-shadow: 5px 5px 0 #9eafa6;
@@ -437,7 +437,7 @@ const QuickPopover = styled(Popover)`
 
   form {
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   }
 
   label {
@@ -445,7 +445,7 @@ const QuickPopover = styled(Popover)`
     font-size: ${({ theme }) => theme.typography.fontSize.micro};
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     display: grid;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
   }
 `;
 
@@ -453,24 +453,24 @@ const PopoverHeading = styled.div`
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: ${({ theme }) => theme.space.x3};
 `;
 
 const TaskListPopover = styled.div`
   display: grid;
-  gap: 4px;
+  gap: ${({ theme }) => theme.space.x1};
   max-height: 180px;
-  margin-bottom: 12px;
+  margin-bottom: ${({ theme }) => theme.space.x3};
   overflow: auto;
 
   button {
     min-width: 0;
-    padding: 8px;
+    padding: ${({ theme }) => theme.space.x2};
     border: 1px solid #d5c8b5;
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     align-items: center;
     color: #4b4541;
     text-align: left;

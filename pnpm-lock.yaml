@@ -187,6 +187,9 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.8
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.8(react@19.2.8)
       styled-components:
         specifier: 'catalog:'
         version: 6.5.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -194,6 +197,9 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.7(@types/react@19.2.18)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

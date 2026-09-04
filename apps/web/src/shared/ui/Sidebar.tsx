@@ -9,7 +9,7 @@ const Styled = {
     position: fixed;
     inset: 0 auto 0 0;
     width: 228px;
-    padding: 24px 20px;
+    padding: ${({ theme }) => `${theme.space.x6} ${theme.space.x5}`};
     background: ${({ theme }) => theme.colors.brand.primaryDark};
     color: ${({ theme }) => theme.colors.text.inverse};
     border-right: 4px solid ${({ theme }) => theme.colors.brand.primary};
@@ -21,7 +21,7 @@ const Styled = {
       position: sticky;
       width: 100%;
       height: auto;
-      padding: 12px 12px;
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
       border: 0;
       border-bottom: 4px solid ${({ theme }) => theme.colors.brand.primary};
       flex-direction: row;
@@ -31,7 +31,7 @@ const Styled = {
   Brand: styled(Link)`
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     letter-spacing: -0.02em;
 
@@ -59,24 +59,24 @@ const Styled = {
     }
   `,
   RuntimeList: styled.div`
-    margin-top: 16px;
+    margin-top: ${({ theme }) => theme.space.x4};
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       display: none;
     }
 
     > span {
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       border: 1px solid ${({ theme }) => theme.colors.brand.primary};
       background: ${({ theme }) => theme.colors.brand.primary};
       color: ${({ theme }) => theme.colors.text.inverse};
       opacity: 0.6;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -110,14 +110,14 @@ const Styled = {
     }
   `,
   WorkspaceChip: styled.div`
-    margin: 32px 0 20px;
-    padding: 12px 12px;
+    margin: ${({ theme }) => `${theme.space.x8} 0 ${theme.space.x5}`};
+    padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
     border: 2px solid ${({ theme }) => theme.colors.brand.primary};
     background: ${({ theme }) => theme.colors.brand.primary};
     font-size: ${({ theme }) => theme.typography.fontSize.md};
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       display: none;
@@ -132,27 +132,27 @@ const Styled = {
   `,
   Nav: styled.nav`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       margin-left: auto;
       display: flex;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     a {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 12px;
+      gap: ${({ theme }) => theme.space.x3};
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
       color: ${({ theme }) => theme.colors.text.inverse};
       font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
       border: 2px solid transparent;
 
       @media ${mediaQuery.md} {
-        padding: 8px;
+        padding: ${({ theme }) => theme.space.x2};
         font-size: ${({ theme }) => theme.typography.fontSize.compact};
-        gap: 4px;
+        gap: ${({ theme }) => theme.space.x1};
       }
 
       span {
@@ -181,10 +181,10 @@ const Styled = {
   `,
   Note: styled.div`
     margin-top: auto;
-    padding: 16px;
+    padding: ${({ theme }) => theme.space.x4};
     border: 2px dashed ${({ theme }) => theme.colors.brand.primary};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     font-size: ${({ theme }) => theme.typography.fontSize.compact};
     line-height: 1.5;
     color: ${({ theme }) => theme.colors.text.inverse};

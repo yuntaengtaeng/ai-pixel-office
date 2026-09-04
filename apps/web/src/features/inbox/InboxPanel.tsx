@@ -22,22 +22,22 @@ const INPUT_TYPES: Array<{ value: Input["type"]; label: string }> = [
 
 const Styled = {
   Surface: styled(Surface)`
-    margin-bottom: 24px;
-    padding: 24px;
+    margin-bottom: ${({ theme }) => theme.space.x6};
+    padding: ${({ theme }) => theme.space.x6};
     border-color: ${({ theme }) => theme.colors.brand.secondary};
     background:
-      linear-gradient(135deg, rgb(77 127 138 / 10%), transparent 42%),
+      ${({ theme }) => `linear-gradient(135deg, ${theme.colors.brand.secondaryTint}, transparent 42%)`},
       ${({ theme }) => theme.colors.background.surface};
   `,
   Intro: styled.div`
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 20px;
-    margin-bottom: 16px;
+    gap: ${({ theme }) => theme.space.x5};
+    margin-bottom: ${({ theme }) => theme.space.x4};
 
     h2 {
-      margin: 4px 0 4px;
+      margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x1}`};
       font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
     }
 
@@ -51,7 +51,7 @@ const Styled = {
   `,
   Count: styled.span`
     flex: 0 0 auto;
-    padding: 8px 12px;
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
     border: 1px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
     color: ${({ theme }) => theme.colors.text.positive};
@@ -62,17 +62,17 @@ const Styled = {
   Flow: styled.ol`
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin: 0 0 16px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin: ${({ theme }) => `0 0 ${theme.space.x4}`};
     padding: 0;
     list-style: none;
 
     li {
       position: relative;
       min-height: 54px;
-      padding: 12px 12px 12px 40px;
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3} ${theme.space.x3} 40px`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
-      background: rgb(255 255 255 / 64%);
+      background: ${({ theme }) => theme.colors.background.surfaceTranslucent};
       color: ${({ theme }) => theme.colors.text.positive};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
       line-height: 1.45;
@@ -106,9 +106,9 @@ const Styled = {
   Form: styled.form`
     display: grid;
     grid-template-columns: 110px minmax(0, 1fr) auto;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     align-items: stretch;
-    padding: 12px;
+    padding: ${({ theme }) => theme.space.x3};
     border: 1px dashed ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
@@ -121,14 +121,14 @@ const Styled = {
     }
 
     select {
-      padding: 0 12px;
+      padding: ${({ theme }) => `0 ${theme.space.x3}`};
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     textarea {
       min-height: 58px;
-      padding: 12px 12px;
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
       resize: vertical;
       font-size: ${({ theme }) => theme.typography.fontSize.md};
       line-height: 1.5;
@@ -144,17 +144,17 @@ const Styled = {
   `,
   List: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     max-height: 280px;
-    margin-top: 12px;
+    margin-top: ${({ theme }) => theme.space.x3};
     overflow: auto;
   `,
   Item: styled.article`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     align-items: center;
-    padding: 12px;
+    padding: ${({ theme }) => theme.space.x3};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
@@ -165,11 +165,11 @@ const Styled = {
   ItemCopy: styled.div`
     min-width: 0;
     display: grid;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     > div {
       display: flex;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
       color: ${({ theme }) => theme.colors.text.muted};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
 
@@ -199,7 +199,7 @@ const Styled = {
   ItemActions: styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       justify-content: flex-end;

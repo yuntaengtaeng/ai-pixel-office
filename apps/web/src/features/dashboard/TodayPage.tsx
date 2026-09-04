@@ -57,14 +57,14 @@ const Styled = {
       > header {
         display: flex;
         justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 20px;
-        padding-bottom: 16px;
+        gap: ${({ theme }) => theme.space.x5};
+        margin-bottom: ${({ theme }) => theme.space.x5};
+        padding-bottom: ${({ theme }) => theme.space.x4};
         border-bottom: 2px dashed ${({ theme }) => theme.colors.border.default};
       }
 
       h2 {
-        margin: 4px 0 8px;
+        margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x2}`};
         font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
       }
 
@@ -110,12 +110,12 @@ const Styled = {
   DialogActions: styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   PriorityPicker: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     button {
       min-height: 36px;
@@ -135,7 +135,7 @@ const Styled = {
   PriorityChoiceDot: styled.span<{ $priority: NonNullable<Task["priority"]> }>`
     width: 7px;
     height: 7px;
-    margin-right: 8px;
+    margin-right: ${({ theme }) => theme.space.x2};
     display: inline-block;
     background: ${({ $priority }) => PRIORITY_COLORS[$priority]};
   `,
@@ -150,17 +150,17 @@ const Styled = {
   HeadingMeta: styled.div`
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
   `,
   RuntimeLegend: styled.div`
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
   `,
   RuntimeLegendChip: styled.span`
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
     font-size: ${({ theme }) => theme.typography.fontSize.compact};
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -182,9 +182,9 @@ const Styled = {
   Toolbar: styled.section`
     display: grid;
     grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: ${({ theme }) => theme.space.x4};
 
     @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
@@ -195,14 +195,14 @@ const Styled = {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     min-height: 38px;
-    padding: 0 12px;
+    padding: ${({ theme }) => `0 ${theme.space.x3}`};
     border: 1px solid ${({ theme }) => theme.colors.border.default};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     color: ${({ theme }) => theme.colors.text.muted};
 
     input {
       min-width: 0;
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       border: 0;
       outline: 0;
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
@@ -220,13 +220,13 @@ const Styled = {
   `,
   StatusFilterList: styled.div`
     display: flex;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
     overflow-x: auto;
-    padding: 4px 0 4px;
+    padding: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x1}`};
 
     button {
       flex: 0 0 auto;
-      padding: 8px 8px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.shadow.default};
       background: ${({ theme }) => theme.colors.background.surfaceMuted};
       color: ${({ theme }) => theme.colors.text.secondary};
@@ -242,14 +242,14 @@ const Styled = {
     }
 
     b {
-      margin-left: 4px;
+      margin-left: ${({ theme }) => theme.space.x1};
       font-family: monospace;
     }
   `,
   TodayGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
 
     @media ${mediaQuery.xl} {
       grid-template-columns: repeat(2, 1fr);
@@ -266,15 +266,15 @@ const Styled = {
   `,
   TaskList: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     max-height: 360px;
     overflow: auto;
   `,
   LowerGrid: styled.div`
     display: grid;
     grid-template-columns: 1.2fr 0.8fr;
-    gap: 20px;
-    margin-top: 20px;
+    gap: ${({ theme }) => theme.space.x5};
+    margin-top: ${({ theme }) => theme.space.x5};
 
     > :only-child {
       grid-column: 1 / -1;
@@ -312,13 +312,13 @@ const Styled = {
   ActivityItem: styled.div<{ $category: "input" | "task" | "approval" | "agent" }>`
     display: grid;
     grid-template-columns: 12px 1fr;
-    gap: 8px;
-    padding: 8px 4px;
+    gap: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
     border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
     div {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     strong {
@@ -344,7 +344,7 @@ const Styled = {
   ActivityPixel: styled.span<{ $category: "input" | "task" | "approval" | "agent" }>`
     width: 7px;
     height: 7px;
-    margin-top: 4px;
+    margin-top: ${({ theme }) => theme.space.x1};
     box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.border.positive};
     background: ${({ $category }) =>
       $category === "input"
@@ -357,8 +357,8 @@ const Styled = {
   `,
   ActivityMore: styled.button`
     width: 100%;
-    margin-top: 8px;
-    padding: 8px;
+    margin-top: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => theme.space.x2};
     border: 1px solid ${({ theme }) => theme.colors.shadow.default};
     background: ${({ theme }) => theme.colors.background.surfaceMuted};
     color: ${({ theme }) => theme.colors.text.secondary};
@@ -370,7 +370,7 @@ const Styled = {
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
     align-items: end;
   `,
 };

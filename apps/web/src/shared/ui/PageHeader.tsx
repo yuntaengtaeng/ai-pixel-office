@@ -8,14 +8,14 @@ const Header = styled.header`
   min-height: 82px;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: ${({ theme }) => theme.space.x6};
 
   @media ${mediaQuery.md} {
     min-height: 66px;
   }
 
   h1 {
-    margin: 4px 0 0;
+    margin: ${({ theme }) => `${theme.space.x1} 0 0`};
     color: ${({ theme }) => theme.colors.text.primary};
     font-size: clamp(29px, 4vw, 42px);
     letter-spacing: -0.045em;

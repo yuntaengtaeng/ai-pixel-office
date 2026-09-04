@@ -6,7 +6,7 @@ const Message = styled.div<{ $error: boolean }>`
   min-height: 100vh;
   place-content: center;
   justify-items: center;
-  gap: 12px;
+  gap: ${({ theme }) => theme.space.x3};
   background: ${({ theme }) => theme.colors.background.canvas};
   color: ${({ $error, theme }) =>
     $error ? theme.colors.text.negative : theme.colors.text.secondary};

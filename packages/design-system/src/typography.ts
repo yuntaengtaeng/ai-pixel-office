@@ -59,6 +59,6 @@ export const Kicker = styled.span`
 
 export const HelperText = styled.p`
   ${Text.caption}
-  margin: -4px 0 15px;
+  margin: 0;
   color: ${({ theme }) => theme.colors.text.muted};
 `;

@@ -48,7 +48,7 @@ import { defaultManualModel } from "./model-options.ts";
 const Styled = {
   StatusPill: styled.span<{ $status: TaskStatus }>`
     display: inline-block;
-    padding: 4px 8px;
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
     border: 2px solid currentColor;
     border-top-color: ${({ $status }) => STATUS[$status].color};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
@@ -63,7 +63,7 @@ const Styled = {
   RosterGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
 
     @media ${mediaQuery.xl} {
       grid-template-columns: repeat(2, 1fr);
@@ -98,11 +98,11 @@ const Styled = {
 
     > button {
       width: 100%;
-      padding: 12px 12px 44px;
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3} ${theme.space.x11}`};
       border: 0;
       background: transparent;
       display: flex;
-      gap: 12px;
+      gap: ${({ theme }) => theme.space.x3};
       align-items: center;
       text-align: left;
       cursor: pointer;
@@ -110,7 +110,7 @@ const Styled = {
 
     div {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       min-width: 0;
     }
 
@@ -139,11 +139,11 @@ const Styled = {
     bottom: 8px;
     display: flex !important;
     grid-auto-flow: column;
-    gap: 4px !important;
+    gap: ${({ theme }) => theme.space.x1} !important;
 
     a,
     button {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       color: ${({ theme }) => theme.colors.text.positive};
@@ -165,7 +165,7 @@ const Styled = {
   QuickJobList: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.xl} {
       grid-template-columns: repeat(2, 1fr);
@@ -183,13 +183,13 @@ const Styled = {
 
     > button:first-child {
       min-width: 0;
-      padding: 12px;
+      padding: ${({ theme }) => theme.space.x3};
       border: 0;
       background: transparent;
       text-align: left;
       cursor: pointer;
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     strong {
@@ -227,14 +227,14 @@ const Styled = {
   RecentJobs: styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 12px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin-top: ${({ theme }) => theme.space.x3};
     flex-wrap: wrap;
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     color: ${({ theme }) => theme.colors.text.muted};
 
     button {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       cursor: pointer;
@@ -243,9 +243,9 @@ const Styled = {
   QuickJobForm: styled.form`
     display: flex;
     align-items: end;
-    gap: 8px;
-    margin-top: 16px;
-    padding-top: 16px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin-top: ${({ theme }) => theme.space.x4};
+    padding-top: ${({ theme }) => theme.space.x4};
     border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
 
     @media ${mediaQuery.md} {
@@ -255,7 +255,7 @@ const Styled = {
   DetailGrid: styled.div`
     display: grid;
     grid-template-columns: minmax(310px, 0.85fr) minmax(0, 1.15fr);
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.xl} {
@@ -264,20 +264,20 @@ const Styled = {
   `,
   DetailSide: styled.div`
     display: grid;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
   `,
   ProfileStats: styled(Panel).attrs({ as: "section" })`
     padding: ${({ theme }) => theme.space.x4};
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     div {
-      padding: 12px;
+      padding: ${({ theme }) => theme.space.x3};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       text-align: center;
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     strong {
@@ -295,7 +295,7 @@ const Styled = {
   `,
   TemplateList: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     > div {
       display: grid;
@@ -304,9 +304,9 @@ const Styled = {
 
       > div {
         min-width: 0;
-        padding: 8px;
+        padding: ${({ theme }) => theme.space.x2};
         display: grid;
-        gap: 4px;
+        gap: ${({ theme }) => theme.space.x1};
       }
     }
 
@@ -343,8 +343,8 @@ const Styled = {
   TemplateForm: styled.form`
     display: grid;
     grid-template-columns: 0.7fr 1fr auto;
-    gap: 8px;
-    margin-top: 12px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin-top: ${({ theme }) => theme.space.x3};
 
     @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
@@ -356,9 +356,9 @@ const Styled = {
     > a {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
       align-items: center;
-      padding: 8px 4px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
       border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
     }
 
@@ -377,7 +377,7 @@ const Styled = {
   BuilderLayout: styled.div`
     display: grid;
     grid-template-columns: minmax(280px, 0.75fr) minmax(520px, 1.45fr);
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.xl} {
@@ -396,14 +396,14 @@ const Styled = {
   SelectedPet: styled.div`
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
     background: ${({ theme }) => theme.colors.background.surfaceMuted};
-    padding: 12px;
+    padding: ${({ theme }) => theme.space.x3};
     border: 2px solid ${({ theme }) => theme.colors.border.default};
 
     div {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
 
       > span {
         color: ${({ theme }) => theme.colors.text.secondary};
@@ -421,10 +421,13 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.muted};
     }
   `,
+  IntroText: styled(HelperText)`
+    margin-bottom: ${({ theme }) => theme.space.x2};
+  `,
   CheckGrid: styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   CheckChip: styled.label`
     position: relative;
@@ -437,7 +440,7 @@ const Styled = {
 
     span {
       display: block;
-      padding: 8px 8px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
@@ -454,12 +457,12 @@ const Styled = {
   EnginePicker: styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     button {
-      padding: 12px;
+      padding: ${({ theme }) => theme.space.x3};
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       border: 2px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -481,7 +484,7 @@ const Styled = {
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > summary {
-      padding: 12px 12px;
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
       color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -489,19 +492,19 @@ const Styled = {
     }
 
     > div {
-      padding: 12px;
+      padding: ${({ theme }) => theme.space.x3};
       border-top: 1px dashed ${({ theme }) => theme.colors.border.default};
       display: grid;
-      gap: 16px;
+      gap: ${({ theme }) => theme.space.x4};
     }
   `,
   MappedPermissions: styled.div`
-    margin-top: 8px;
-    padding: 8px;
+    margin-top: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => theme.space.x2};
     border-left: 3px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     strong {
       color: ${({ theme }) => theme.colors.text.positive};
@@ -511,11 +514,11 @@ const Styled = {
     > div {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     span {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       color: ${({ theme }) => theme.colors.text.positive};
@@ -526,7 +529,7 @@ const Styled = {
     padding: ${({ theme }) => theme.space.x6};
 
     h3 {
-      margin: 20px 0 8px;
+      margin: ${({ theme }) => `${theme.space.x5} 0 ${theme.space.x2}`};
       font-size: ${({ theme }) => theme.typography.fontSize.base};
       color: ${({ theme }) => theme.colors.text.secondary};
     }
@@ -534,7 +537,7 @@ const Styled = {
   PetGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       grid-template-columns: repeat(3, 1fr);
@@ -542,7 +545,7 @@ const Styled = {
   `,
   PetChoice: styled.button<{ $selected: boolean }>`
     min-width: 0;
-    padding: 8px 4px;
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
     border: 2px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: flex;
@@ -563,12 +566,12 @@ const Styled = {
       `}
 
     strong {
-      margin-top: 4px;
+      margin-top: ${({ theme }) => theme.space.x1};
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
     span {
-      margin-top: 4px;
+      margin-top: ${({ theme }) => theme.space.x1};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       color: ${({ theme }) => theme.colors.text.muted};
       overflow: hidden;
@@ -746,10 +749,10 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           </Field>
           <Fieldset>
             <Legend>스킬 · 선택 사항</Legend>
-            <HelperText>
+            <Styled.IntroText>
               스킬 없이도 기본 업무를 수행합니다. 반복해서 잘해야 할 전문 업무가 있으면 스킬을
               연결하세요.
-            </HelperText>
+            </Styled.IntroText>
             <Styled.CheckGrid>
               {(skills.data ?? []).map((skill) => (
                 <Styled.CheckChip
@@ -952,9 +955,9 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               <h2>{selectedAgent.name}에게 바로 맡기기</h2>
             </div>
           </SectionHeading>
-          <HelperText>
+          <Styled.IntroText>
             자주 하는 일을 등록해 두면 동료를 클릭한 뒤 한 번에 작업을 만들 수 있습니다.
-          </HelperText>
+          </Styled.IntroText>
           <Styled.QuickJobList>
             {(templates.data ?? []).map((template) => (
               <Styled.QuickJob key={template.id}>
@@ -1224,9 +1227,9 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
           </Field>
           <Fieldset>
             <Legend>스킬 · 선택 사항</Legend>
-            <HelperText>
+            <Styled.IntroText>
               스킬은 선택 사항이며, 연결한 스킬에 필요한 권한은 자동으로 적용됩니다.
-            </HelperText>
+            </Styled.IntroText>
             <Styled.CheckGrid>
               {(skills.data ?? []).map((skill) => (
                 <Styled.CheckChip key={skill.id}>

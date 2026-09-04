@@ -10,10 +10,10 @@ import styled from "styled-components";
  */
 export const BaseLayout = styled.div`
   width: min(1220px, 100%);
-  padding: 44px 48px 72px;
+  padding: ${({ theme }) => `${theme.space.x11} ${theme.space.x12} ${theme.space.x18}`};
   margin: 0 auto;
 
   @media ${mediaQuery.md} {
-    padding: 28px 16px 56px;
+    padding: ${({ theme }) => `${theme.space.x7} ${theme.space.x4} ${theme.space.x14}`};
   }
 `;

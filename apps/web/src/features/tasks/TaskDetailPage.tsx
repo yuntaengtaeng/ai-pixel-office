@@ -64,8 +64,8 @@ const RunRow = styled.summary`
   display: grid;
   grid-template-columns: 12px 90px 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 12px 4px;
+  gap: ${({ theme }) => theme.space.x2};
+  padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x1}`};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
   font-size: ${({ theme }) => theme.typography.fontSize.compact};
 
@@ -108,7 +108,7 @@ const RunEntry = styled.details<{ $failed: boolean }>`
 
   ${RunRow} {
     position: relative;
-    padding-right: 24px;
+    padding-right: ${({ theme }) => theme.space.x6};
     border-bottom: 0;
     cursor: pointer;
     list-style: none;
@@ -130,10 +130,10 @@ const RunEntry = styled.details<{ $failed: boolean }>`
 
 const Styled = {
   Heading: styled.div`
-    margin: 24px 0 28px;
+    margin: ${({ theme }) => `${theme.space.x6} 0 ${theme.space.x7}`};
 
     h1 {
-      margin: 4px 0 0;
+      margin: ${({ theme }) => `${theme.space.x1} 0 0`};
       color: ${({ theme }) => theme.colors.text.primary};
       font-size: clamp(29px, 4vw, 42px);
       letter-spacing: -0.045em;
@@ -146,7 +146,7 @@ const Styled = {
   `,
   StatusPill: styled.span<{ $status: TaskStatus }>`
     display: inline-block;
-    padding: 4px 8px;
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
     border: 2px solid currentColor;
     border-top-color: ${({ $status }) => STATUS[$status].color};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
@@ -157,7 +157,7 @@ const Styled = {
   DetailLayout: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.65fr);
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.md} {
@@ -167,7 +167,7 @@ const Styled = {
   DetailMain: styled.div`
     min-width: 0;
     display: grid;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
   `,
   ResultPanel: styled(Panel).attrs({ as: "section" })`
     padding: ${({ theme }) => theme.space.x5};
@@ -188,7 +188,7 @@ const Styled = {
     h1 {
       font-size: ${({ theme }) => theme.typography.fontSize.headingXl};
       border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
-      padding-bottom: 8px;
+      padding-bottom: ${({ theme }) => theme.space.x2};
     }
 
     h2 {
@@ -205,7 +205,7 @@ const Styled = {
 
     ul,
     ol {
-      padding-left: 24px;
+      padding-left: ${({ theme }) => theme.space.x6};
     }
 
     li {
@@ -213,7 +213,7 @@ const Styled = {
     }
 
     code {
-      padding: 4px 4px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
       background: ${({ theme }) => theme.colors.background.surfaceMuted};
       border: 1px solid ${({ theme }) => theme.colors.border.subtle};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
@@ -221,7 +221,7 @@ const Styled = {
     }
 
     pre {
-      padding: 12px;
+      padding: ${({ theme }) => theme.space.x3};
       overflow: auto;
       background: ${({ theme }) => theme.colors.semantic.info};
       color: ${({ theme }) => theme.colors.text.inverse};
@@ -237,7 +237,7 @@ const Styled = {
 
     blockquote {
       margin-left: 0;
-      padding-left: 12px;
+      padding-left: ${({ theme }) => theme.space.x3};
       border-left: 4px solid ${({ theme }) => theme.colors.border.positive};
       color: ${({ theme }) => theme.colors.text.secondary};
     }
@@ -249,16 +249,16 @@ const Styled = {
 
     th,
     td {
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       border: 1px solid ${({ theme }) => theme.colors.border.subtle};
       text-align: left;
     }
   `,
   CurrentRunRequest: styled.div`
     display: grid;
-    gap: 4px;
-    margin: 16px 0 4px;
-    padding: 12px 12px;
+    gap: ${({ theme }) => theme.space.x1};
+    margin: ${({ theme }) => `${theme.space.x4} 0 ${theme.space.x1}`};
+    padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
     border-left: 4px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
@@ -277,12 +277,12 @@ const Styled = {
     }
   `,
   PreviousResult: styled.details`
-    margin-top: 16px;
+    margin-top: ${({ theme }) => theme.space.x4};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     > summary {
-      padding: 12px 12px;
+      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
       color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -290,14 +290,14 @@ const Styled = {
     }
 
     > div {
-      padding: 4px 12px 12px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x3} ${theme.space.x3}`};
       border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
     }
   `,
   TaskBriefEditor: styled.div`
-    margin-top: 20px;
+    margin-top: ${({ theme }) => theme.space.x5};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     label {
       color: ${({ theme }) => theme.colors.text.positive};
@@ -321,11 +321,11 @@ const Styled = {
     }
   `,
   TaskBriefActions: styled.div`
-    margin-top: 4px;
+    margin-top: ${({ theme }) => theme.space.x1};
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
 
     small {
       margin: 0;
@@ -344,7 +344,7 @@ const Styled = {
     display: grid;
     place-content: center;
     justify-items: center;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     text-align: center;
 
     strong {
@@ -371,7 +371,7 @@ const Styled = {
   ProgressPixels: styled.div`
     display: flex;
     align-items: end;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
     height: 34px;
 
     span {
@@ -398,8 +398,8 @@ const Styled = {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 24px;
+    gap: ${({ theme }) => theme.space.x4};
+    padding: ${({ theme }) => theme.space.x6};
 
     > span {
       flex: 0 0 auto;
@@ -425,7 +425,7 @@ const Styled = {
     }
 
     p {
-      margin: 8px 0 0;
+      margin: ${({ theme }) => `${theme.space.x2} 0 0`};
       color: ${({ theme }) => theme.colors.text.negative};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
@@ -437,9 +437,9 @@ const Styled = {
   SessionLimitState: styled.div`
     display: grid;
     grid-template-columns: 42px 1fr;
-    gap: 12px;
-    margin-top: 20px;
-    padding: 20px;
+    gap: ${({ theme }) => theme.space.x3};
+    margin-top: ${({ theme }) => theme.space.x5};
+    padding: ${({ theme }) => theme.space.x5};
     border: 2px solid ${({ theme }) => theme.colors.border.default};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
@@ -460,7 +460,7 @@ const Styled = {
     }
 
     p {
-      margin: 4px 0 12px;
+      margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x3}`};
       color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.md};
       line-height: 1.6;
@@ -469,23 +469,23 @@ const Styled = {
   SessionLimitActions: styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   RunProgress: styled.div`
-    margin-top: 4px;
-    padding-top: 16px;
+    margin-top: ${({ theme }) => theme.space.x1};
+    padding-top: ${({ theme }) => theme.space.x4};
     border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
   `,
   RunProgressHeading: styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: ${({ theme }) => theme.space.x2};
     color: ${({ theme }) => theme.colors.text.positive};
     font-size: ${({ theme }) => theme.typography.fontSize.compact};
 
     span {
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
@@ -500,8 +500,8 @@ const Styled = {
   ProgressEvent: styled.div<{ $type: string }>`
     display: grid;
     grid-template-columns: 18px 1fr;
-    gap: 8px;
-    padding: 8px 4px;
+    gap: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
     border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
     > span {
@@ -520,7 +520,7 @@ const Styled = {
       min-width: 0;
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 4px 8px;
+      gap: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
     }
 
     p {
@@ -549,16 +549,16 @@ const Styled = {
     }
   `,
   Artifact: styled.div`
-    margin-top: 12px;
-    padding: 12px;
+    margin-top: ${({ theme }) => theme.space.x3};
+    padding: ${({ theme }) => theme.space.x3};
     display: flex;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
     div {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     small {
@@ -567,16 +567,16 @@ const Styled = {
   `,
   ReviewBox: styled.div`
     display: grid;
-    gap: 12px;
-    margin-top: 24px;
-    padding: 16px;
+    gap: ${({ theme }) => theme.space.x3};
+    margin-top: ${({ theme }) => theme.space.x6};
+    padding: ${({ theme }) => theme.space.x4};
     border: 2px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
     box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.positive};
   `,
   ReviewCopy: styled.div`
     display: grid;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     strong {
       color: ${({ theme }) => theme.colors.text.positive};
@@ -593,7 +593,7 @@ const Styled = {
   ReviewFollowup: styled.form`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     input {
       min-width: 0;
@@ -607,8 +607,8 @@ const Styled = {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding-top: 12px;
+    gap: ${({ theme }) => theme.space.x3};
+    padding-top: ${({ theme }) => theme.space.x3};
     border-top: 1px solid ${({ theme }) => theme.colors.border.positive};
 
     span {
@@ -621,22 +621,22 @@ const Styled = {
     }
   `,
   WorkflowPanel: styled.section`
-    margin-bottom: 20px;
-    padding-bottom: 16px;
+    margin-bottom: ${({ theme }) => theme.space.x5};
+    padding-bottom: ${({ theme }) => theme.space.x4};
     border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
   `,
   AssignmentModeSwitch: styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    margin-bottom: 12px;
-    padding: 4px;
+    gap: ${({ theme }) => theme.space.x1};
+    margin-bottom: ${({ theme }) => theme.space.x3};
+    padding: ${({ theme }) => theme.space.x1};
     border: 1px solid ${({ theme }) => theme.colors.shadow.default};
     background: ${({ theme }) => theme.colors.background.surfaceMuted};
 
     button {
       min-width: 0;
-      padding: 8px 4px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
       border: 1px solid transparent;
       background: transparent;
       color: ${({ theme }) => theme.colors.text.secondary};
@@ -659,23 +659,23 @@ const Styled = {
   `,
   WorkflowEditor: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     margin: 0;
     padding: 0;
   `,
   WorkflowEditorStep: styled.div`
     min-width: 0;
-    padding: 8px;
+    padding: ${({ theme }) => theme.space.x2};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   WorkflowStepMain: styled.div`
     min-width: 0;
     display: grid;
     grid-template-columns: 25px minmax(0, 1fr);
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     align-items: center;
 
     > span {
@@ -694,7 +694,7 @@ const Styled = {
       width: 100%;
       min-width: 0;
       height: 34px;
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
@@ -704,7 +704,7 @@ const Styled = {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     > span {
       min-width: 0;
@@ -732,8 +732,8 @@ const Styled = {
   `,
   WorkflowPresetPicker: styled.div`
     display: grid;
-    gap: 4px;
-    padding: 8px;
+    gap: ${({ theme }) => theme.space.x1};
+    padding: ${({ theme }) => theme.space.x2};
     border: 1px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
@@ -747,19 +747,19 @@ const Styled = {
       min-width: 0;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     select {
       min-width: 0;
       height: 32px;
-      padding: 4px 8px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
       border-width: 1px;
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   WorkflowPresetDelete: styled.button`
-    padding: 0 8px;
+    padding: ${({ theme }) => `0 ${theme.space.x2}`};
     border: 1px solid ${({ theme }) => theme.colors.border.negative};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     color: ${({ theme }) => theme.colors.text.negative};
@@ -773,7 +773,7 @@ const Styled = {
   `,
   WorkflowAddStep: styled.button`
     width: 100%;
-    padding: 8px;
+    padding: ${({ theme }) => theme.space.x2};
     border: 1px dashed ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
     color: ${({ theme }) => theme.colors.text.positive};
@@ -785,17 +785,17 @@ const Styled = {
     min-width: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     input {
       min-width: 0;
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       border-width: 1px;
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
     button {
-      padding: 8px 8px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       white-space: nowrap;
     }
@@ -803,34 +803,34 @@ const Styled = {
   WorkflowEditorActions: styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 4px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin-top: ${({ theme }) => theme.space.x1};
 
     button {
-      padding: 8px 8px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
   WorkflowMessage: styled.small`
     display: block;
-    margin: 8px 0 0;
+    margin: ${({ theme }) => `${theme.space.x2} 0 0`};
     color: ${({ theme }) => theme.colors.text.negative};
     font-size: ${({ theme }) => theme.typography.fontSize.micro};
     line-height: 1.5;
   `,
   WorkflowEmpty: styled.p`
-    margin: 8px 0 0;
+    margin: ${({ theme }) => `${theme.space.x2} 0 0`};
     color: ${({ theme }) => theme.colors.text.negative};
     font-size: ${({ theme }) => theme.typography.fontSize.micro};
     line-height: 1.5;
   `,
   WorkflowSummary: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     ol {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       margin: 0;
       padding: 0;
       list-style: none;
@@ -841,8 +841,8 @@ const Styled = {
       display: grid;
       grid-template-columns: 22px minmax(0, 1fr);
       align-items: center;
-      gap: 8px;
-      padding: 8px 8px;
+      gap: ${({ theme }) => theme.space.x2};
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
       span {
@@ -862,7 +862,7 @@ const Styled = {
   `,
   WorkflowProgressList: styled.ol`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
     margin: 0;
     padding: 0;
     list-style: none;
@@ -870,7 +870,7 @@ const Styled = {
     li {
       display: grid;
       grid-template-columns: 24px minmax(0, 1fr);
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
       align-items: start;
       position: relative;
 
@@ -889,8 +889,8 @@ const Styled = {
       > div {
         min-width: 0;
         display: grid;
-        gap: 4px;
-        padding-bottom: 8px;
+        gap: ${({ theme }) => theme.space.x1};
+        padding-bottom: ${({ theme }) => theme.space.x2};
       }
 
       strong {
@@ -904,7 +904,7 @@ const Styled = {
 
       p {
         max-height: 34px;
-        margin: 4px 0 0;
+        margin: ${({ theme }) => `${theme.space.x1} 0 0`};
         overflow: hidden;
         color: ${({ theme }) => theme.colors.text.secondary};
         font-size: ${({ theme }) => theme.typography.fontSize.xs};
@@ -966,10 +966,10 @@ const Styled = {
   `,
   WorkflowResults: styled.div`
     display: grid;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
   `,
   WorkflowFinalResult: styled.section`
-    padding: 16px;
+    padding: ${({ theme }) => theme.space.x4};
     border: 2px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
   `,
@@ -977,8 +977,8 @@ const Styled = {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 12px;
+    gap: ${({ theme }) => theme.space.x3};
+    padding-bottom: ${({ theme }) => theme.space.x3};
     border-bottom: 1px solid ${({ theme }) => theme.colors.border.positive};
 
     strong {
@@ -994,16 +994,16 @@ const Styled = {
   `,
   WorkflowStepResults: styled.section`
     display: grid;
-    gap: 8px;
-    padding-top: 16px;
+    gap: ${({ theme }) => theme.space.x2};
+    padding-top: ${({ theme }) => theme.space.x4};
     border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
   `,
   WorkflowStepResultsHeading: styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 4px;
+    gap: ${({ theme }) => theme.space.x3};
+    margin-bottom: ${({ theme }) => theme.space.x1};
 
     strong {
       color: ${({ theme }) => theme.colors.text.positive};
@@ -1017,7 +1017,7 @@ const Styled = {
     }
   `,
   WorkflowResultStep: styled.details`
-    scroll-margin-top: 24px;
+    scroll-margin-top: ${({ theme }) => theme.space.x6};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
@@ -1026,8 +1026,8 @@ const Styled = {
       display: grid;
       grid-template-columns: 28px minmax(0, 1fr) auto;
       align-items: center;
-      gap: 8px;
-      padding: 12px;
+      gap: ${({ theme }) => theme.space.x2};
+      padding: ${({ theme }) => theme.space.x3};
       cursor: pointer;
       list-style: none;
 
@@ -1050,7 +1050,7 @@ const Styled = {
       > div {
         min-width: 0;
         display: grid;
-        gap: 4px;
+        gap: ${({ theme }) => theme.space.x1};
       }
 
       strong,
@@ -1091,15 +1091,15 @@ const Styled = {
     }
   `,
   WorkflowResultBody: styled.div`
-    padding: 4px 12px 12px;
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x3} ${theme.space.x3}`};
   `,
   AssignmentPanel: styled.div`
-    margin-bottom: 16px;
-    padding: 12px;
+    margin-bottom: ${({ theme }) => theme.space.x4};
+    padding: ${({ theme }) => theme.space.x3};
     border: 2px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     strong {
       color: ${({ theme }) => theme.colors.text.positive};
@@ -1119,14 +1119,14 @@ const Styled = {
   `,
   DetailAgent: styled.div`
     display: flex;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     align-items: center;
-    padding-bottom: 16px;
+    padding-bottom: ${({ theme }) => theme.space.x4};
     border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
 
     div {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     span {
@@ -1144,11 +1144,11 @@ const Styled = {
   AgentSkillList: styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
+    gap: ${({ theme }) => theme.space.x1};
+    margin-top: ${({ theme }) => theme.space.x1};
 
     span {
-      padding: 4px 4px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       color: ${({ theme }) => theme.colors.text.positive};
@@ -1158,9 +1158,9 @@ const Styled = {
   `,
   ExecutionContext: styled.section`
     display: grid;
-    gap: 8px;
-    margin: 16px 0;
-    padding: 12px;
+    gap: ${({ theme }) => theme.space.x2};
+    margin: ${({ theme }) => `${theme.space.x4} 0`};
+    padding: ${({ theme }) => theme.space.x3};
     border: 1px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
 
@@ -1199,9 +1199,9 @@ const Styled = {
     > summary {
       display: grid;
       grid-template-columns: 22px minmax(0, 1fr);
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
       align-items: center;
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       cursor: pointer;
       list-style: none;
 
@@ -1225,7 +1225,7 @@ const Styled = {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: ${({ theme }) => theme.space.x2};
       }
 
       strong {
@@ -1242,8 +1242,8 @@ const Styled = {
   `,
   ExecutionContextBody: styled.div`
     display: grid;
-    gap: 8px;
-    padding: 8px;
+    gap: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => theme.space.x2};
     border-top: 1px solid ${({ theme }) => theme.colors.border.positive};
 
     > code {
@@ -1256,7 +1256,7 @@ const Styled = {
   `,
   ExecutionContextGroup: styled.div`
     display: grid;
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     > b {
       color: ${({ theme }) => theme.colors.text.positive};
@@ -1266,11 +1266,11 @@ const Styled = {
     > div {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     span {
-      padding: 4px 4px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       color: ${({ theme }) => theme.colors.text.positive};
@@ -1284,12 +1284,12 @@ const Styled = {
     }
   `,
   PermissionWarning: styled.div`
-    margin: 16px 0;
-    padding: 12px;
+    margin: ${({ theme }) => `${theme.space.x4} 0`};
+    padding: ${({ theme }) => theme.space.x3};
     border: 2px solid ${({ theme }) => theme.colors.border.default};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     strong {
       color: ${({ theme }) => theme.colors.text.negative};
@@ -1303,13 +1303,13 @@ const Styled = {
     }
   `,
   RuntimeApproval: styled.div`
-    margin: 16px 0;
-    padding: 12px;
+    margin: ${({ theme }) => `${theme.space.x4} 0`};
+    padding: ${({ theme }) => theme.space.x3};
     border: 3px solid ${({ theme }) => theme.colors.border.default};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.default};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     > strong {
       color: ${({ theme }) => theme.colors.text.secondary};
@@ -1326,7 +1326,7 @@ const Styled = {
     pre {
       max-height: 150px;
       margin: 0;
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       overflow: auto;
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.brand.primaryDark};
@@ -1340,7 +1340,7 @@ const Styled = {
 
     > div {
       display: flex;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
     }
   `,
   TaskMeta: styled(Panel).attrs({ as: "aside" })`
@@ -1348,13 +1348,13 @@ const Styled = {
 
     > h2 {
       font-size: ${({ theme }) => theme.typography.fontSize.lg};
-      margin: 0 0 12px;
+      margin: ${({ theme }) => `0 0 ${theme.space.x3}`};
     }
 
     dl {
-      margin: 16px 0;
+      margin: ${({ theme }) => `${theme.space.x4} 0`};
       display: grid;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
 
       div {
         display: flex;
@@ -1374,18 +1374,18 @@ const Styled = {
     }
   `,
   TaskDangerZone: styled.div`
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: ${({ theme }) => theme.space.x4};
+    padding-top: ${({ theme }) => theme.space.x4};
     border-top: 2px dashed ${({ theme }) => theme.colors.border.negative};
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
     align-items: center;
 
     > div {
       min-width: 0;
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
     }
 
     strong {
@@ -1404,7 +1404,7 @@ const Styled = {
     }
   `,
   TaskRemoveButton: styled(Button).attrs({ $variant: "danger" as const })`
-    padding: 8px 12px;
+    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     white-space: nowrap;
 
@@ -1422,14 +1422,14 @@ const Styled = {
   RunEntry,
   RunEntryBody: styled.div<{ $failed: boolean }>`
     display: grid;
-    gap: 12px;
-    padding: 4px 12px 12px 20px;
+    gap: ${({ theme }) => theme.space.x3};
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x3} ${theme.space.x3} ${theme.space.x5}`};
     background: ${({ $failed, theme }) =>
       $failed ? theme.colors.background.negativeSubtle : theme.colors.background.positiveSubtle};
 
     section {
       display: grid;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
 
       > strong {
         color: ${({ theme }) => theme.colors.text.positive};
@@ -1439,14 +1439,14 @@ const Styled = {
 
     dl {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       margin: 0;
 
       div {
         min-width: 0;
         display: grid;
         grid-template-columns: 65px minmax(0, 1fr);
-        gap: 8px;
+        gap: ${({ theme }) => theme.space.x2};
         font-size: ${({ theme }) => theme.typography.fontSize.xs};
       }
 
@@ -1475,7 +1475,7 @@ const Styled = {
     }
   `,
   RunResultSnapshot: styled.section`
-    padding: 12px;
+    padding: ${({ theme }) => theme.space.x3};
     border: 1px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
   `,
@@ -1487,7 +1487,7 @@ const Styled = {
     pre {
       max-height: 220px;
       margin: 0;
-      padding: 12px;
+      padding: ${({ theme }) => theme.space.x3};
       overflow: auto;
       border: 1px solid ${({ theme }) => theme.colors.border.negative};
       background: ${({ theme }) => theme.colors.semantic.negative};
@@ -1508,8 +1508,8 @@ const Styled = {
     > div {
       display: grid;
       grid-template-columns: 70px minmax(0, 1fr);
-      gap: 8px;
-      padding: 8px 8px;
+      gap: ${({ theme }) => theme.space.x2};
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
       border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       line-height: 1.45;

@@ -39,11 +39,11 @@ export const Button = styled.button<{ $variant?: ButtonVariant; $fullWidth?: boo
   ${Label.md}
   min-height: 40px;
   width: ${({ $fullWidth }) => ($fullWidth ? "100%" : "auto")};
-  padding: 12px 16px;
+  padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x4}`};
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: ${({ theme }) => theme.space.x2};
   border: 2px solid ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].border};
   background: ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].background};
   color: ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].color};

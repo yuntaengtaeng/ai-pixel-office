@@ -46,7 +46,7 @@ const Styled = {
   Layout: styled.div`
     display: grid;
     grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.xl} {
@@ -56,12 +56,12 @@ const Styled = {
   CreateForm: styled(Panel).attrs({ as: "form" })`
     padding: ${({ theme }) => theme.space.x5};
     display: grid;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
     position: sticky;
     top: 24px;
 
     h2 {
-      margin: 4px 0 8px;
+      margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x2}`};
       font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
     }
 
@@ -84,7 +84,7 @@ const Styled = {
   CardGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
 
     @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
@@ -94,7 +94,7 @@ const Styled = {
     ${panelStyles}
     min-width: 0;
     min-height: 190px;
-    padding: 16px;
+    padding: ${({ theme }) => theme.space.x4};
     display: flex;
     flex-direction: column;
     color: inherit;
@@ -110,16 +110,16 @@ const Styled = {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
     }
 
     h3 {
-      margin: 12px 0 8px;
+      margin: ${({ theme }) => `${theme.space.x3} 0 ${theme.space.x2}`};
       font-size: ${({ theme }) => theme.typography.fontSize.subtitle};
     }
 
     p {
-      margin: 0 0 16px;
+      margin: ${({ theme }) => `0 0 ${theme.space.x4}`};
       color: ${({ theme }) => theme.colors.text.muted};
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
       line-height: 1.55;
@@ -131,11 +131,11 @@ const Styled = {
 
     footer {
       margin-top: auto;
-      padding-top: 12px;
+      padding-top: ${({ theme }) => theme.space.x3};
       border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: ${({ theme }) => theme.space.x3};
       color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
 
@@ -147,7 +147,7 @@ const Styled = {
   `,
   StatusBadge: styled.span<{ $status: Project["status"] }>`
     width: fit-content;
-    padding: 4px 8px;
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
     border: 1px solid ${({ $status }) => STATUS_COLORS[$status].border};
     background: ${({ $status }) => STATUS_COLORS[$status].background};
     color: ${({ $status }) => STATUS_COLORS[$status].color};
@@ -162,14 +162,14 @@ const Styled = {
     font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
   `,
   DetailHeading: styled.div`
-    margin: 24px 0;
+    margin: ${({ theme }) => `${theme.space.x6} 0`};
     display: flex;
     align-items: end;
     justify-content: space-between;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
 
     h1 {
-      margin: 12px 0 8px;
+      margin: ${({ theme }) => `${theme.space.x3} 0 ${theme.space.x2}`};
       font-size: ${({ theme }) => theme.typography.fontSize.displayMd};
     }
 
@@ -184,7 +184,7 @@ const Styled = {
   DetailLayout: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
     @media ${mediaQuery.xl} {
@@ -193,7 +193,7 @@ const Styled = {
   `,
   MainColumn: styled.div`
     display: grid;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
   `,
   TaskCreateForm: styled(Panel).attrs({ as: "form" })`
     padding: ${({ theme }) => theme.space.x5};
@@ -215,7 +215,7 @@ const Styled = {
   `,
   TaskList: styled.div`
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
   `,
   ContextForm: styled(Panel).attrs({ as: "form" })`
     padding: ${({ theme }) => theme.space.x5};
@@ -223,7 +223,7 @@ const Styled = {
     gap: ${({ theme }) => theme.space.x3};
 
     h2 {
-      margin: 0 0 4px;
+      margin: ${({ theme }) => `0 0 ${theme.space.x1}`};
       font-size: ${({ theme }) => theme.typography.fontSize.lead};
     }
   `,
@@ -231,10 +231,10 @@ const Styled = {
     text-align: center;
   `,
   Members: styled.div`
-    padding-top: 12px;
+    padding-top: ${({ theme }) => theme.space.x3};
     border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     > strong {
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
@@ -243,16 +243,16 @@ const Styled = {
     > div {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: ${({ theme }) => theme.space.x2};
     }
 
     a {
-      padding: 4px 8px 4px 4px;
+      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2} ${theme.space.x1} ${theme.space.x1}`};
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }

@@ -2,7 +2,7 @@ import styled, { css } from "styled-components";
 
 const controlStyles = css`
   width: 100%;
-  padding: 12px 12px;
+  padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
   border: 2px solid ${({ theme }) => theme.colors.border.default};
   border-radius: ${({ theme }) => theme.radius.sm};
   outline: none;

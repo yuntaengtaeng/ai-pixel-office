@@ -7,14 +7,14 @@ import { MODEL_OPTIONS } from "./model-options.ts";
 const Styled = {
   Field: styled.fieldset`
     margin: 0;
-    padding: 12px;
+    padding: ${({ theme }) => theme.space.x3};
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     legend {
-      padding: 0 4px;
+      padding: ${({ theme }) => `0 ${theme.space.x1}`};
       color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -23,7 +23,7 @@ const Styled = {
   Picker: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     button {
       min-height: 36px;
@@ -50,18 +50,18 @@ const Styled = {
   ManualFields: styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: ${({ theme }) => theme.space.x2};
 
     label {
       display: grid;
-      gap: 4px;
+      gap: ${({ theme }) => theme.space.x1};
       color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
 
     select {
-      padding: 8px;
+      padding: ${({ theme }) => theme.space.x2};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
 
@@ -72,10 +72,10 @@ const Styled = {
   AutoRoutePreview: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
+    gap: ${({ theme }) => theme.space.x1};
 
     span {
-      padding: 8px 4px;
+      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
       border: 1px solid ${({ theme }) => theme.colors.border.positive};
       background: ${({ theme }) => theme.colors.background.positiveSubtle};
       color: ${({ theme }) => theme.colors.text.positive};

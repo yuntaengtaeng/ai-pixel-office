@@ -14,7 +14,7 @@ const StyledDialog = styled.dialog`
   max-height: none;
 
   &::backdrop {
-    background: rgb(31 38 36 / 62%);
+    background: ${({ theme }) => theme.colors.overlay.scrim};
     backdrop-filter: blur(2px);
     animation: ${fadeIn} 0.16s ease-out;
   }
@@ -26,10 +26,10 @@ const StyledDialog = styled.dialog`
 
 const Content = styled.div`
   width: min(440px, calc(100vw - 28px));
-  padding: 24px;
+  padding: ${({ theme }) => theme.space.x6};
   border: 3px solid ${({ theme }) => theme.colors.border.positive};
   background: ${({ theme }) => theme.colors.background.surface};
-  box-shadow: 8px 8px 0 rgb(20 31 28 / 48%);
+  box-shadow: 8px 8px 0 ${({ theme }) => theme.colors.shadow.dialog};
 `;
 
 export type DialogProps = {
