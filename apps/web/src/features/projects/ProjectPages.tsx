@@ -1,9 +1,19 @@
-import { colors, mediaQuery } from "@ai-pixel-office/design-token";
+import { colors, mediaQuery } from "@ai-pixel-office/design-system";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, Input, Kicker, Select, TextArea } from "@ai-pixel-office/ui";
+import {
+  BackButton,
+  Button,
+  Field,
+  Input,
+  Kicker,
+  Panel,
+  panelStyles,
+  Select,
+  TextArea,
+} from "@ai-pixel-office/design-system";
 import type { Project, Workspace } from "@ai-pixel-office/domain/entities";
 import { agentApi } from "../agents/api.ts";
 import { taskApi } from "../tasks/api.ts";
@@ -18,6 +28,9 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
+import { PromptSuggestions } from "../../shared/ui/PromptSuggestions.tsx";
+import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
+import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
 
 const STATUS_COLORS: Record<
@@ -36,12 +49,12 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
     }
   `,
-  CreateForm: styled.form`
-    padding: 20px;
+  CreateForm: styled(Panel).attrs({ as: "form" })`
+    padding: ${({ theme }) => theme.space.x5};
     display: grid;
     gap: 16px;
     position: sticky;
@@ -59,13 +72,13 @@ const Styled = {
       line-height: 1.6;
     }
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       position: static;
     }
   `,
   Board: styled.section`
-    > .section-heading {
-      margin-bottom: 12px;
+    > ${SectionHeading} {
+      margin-bottom: ${({ theme }) => theme.space.x3};
     }
   `,
   CardGrid: styled.div`
@@ -73,11 +86,12 @@ const Styled = {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
   Card: styled(Link)`
+    ${panelStyles}
     min-width: 0;
     min-height: 190px;
     padding: 16px;
@@ -173,7 +187,7 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
     }
   `,
@@ -181,33 +195,32 @@ const Styled = {
     display: grid;
     gap: 20px;
   `,
-  TaskCreateForm: styled.form`
-    padding: 20px;
+  TaskCreateForm: styled(Panel).attrs({ as: "form" })`
+    padding: ${({ theme }) => theme.space.x5};
     display: grid;
     grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr) auto;
     align-items: end;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
 
-    > .section-heading,
-    > .error-banner {
+    > ${SectionHeading} {
       grid-column: 1 / -1;
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
-  TasksSection: styled.section`
-    padding: 20px;
+  TasksSection: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x5};
   `,
   TaskList: styled.div`
     display: grid;
     gap: 8px;
   `,
-  ContextForm: styled.form`
-    padding: 20px;
+  ContextForm: styled(Panel).attrs({ as: "form" })`
+    padding: ${({ theme }) => theme.space.x5};
     display: grid;
-    gap: 12px;
+    gap: ${({ theme }) => theme.space.x3};
 
     h2 {
       margin: 0 0 4px;
@@ -294,7 +307,6 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
       <PageHeader eyebrow="PROJECT ROOM" title="프로젝트" />
       <Styled.Layout>
         <Styled.CreateForm
-          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();
@@ -305,7 +317,7 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
             <h2>새 프로젝트 시작하기</h2>
             <p>목표와 작업을 한곳에 모아 팀이 같은 맥락에서 일하게 합니다.</p>
           </div>
-          <div className="field">
+          <Field>
             <label>프로젝트 이름</label>
             <Input
               autoFocus
@@ -314,8 +326,8 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
               placeholder="예: 모바일 앱 리뉴얼"
               required
             />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>이 프로젝트에서 이루고 싶은 것 · 선택 사항</label>
             <TextArea
               rows={3}
@@ -324,8 +336,8 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
               placeholder="예: 신규 사용자가 첫 주문까지 막힘없이 도달하도록 주요 화면을 개선해요"
             />
             <small>정확하지 않아도 괜찮습니다. 나중에 언제든 바꿀 수 있어요.</small>
-          </div>
-          <div className="prompt-suggestions">
+          </Field>
+          <PromptSuggestions>
             {[
               "화면 사용성을 검토하고 개선안을 만들어요",
               "반복 업무를 자동화해 팀의 시간을 줄여요",
@@ -335,34 +347,34 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
                 {example}
               </button>
             ))}
-          </div>
-          <details className="technical-details">
+          </PromptSuggestions>
+          <TechnicalDetails>
             <summary>디자인 연결 · 선택 사항</summary>
-            <div className="field">
+            <Field>
               <label>Figma 링크</label>
               <Input
                 value={figmaUrl}
                 onChange={(event) => setFigmaUrl(event.target.value)}
                 placeholder="https://figma.com/design/..."
               />
-            </div>
-          </details>
+            </Field>
+          </TechnicalDetails>
           <Button $variant="primary" $fullWidth disabled={!name.trim() || create.isPending}>
             {create.isPending ? "만드는 중..." : "프로젝트 만들기"}
           </Button>
           {create.isError && <ErrorBanner>{messageOf(create.error)}</ErrorBanner>}
         </Styled.CreateForm>
         <Styled.Board>
-          <div className="section-heading compact">
+          <SectionHeading $compact>
             <h2>진행 중인 프로젝트</h2>
             <span>{projects.data?.length ?? 0}</span>
-          </div>
+          </SectionHeading>
           <Styled.CardGrid>
             {(projects.data ?? []).map((project) => {
               const related = projectTasks.filter((task) => task.projectId === project.id);
               const completed = related.filter((task) => task.status === "done").length;
               return (
-                <Styled.Card className="panel" to={`/projects/${project.id}`} key={project.id}>
+                <Styled.Card to={`/projects/${project.id}`} key={project.id}>
                   <div>
                     <Styled.StatusBadge $status={project.status}>
                       {projectStatusLabel(project.status)}
@@ -383,9 +395,9 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
               );
             })}
             {!projects.isPending && projects.data?.length === 0 && (
-              <div className="panel">
+              <Panel>
                 <Empty>첫 프로젝트를 만들어 보세요.</Empty>
-              </div>
+              </Panel>
             )}
           </Styled.CardGrid>
           {projects.isError && <ErrorBanner>{messageOf(projects.error)}</ErrorBanner>}
@@ -467,9 +479,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
   const members = (agents.data ?? []).filter((agent) => memberIds.has(agent.id));
   return (
     <BaseLayout>
-      <button className="back-button" onClick={() => navigate("/projects")}>
-        ← 프로젝트 목록
-      </button>
+      <BackButton onClick={() => navigate("/projects")}>← 프로젝트 목록</BackButton>
       <Styled.DetailHeading>
         <div>
           <Styled.StatusBadge $status={status}>{projectStatusLabel(status)}</Styled.StatusBadge>
@@ -488,17 +498,16 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
       <Styled.DetailLayout>
         <Styled.MainColumn>
           <Styled.TaskCreateForm
-            className="panel"
             onSubmit={(event) => {
               event.preventDefault();
               createTask.mutate();
             }}
           >
-            <div className="section-heading compact">
+            <SectionHeading $compact>
               <h2>새 작업</h2>
               <span>담당자는 다음 화면에서 선택</span>
-            </div>
-            <div className="field">
+            </SectionHeading>
+            <Field>
               <label>무엇을 맡길까요?</label>
               <Input
                 value={title}
@@ -506,25 +515,25 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
                 placeholder="예: 결제 화면 사용성 검토"
                 required
               />
-            </div>
-            <div className="field">
+            </Field>
+            <Field>
               <label>원하는 결과 · 선택 사항</label>
               <Input
                 value={result}
                 onChange={(event) => setResult(event.target.value)}
                 placeholder="예: 문제와 개선안을 우선순위로 정리해 주세요"
               />
-            </div>
+            </Field>
             <Button $variant="primary" disabled={!title.trim() || createTask.isPending}>
               작업 만들기
             </Button>
             {createTask.isError && <ErrorBanner>{messageOf(createTask.error)}</ErrorBanner>}
           </Styled.TaskCreateForm>
-          <Styled.TasksSection className="panel">
-            <div className="section-heading compact">
+          <Styled.TasksSection>
+            <SectionHeading $compact>
               <h2>프로젝트 작업</h2>
               <span>{relatedTasks.length}</span>
-            </div>
+            </SectionHeading>
             <Styled.TaskList>
               {relatedTasks.map((task) => (
                 <TaskCard
@@ -539,26 +548,25 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
         </Styled.MainColumn>
         <Styled.ContextForm
           id="project-context-form"
-          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             if (name.trim() && !save.isPending) save.mutate();
           }}
         >
           <h2>프로젝트 맥락</h2>
-          <div className="field">
+          <Field>
             <label>이름</label>
             <Input value={name} onChange={(event) => setName(event.target.value)} />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>목표</label>
             <TextArea
               rows={5}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>상태</label>
             <Select
               value={status}
@@ -568,15 +576,15 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
               <option value="paused">잠시 멈춤</option>
               <option value="done">완료</option>
             </Select>
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>Figma 링크</label>
             <Input
               value={figmaUrl}
               onChange={(event) => setFigmaUrl(event.target.value)}
               placeholder="선택 사항"
             />
-          </div>
+          </Field>
           {figmaUrl && (
             <Styled.FigmaLink as="a" href={figmaUrl} target="_blank" rel="noreferrer">
               Figma에서 열기 ↗
@@ -594,12 +602,12 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
               {members.length === 0 && <small>작업에 에이전트를 배치하면 여기에 표시됩니다.</small>}
             </div>
           </Styled.Members>
-          <details className="technical-details">
+          <TechnicalDetails>
             <summary>개발자 옵션</summary>
             <Styled.PathNote>
               {projectQuery.data.path || "연결된 로컬 폴더가 없습니다. 설정에서 연결할 수 있어요."}
             </Styled.PathNote>
-          </details>
+          </TechnicalDetails>
           <Button
             type="button"
             $variant="danger"

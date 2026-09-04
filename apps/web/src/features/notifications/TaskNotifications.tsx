@@ -1,4 +1,4 @@
-import { colors, mediaQuery } from "@ai-pixel-office/design-token";
+import { colors, mediaQuery } from "@ai-pixel-office/design-system";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -67,7 +67,7 @@ const Styled = {
     gap: 12px;
     pointer-events: none;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       right: 14px;
       bottom: 14px;
     }

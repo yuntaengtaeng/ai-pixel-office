@@ -1,6 +1,6 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
-import { Select } from "@ai-pixel-office/ui";
+import { Select } from "@ai-pixel-office/design-system";
 import type { AgentModel, ModelPolicy, ReasoningEffort } from "@ai-pixel-office/domain/entities";
 import { MODEL_OPTIONS } from "./model-options.ts";
 
@@ -65,7 +65,7 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,

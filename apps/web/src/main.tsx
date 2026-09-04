@@ -3,8 +3,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "styled-components";
-import { officeTheme } from "@ai-pixel-office/design-token";
-import { ResetCss } from "@ai-pixel-office/ui";
+import { officeTheme } from "@ai-pixel-office/design-system";
+import { ResetCss } from "@ai-pixel-office/design-system";
 import { App } from "./App.tsx";
 import { AppGlobalStyles } from "./styles/AppGlobalStyles.tsx";
 

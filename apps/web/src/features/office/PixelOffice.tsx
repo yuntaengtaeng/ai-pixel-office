@@ -1,12 +1,12 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { mediaQuery } from "@ai-pixel-office/design-system";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Application, Container, Graphics, Text, type Ticker } from "pixi.js";
-import { Popover } from "radix-ui";
 import styled, { keyframes } from "styled-components";
-import { Button, Input } from "@ai-pixel-office/ui";
+import { Button, Input, Popover } from "@ai-pixel-office/design-system";
 import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { RUNTIME } from "../../shared/config/presentation.ts";
 import { getPet, plotPet } from "@ai-pixel-office/pet";
+import { OfficeCanvasStyles } from "./officeCanvasStyles.ts";
 
 const OFFICE_WIDTH = 760;
 const COLUMN_X = [68, 244, 420, 596] as const;
@@ -274,7 +274,7 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
   height: 27%;
   padding: 0 5%;
   border: 2px solid #748c83;
-  border-radius: ${({ theme }) => theme.radius.standard};
+  border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.colors.background.surface};
   display: grid;
   place-items: center;
@@ -308,7 +308,7 @@ const AgentName = styled.button<{ $hasTask: boolean }>`
   min-height: 23%;
   padding: 2% 4%;
   border: 1px solid rgb(109 83 71 / 42%);
-  border-radius: ${({ theme }) => theme.radius.subtle};
+  border-radius: ${({ theme }) => theme.radius.sm};
   background: rgb(255 250 240 / 88%);
   box-shadow: 0 2px 0 rgb(109 83 71 / 30%);
   display: grid;
@@ -371,7 +371,7 @@ const AgentHitbox = styled.button`
   height: 81%;
   padding: 0;
   border: 0;
-  border-radius: ${({ theme }) => theme.radius.comfortable};
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: transparent;
   pointer-events: auto;
   cursor: pointer;
@@ -422,7 +422,7 @@ const EmptyLabel = styled.div`
   font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 `;
 
-const QuickPopover = styled(Popover.Content)`
+const QuickPopover = styled(Popover)`
   z-index: ${({ theme }) => theme.zIndex.popover};
   width: min(320px, calc(100vw - 24px));
   padding: 16px;
@@ -499,10 +499,6 @@ const TaskListPopover = styled.div`
   }
 `;
 
-const PopoverArrow = styled(Popover.Arrow)`
-  fill: #5a766c;
-`;
-
 const Styled = {
   Office,
   Stage,
@@ -517,7 +513,6 @@ const Styled = {
   QuickPopover,
   PopoverHeading,
   TaskList: TaskListPopover,
-  PopoverArrow,
 };
 
 export function PixelOffice({
@@ -682,6 +677,7 @@ export function PixelOffice({
       style={{ aspectRatio: `${OFFICE_WIDTH} / ${roomHeight}` }}
       aria-label={`${agents.length}명의 에이전트가 있는 픽셀 오피스`}
     >
+      <OfficeCanvasStyles />
       <Styled.Stage ref={host} />
       <Styled.BootState
         $hidden={canvasState === "ready"}
@@ -741,6 +737,8 @@ function AgentQuickAssign({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverId = useId();
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim() || !onAssign) return;
@@ -768,89 +766,94 @@ function AgentQuickAssign({
   return (
     <Styled.AgentSlot style={{ left, top, height }} data-status={status}>
       {bubble}
-      <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger asChild>
-          <Styled.AgentName
-            type="button"
-            $hasTask={tasks.length > 0}
-            title={
-              tasks.length > 0
-                ? `${agent.name}의 작업 목록 열기`
-                : `${agent.name}에게 바로 작업 맡기기`
-            }
-            aria-label={
-              tasks.length > 0
-                ? `${agent.name}의 작업 목록 열기`
-                : `${agent.name}에게 바로 작업 맡기기`
-            }
-          >
-            {labelContents}
-          </Styled.AgentName>
-        </Popover.Trigger>
-        <Styled.AgentHitbox
-          type="button"
-          title={
-            tasks.length > 0
-              ? `${agent.name}의 작업 목록 열기`
-              : `${agent.name}에게 바로 작업 맡기기`
-          }
-          aria-label={
-            tasks.length > 0
-              ? `${agent.name}의 작업 목록 열기`
-              : `${agent.name}에게 바로 작업 맡기기`
-          }
-          onClick={() => setOpen(true)}
-        />
-        <Popover.Portal>
-          <Styled.QuickPopover side="top" align="center" sideOffset={10} collisionPadding={16}>
-            <Styled.PopoverHeading>
-              <small>{tasks.length > 0 ? `진행할 작업 ${tasks.length}개` : "바로 맡기기"}</small>
-              <strong>{agent.name}</strong>
-            </Styled.PopoverHeading>
-            {tasks.length > 0 && (
-              <Styled.TaskList>
-                {tasks.map((task) => (
-                  <button
-                    type="button"
-                    key={task.id}
-                    onClick={() => {
-                      setOpen(false);
-                      onOpenTask?.(task.id);
-                    }}
-                  >
-                    <span>{STATUS_LABEL[task.status]}</span>
-                    <strong>{task.title}</strong>
-                    <small>열기 →</small>
-                  </button>
-                ))}
-              </Styled.TaskList>
-            )}
-            <form onSubmit={submit}>
-              <label>
-                할 일
-                <Input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="예: 화면 문구 검토"
-                  autoFocus
-                />
-              </label>
-              <label>
-                원하는 결과 · 선택
-                <Input
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="비워도 괜찮아요"
-                />
-              </label>
-              <Button $variant="primary" disabled={!title.trim()}>
-                작업 만들기
-              </Button>
-            </form>
-            <Styled.PopoverArrow />
-          </Styled.QuickPopover>
-        </Popover.Portal>
-      </Popover.Root>
+      <Styled.AgentName
+        ref={triggerRef}
+        type="button"
+        $hasTask={tasks.length > 0}
+        aria-expanded={open}
+        aria-controls={popoverId}
+        title={
+          tasks.length > 0
+            ? `${agent.name}의 작업 목록 열기`
+            : `${agent.name}에게 바로 작업 맡기기`
+        }
+        aria-label={
+          tasks.length > 0
+            ? `${agent.name}의 작업 목록 열기`
+            : `${agent.name}에게 바로 작업 맡기기`
+        }
+        onClick={() => setOpen(true)}
+      >
+        {labelContents}
+      </Styled.AgentName>
+      <Styled.AgentHitbox
+        type="button"
+        title={
+          tasks.length > 0
+            ? `${agent.name}의 작업 목록 열기`
+            : `${agent.name}에게 바로 작업 맡기기`
+        }
+        aria-label={
+          tasks.length > 0
+            ? `${agent.name}의 작업 목록 열기`
+            : `${agent.name}에게 바로 작업 맡기기`
+        }
+        onClick={() => setOpen(true)}
+      />
+      <Styled.QuickPopover
+        id={popoverId}
+        open={open}
+        onOpenChange={setOpen}
+        anchorRef={triggerRef}
+        side="top"
+        sideOffset={10}
+        collisionPadding={16}
+      >
+        <Styled.PopoverHeading>
+          <small>{tasks.length > 0 ? `진행할 작업 ${tasks.length}개` : "바로 맡기기"}</small>
+          <strong>{agent.name}</strong>
+        </Styled.PopoverHeading>
+        {tasks.length > 0 && (
+          <Styled.TaskList>
+            {tasks.map((task) => (
+              <button
+                type="button"
+                key={task.id}
+                onClick={() => {
+                  setOpen(false);
+                  onOpenTask?.(task.id);
+                }}
+              >
+                <span>{STATUS_LABEL[task.status]}</span>
+                <strong>{task.title}</strong>
+                <small>열기 →</small>
+              </button>
+            ))}
+          </Styled.TaskList>
+        )}
+        <form onSubmit={submit}>
+          <label>
+            할 일
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="예: 화면 문구 검토"
+              autoFocus
+            />
+          </label>
+          <label>
+            원하는 결과 · 선택
+            <Input
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="비워도 괜찮아요"
+            />
+          </label>
+          <Button $variant="primary" disabled={!title.trim()}>
+            작업 만들기
+          </Button>
+        </form>
+      </Styled.QuickPopover>
     </Styled.AgentSlot>
   );
 }

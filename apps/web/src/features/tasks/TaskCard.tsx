@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { TrashIcon } from "@ai-pixel-office/ui";
+import { TrashIcon } from "@ai-pixel-office/design-system";
 import type { Agent, Task } from "@ai-pixel-office/domain/entities";
 import { PRIORITY_COLORS } from "../../shared/config/presentation.ts";
 import { relativeTime } from "../../shared/lib/time.ts";

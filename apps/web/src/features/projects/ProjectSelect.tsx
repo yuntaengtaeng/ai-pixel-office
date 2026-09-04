@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Select } from "@ai-pixel-office/ui";
+import { Field, Select } from "@ai-pixel-office/design-system";
 import { projectApi } from "./api.ts";
 
 export function ProjectDirectorySelect({
@@ -25,7 +25,7 @@ export function ProjectDirectorySelect({
     value && !(projects.data ?? []).some((project) => project.path === value),
   );
   return (
-    <div className={`field${grow ? " grow" : ""}`}>
+    <Field $grow={grow}>
       <label>{label}</label>
       <Select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{emptyLabel}</option>
@@ -38,7 +38,7 @@ export function ProjectDirectorySelect({
             </option>
           ))}
       </Select>
-    </div>
+    </Field>
   );
 }
 
@@ -56,7 +56,7 @@ export function ProjectSelect({
     queryFn: () => projectApi.list(workspaceId),
   });
   return (
-    <div className="field">
+    <Field>
       <label>프로젝트</label>
       <Select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">프로젝트 없음</option>
@@ -66,6 +66,6 @@ export function ProjectSelect({
           </option>
         ))}
       </Select>
-    </div>
+    </Field>
   );
 }

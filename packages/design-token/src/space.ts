@@ -1,12 +1,12 @@
 export const space = {
-  xxs: "4px",
-  xs: "8px",
-  sm: "12px",
-  md: "16px",
-  ml: "20px",
-  lg: "24px",
-  l: "28px",
-  xl: "32px",
+  x1: "4px",
+  x2: "8px",
+  x3: "12px",
+  x4: "16px",
+  x5: "20px",
+  x6: "24px",
+  x7: "28px",
+  x8: "32px",
 } as const;
 
 export type SpaceKey = keyof typeof space;

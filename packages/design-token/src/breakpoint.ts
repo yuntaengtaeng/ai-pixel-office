@@ -1,17 +1,17 @@
 export const breakpoints = {
-  mobileSmall: 425,
-  mobile: 760,
-  tablet: 896,
-  desktopSmall: 1100,
-  desktop: 1280,
+  sm: 425,
+  md: 760,
+  lg: 896,
+  xl: 1100,
+  "2xl": 1280,
 } as const;
 
 export const mediaQuery = {
-  mobileSmall: `(max-width: ${breakpoints.mobileSmall}px)`,
-  mobile: `(max-width: ${breakpoints.mobile}px)`,
-  tablet: `(max-width: ${breakpoints.tablet}px)`,
-  desktopSmall: `(max-width: ${breakpoints.desktopSmall}px)`,
-  desktop: `(max-width: ${breakpoints.desktop}px)`,
+  sm: `(max-width: ${breakpoints.sm}px)`,
+  md: `(max-width: ${breakpoints.md}px)`,
+  lg: `(max-width: ${breakpoints.lg}px)`,
+  xl: `(max-width: ${breakpoints.xl}px)`,
+  "2xl": `(max-width: ${breakpoints["2xl"]}px)`,
   reducedMotion: "(prefers-reduced-motion: reduce)",
 } as const;
 

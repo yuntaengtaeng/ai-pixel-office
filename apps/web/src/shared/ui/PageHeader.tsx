@@ -1,5 +1,5 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
-import { Kicker } from "@ai-pixel-office/ui";
+import { mediaQuery } from "@ai-pixel-office/design-system";
+import { Kicker } from "@ai-pixel-office/design-system";
 import type { ReactNode } from "react";
 import styled from "styled-components";
 
@@ -10,7 +10,7 @@ const Header = styled.header`
   justify-content: space-between;
   margin-bottom: 24px;
 
-  @media ${mediaQuery.mobile} {
+  @media ${mediaQuery.md} {
     min-height: 66px;
   }
 
@@ -20,7 +20,7 @@ const Header = styled.header`
     font-size: clamp(29px, 4vw, 42px);
     letter-spacing: -0.045em;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       font-size: ${({ theme }) => theme.typography.fontSize.displaySm};
     }
   }

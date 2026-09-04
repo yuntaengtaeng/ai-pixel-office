@@ -1,8 +1,8 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, HelperText, Input } from "@ai-pixel-office/ui";
+import { Button, Field, HelperText, Input, Panel } from "@ai-pixel-office/design-system";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { projectApi } from "../projects/api.ts";
 import { systemApi } from "../system/api.ts";
@@ -14,6 +14,7 @@ import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
+import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { ProjectDirectorySelect } from "../projects/ProjectSelect.tsx";
 
 const Styled = {
@@ -23,21 +24,21 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
     }
   `,
-  Section: styled.section`
-    padding: 20px;
+  Section: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x5};
     display: grid;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
   `,
-  WorkspaceForm: styled.form`
-    padding: 20px;
+  WorkspaceForm: styled(Panel).attrs({ as: "form" })`
+    padding: ${({ theme }) => theme.space.x5};
     display: grid;
-    gap: 16px;
+    gap: ${({ theme }) => theme.space.x4};
   `,
-  AdvancedSettings: styled.details`
+  AdvancedSettings: styled(Panel).attrs({ as: "details" })`
     grid-column: 1 / -1;
 
     > summary {
@@ -73,7 +74,7 @@ const Styled = {
     align-items: end;
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -82,7 +83,7 @@ const Styled = {
     align-items: end;
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       display: grid;
     }
   `,
@@ -329,11 +330,11 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
         }
       />
       <Styled.Grid>
-        <Styled.Section className="panel">
-          <div className="section-heading compact">
+        <Styled.Section>
+          <SectionHeading $compact>
             <h2>런타임 연결</h2>
             <span>LOCAL</span>
-          </div>
+          </SectionHeading>
           {status.isPending && <Empty>설치와 로그인 상태를 확인하는 중...</Empty>}
           {status.isError && <ErrorBanner>{messageOf(status.error)}</ErrorBanner>}
           {status.data && (
@@ -382,24 +383,23 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
           )}
         </Styled.Section>
         <Styled.WorkspaceForm
-          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             save.mutate();
           }}
         >
-          <div className="section-heading compact">
+          <SectionHeading $compact>
             <h2>워크스페이스</h2>
             <span>DEFAULT</span>
-          </div>
-          <div className="field">
+          </SectionHeading>
+          <Field>
             <label>이름</label>
             <Input
               value={workspaceName}
               onChange={(event) => setWorkspaceName(event.target.value)}
               required
             />
-          </div>
+          </Field>
           <Styled.SettingsActions>
             <Button $variant="primary" disabled={save.isPending || !workspaceName.trim()}>
               이름 저장
@@ -407,16 +407,16 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
           </Styled.SettingsActions>
           {save.isError && <ErrorBanner>{messageOf(save.error)}</ErrorBanner>}
         </Styled.WorkspaceForm>
-        <Styled.AdvancedSettings className="panel">
+        <Styled.AdvancedSettings>
           <summary>
             <strong>개발자 옵션</strong>
             <span>로컬 프로젝트 폴더와 실행 위치를 관리합니다.</span>
           </summary>
           <Styled.AdvancedSettingsBody>
-            <div className="section-heading compact">
+            <SectionHeading $compact>
               <h2>로컬 프로젝트 폴더</h2>
               <span>{projects.data?.length ?? 0}</span>
-            </div>
+            </SectionHeading>
             <HelperText>
               코드 작업이 필요한 경우에만 설정하세요. PM·디자인 대화에는 필요하지 않습니다.
             </HelperText>
@@ -443,7 +443,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                 addProject.mutate();
               }}
             >
-              <div className="field">
+              <Field>
                 <label>프로젝트 이름</label>
                 <Input
                   value={projectName}
@@ -451,8 +451,8 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                   placeholder="예: 쇼핑몰 웹"
                   required
                 />
-              </div>
-              <div className="field grow">
+              </Field>
+              <Field $grow>
                 <label>선택한 폴더</label>
                 <Input
                   value={projectPath}
@@ -460,7 +460,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                   placeholder="폴더 찾아보기를 눌러 주세요"
                   required
                 />
-              </div>
+              </Field>
               <Button
                 type="button"
                 $variant="secondary"

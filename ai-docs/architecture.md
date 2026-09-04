@@ -15,7 +15,7 @@ packages/
   runtime-protocol/    Claude/Codex 공통 event와 capability 계약
   design-token/        색상·spacing·shadow 등 원시 design token
   pet/                 펫 카탈로그, 픽셀 스프라이트, 렌더러 독립 이동 상태
-  ui/                  styled-components 공통 primitive(design-token을 주입받아 소비)
+  design-system/       styled-components 공통 primitive + design-token 재노출(web의 유일한 공개 진입점)
 scripts/runtime-spike/ 런타임 capability 검증 도구
 test/                  domain/API/orchestrator 통합 테스트
 ```
@@ -53,10 +53,9 @@ Node/Electron 조합은 SQLite API 포함 여부를 compatibility test에서 확
 
 ```text
 web --------> domain
-web --------> ui
-web --------> design-token
+web --------> design-system
 web --------> pet
-ui ---------> design-token
+design-system -> design-token
 desktop - - > server executable (process lifecycle contract)
 server -----> domain
 server -----> runtime-protocol
@@ -70,14 +69,33 @@ import하지 않는다. OS 기능은 preload가 명시적으로 공개한 메서
 ## Styling 전환 상태
 
 `apps/web/src/styles/*.css`의 feature 스타일과 마지막 `base.css`까지 styled-components로 이관했다.
-`AppGlobalStyles`는 아직 여러 feature가 className으로 공유하는 전역 유틸리티를 소유하지만 색상과
-breakpoint는 `officeTheme`을 직접 참조한다.
+`design-system.md`가 계획한 대로 `AppGlobalStyles`가 소유하던 공용 utility className을 모두 component로
+옮겼다 — `AppGlobalStyles`에는 이제 `button:disabled` reset만 남는다. `Panel`/`Field`/`Fieldset`/`Legend`/
+`BackButton`(`.panel`, `.field`, `fieldset`/`legend` 기본 스타일, `.back-button`)은 `packages/design-system`
+소유다. `PromptSuggestions`/`TechnicalDetails`/`SectionHeading`/`SectionHeadingCount`/`PageLoading`처럼
+여러 feature가 공유하는 조각은 `apps/web/src/shared/ui/`에 둔다. `.office-card`/`.office-loading`/
+`.live-badge`(`OfficeCard.tsx`)와 `.office-canvas`(Pixi가 imperative하게 `canvas.className`을 설정하므로
+`officeCanvasStyles.ts`의 `createGlobalStyle`로 유지)는 `apps/web/src/features/office/`가 소유한다.
 
-`packages/design-token`이 원시 design token을 소유한다 — semantic `colors`, 4px grid `space`, `shadow`,
-`typography`(fontFamily/fontSize/fontWeight/lineHeight), `animation`(duration/easing), `breakpoints`와
-`mediaQuery`, `radius`, `zIndex`를 각각 별 파일로 나누고 `theme.ts`가 `officeTheme` 하나로 합쳐 export한다.
-React나 styled-components에 의존하지 않는 순수 값 패키지라, 나중에 다른 렌더링 스택(예: Community
-웹의 다른 UI 레이어)이 같은 token을 재사용해도 `ui`의 React/styled-components 의존을 끌고 오지 않는다.
+`packages/design-token`이 원시 design token을 소유한다 — semantic `colors`, 4px grid `space`
+(`space.x1`~`space.x8`), `shadow`, `typography`(fontFamily/fontSize/fontWeight/lineHeight),
+`animation`(duration/easing), `breakpoints`와 `mediaQuery`(`sm`/`md`/`lg`/`xl`/`2xl`, 기존 425/760/896/
+1100/1280 px 값은 유지), `radius`(`xs`/`sm`/`md`/`lg`/`xl`/`pill`/`circle`), `zIndex`를 각각 별 파일로
+나누고 `theme.ts`가 `officeTheme` 하나로 합쳐 export한다. React나 styled-components에 의존하지 않는
+순수 값 패키지라, 나중에 다른 렌더링 스택(예: Community 웹의 다른 UI 레이어)이 같은 token을 재사용해도
+`design-system`의 React/styled-components 의존을 끌고 오지 않는다.
+
+`packages/design-system`(이전 `packages/ui`)은 `packages/design-token`의 공개 API를
+`src/tokens.ts`에서 재노출해 web이 `design-token`을 직접 import하지 않고도 `officeTheme`, `colors`,
+`mediaQuery` 등을 쓸 수 있게 한다. web은 `@ai-pixel-office/design-system` 하나에만 의존한다.
+
+Radix(`radix-ui`)는 web에서 완전히 제거했다. `Dialog`(`packages/design-system/src/Dialog.tsx`)는
+네이티브 `<dialog>`와 `showModal()`/`close()`를 기반으로, `Popover`(`Popover.tsx` +
+`usePopoverPosition.ts`)는 네이티브 Popover API(`popover="auto"`, `toggle` 이벤트)와 자체 충돌 보정
+위치 계산을 기반으로 구현했다. `FeedbackDialogs`, `TodayPage`의 작업 생성 Dialog, `PixelOffice`의
+바로 맡기기 Popover가 이 primitive를 쓴다. Popover의 트리거는 각 caller가 소유하며, `Popover`는
+위치 계산과 open/close 상태만 책임진다(화살표 마커는 동적 side 대응 복잡도 대비 가치가 낮아 이번
+전환에서 생략했다).
 
 색상은 실제 UI 역할에 따라 `brand`, `background`, `text`, `semantic`, `status`, `priority`, `runtime`,
 `border`, `shadow`, `action`으로 구분한다. styled-component와 `AppGlobalStyles`는 theme token을 직접
@@ -88,7 +106,7 @@ React나 styled-components에 의존하지 않는 순수 값 패키지라, 나�
 `PetActor`는 `move`, `tick`, `stop`, `snapshot`으로 이동 상태를 관리하며 React, Pixi, Canvas에 의존하지
 않는다. web의 Canvas와 Pixi 코드는 이 상태와 픽셀 plot 결과를 각 렌더러 명령으로 변환한다.
 
-`packages/ui`는 그 token을 주입받아 소비하는 component만 소유한다.
+`packages/design-system`은 그 token을 주입받아 소비하는 component만 소유한다.
 
 - `Button`(`$variant` + `$fullWidth`), `IconButton`(`$size` + `$tone`) — 공용 컴포넌트를 만들 때 크기 축
   중 어떤 게 variant로 고정되고 어떤 게 caller가 바꿔야 하는 축인지 구분한다. `Button`은 높이는
@@ -113,7 +131,7 @@ React나 styled-components에 의존하지 않는 순수 값 패키지라, 나�
 - `icons/`(`TrashIcon`, `CloseIcon`) — 파일마다 따로 박혀 있던 인라인 `<svg>` 아이콘을 컴포넌트로
   뽑았다. 색은 항상 `fill="currentColor"`로 부모 텍스트 색을 따르고, `size` prop만 받는다.
 
-`apps/web`은 자기 앱 전용 레이아웃 조각을 `packages/ui`가 아니라 `apps/web/src/shared/ui/`에 둔다
+`apps/web`은 자기 앱 전용 레이아웃 조각을 `packages/design-system`이 아니라 `apps/web/src/shared/ui/`에 둔다
 (다른 앱이 재사용할 primitive가 아니라 이 앱의 셸/페이지 구조 그 자체이기 때문).
 
 공용 UI 구현은 `common.tsx` 같은 단일 파일에 모으지 않고 `PageHeader.tsx`, `Empty.tsx`,
@@ -132,10 +150,9 @@ React나 styled-components에 의존하지 않는 순수 값 패키지라, 나�
 - `App.tsx`의 `AppShell`은 이제 `Sidebar` + grid-column 배치만 하는 얇은 `Shell`/`Content`
   컨테이너다 — padding 로직은 전혀 없다.
 
-아직 남은 일: `AppGlobalStyles`에는 여러 feature가 리터럴 className으로 공유하는 전역 유틸리티가 남아
-있다 (`.panel`, `.field`, `.helper-copy`, `.prompt-suggestions`, `.kicker`, `.back-button`,
-`.technical-details`, `fieldset` 기본 스타일 등). 이 selector들은 `Button`/`Input`처럼 아직
-`packages/ui` component로 옮기지 않았다.
+아직 남은 일: `AppGlobalStyles`의 전역 유틸리티 selector를 component로 옮기는 작업은 `design-system.md`
+계획에 남아 있다(위 Styling 전환 상태 참고) — `Button`/`Input`처럼 아직 `packages/design-system`
+component로 옮기지 않았다.
 
 ## Community 목표 구조
 

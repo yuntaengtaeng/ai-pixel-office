@@ -1,4 +1,4 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
 import { Link, NavLink } from "react-router-dom";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
@@ -17,7 +17,7 @@ const Styled = {
     flex-direction: column;
     z-index: ${({ theme }) => theme.zIndex.navigation};
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       position: sticky;
       width: 100%;
       height: auto;
@@ -36,7 +36,7 @@ const Styled = {
     letter-spacing: -0.02em;
 
     > span:last-child {
-      @media ${mediaQuery.mobile} {
+      @media ${mediaQuery.md} {
         display: none;
       }
     }
@@ -53,7 +53,7 @@ const Styled = {
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
     font-size: ${({ theme }) => theme.typography.fontSize.title};
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       width: 36px;
       height: 36px;
     }
@@ -64,7 +64,7 @@ const Styled = {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       display: none;
     }
 
@@ -119,7 +119,7 @@ const Styled = {
     align-items: center;
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       display: none;
     }
   `,
@@ -134,7 +134,7 @@ const Styled = {
     display: grid;
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       margin-left: auto;
       display: flex;
       gap: 4px;
@@ -149,7 +149,7 @@ const Styled = {
       font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
       border: 2px solid transparent;
 
-      @media ${mediaQuery.mobile} {
+      @media ${mediaQuery.md} {
         padding: 8px;
         font-size: ${({ theme }) => theme.typography.fontSize.compact};
         gap: 4px;
@@ -161,7 +161,7 @@ const Styled = {
         font-family: ${({ theme }) => theme.typography.fontFamily.mono};
         font-size: ${({ theme }) => theme.typography.fontSize.headingSm};
 
-        @media ${mediaQuery.mobile} {
+        @media ${mediaQuery.md} {
           font-size: ${({ theme }) => theme.typography.fontSize.lead};
           width: 16px;
         }
@@ -189,7 +189,7 @@ const Styled = {
     line-height: 1.5;
     color: ${({ theme }) => theme.colors.text.inverse};
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       display: none;
     }
 

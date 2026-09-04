@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
-import { colors } from "@ai-pixel-office/design-token";
+import { colors } from "@ai-pixel-office/design-system";
 import { getPet, plotPet } from "@ai-pixel-office/pet";
 
 const Styled = {

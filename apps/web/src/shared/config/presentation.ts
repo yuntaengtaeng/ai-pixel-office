@@ -4,7 +4,7 @@ import type {
   Task,
   TaskStatus,
 } from "@ai-pixel-office/domain/entities";
-import { colors } from "@ai-pixel-office/design-token";
+import { colors } from "@ai-pixel-office/design-system";
 
 export const RUNTIME: Record<AgentModel, { label: string; color: string }> = {
   claude: { label: "Claude", color: colors.runtime.claude },

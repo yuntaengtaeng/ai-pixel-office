@@ -1,11 +1,10 @@
 export const radius = {
-  minimal: "2px",
-  subtle: "4px",
-  standard: "6px",
-  comfortable: "8px",
-  medium: "10px",
-  pill: "999px",
-  fullPill: "9999px",
+  xs: "2px",
+  sm: "4px",
+  md: "6px",
+  lg: "8px",
+  xl: "10px",
+  pill: "9999px",
   circle: "50%",
 } as const;
 

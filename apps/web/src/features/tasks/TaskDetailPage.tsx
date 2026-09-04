@@ -1,11 +1,19 @@
-import { colors, mediaQuery } from "@ai-pixel-office/design-token";
+import { colors, mediaQuery } from "@ai-pixel-office/design-system";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styled, { keyframes } from "styled-components";
-import { Button, Input, Kicker, Select, TextArea } from "@ai-pixel-office/ui";
+import {
+  BackButton,
+  Button,
+  Input,
+  Kicker,
+  Panel,
+  Select,
+  TextArea,
+} from "@ai-pixel-office/design-system";
 import type {
   Agent,
   Skill,
@@ -28,6 +36,8 @@ import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
+import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
+import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
 import { ProjectDirectorySelect, ProjectSelect } from "../projects/ProjectSelect.tsx";
 
 const pixelWork = keyframes`
@@ -63,7 +73,7 @@ const RunRow = styled.summary`
     color: ${({ theme }) => theme.colors.text.muted};
   }
 
-  @media ${mediaQuery.mobile} {
+  @media ${mediaQuery.md} {
     grid-template-columns: 12px 70px 1fr;
 
     time {
@@ -150,7 +160,7 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -159,8 +169,8 @@ const Styled = {
     display: grid;
     gap: 20px;
   `,
-  ResultPanel: styled.section`
-    padding: 20px;
+  ResultPanel: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x5};
     min-height: 340px;
   `,
   MarkdownResult: styled.div<{ $size?: "default" | "compact" | "small" }>`
@@ -324,7 +334,7 @@ const Styled = {
       line-height: 1.55;
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       align-items: flex-start;
       flex-direction: column;
     }
@@ -589,7 +599,7 @@ const Styled = {
       min-width: 0;
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -606,7 +616,7 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       align-items: flex-start;
     }
   `,
@@ -1333,8 +1343,8 @@ const Styled = {
       gap: 8px;
     }
   `,
-  TaskMeta: styled.aside`
-    padding: 20px;
+  TaskMeta: styled(Panel).attrs({ as: "aside" })`
+    padding: ${({ theme }) => theme.space.x5};
 
     > h2 {
       font-size: ${({ theme }) => theme.typography.fontSize.lg};
@@ -1389,7 +1399,7 @@ const Styled = {
       line-height: 1.4;
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -1398,12 +1408,12 @@ const Styled = {
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     white-space: nowrap;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       width: 100%;
     }
   `,
-  RunHistory: styled.section`
-    padding: 20px;
+  RunHistory: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x5};
     margin-top: 0;
   `,
   RunRow,
@@ -1709,9 +1719,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   const active = ["working", "needs_input"].includes(item.status);
   return (
     <BaseLayout>
-      <button className="back-button" onClick={() => navigate(-1)}>
-        ← 작업 목록
-      </button>
+      <BackButton onClick={() => navigate(-1)}>← 작업 목록</BackButton>
       <Styled.Heading>
         <Styled.StatusPill $status={item.status}>{STATUS[item.status].label}</Styled.StatusPill>
         <h1>{item.title}</h1>
@@ -1723,8 +1731,8 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       </Styled.Heading>
       <Styled.DetailLayout>
         <Styled.DetailMain>
-          <Styled.ResultPanel className="panel">
-            <div className="section-heading compact">
+          <Styled.ResultPanel>
+            <SectionHeading $compact>
               <h2>
                 {item.status === "todo"
                   ? "작업 요청"
@@ -1741,7 +1749,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                       ? "RESULT"
                       : "WAITING"}
               </span>
-            </div>
+            </SectionHeading>
             {active && latestRun?.request && <CurrentRunRequest request={latestRun.request} />}
             {item.status === "todo" ? (
               <Styled.TaskBriefEditor>
@@ -1852,7 +1860,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
           </Styled.ResultPanel>
           <RunHistory runs={item.runs} progressByRun={item.progressByRun} />
         </Styled.DetailMain>
-        <Styled.TaskMeta className="panel">
+        <Styled.TaskMeta>
           <WorkflowPanel
             task={item}
             agents={agents.data ?? []}
@@ -1982,7 +1990,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
               onChange={(value) => updateProject.mutate(value)}
             />
           )}
-          <details className="technical-details">
+          <TechnicalDetails>
             <summary>개발자 옵션</summary>
             <ProjectDirectorySelect
               workspaceId={workspace.id}
@@ -2003,7 +2011,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                 </div>
               </dl>
             )}
-          </details>
+          </TechnicalDetails>
           {item.status === "todo" && (
             <Button
               $variant="primary"
@@ -2126,9 +2134,9 @@ function WorkflowPanel({
 
   return (
     <Styled.WorkflowPanel>
-      <div className="section-heading compact">
+      <SectionHeading $compact>
         <h2>담당 방식</h2>
-      </div>
+      </SectionHeading>
       {editable && (
         <Styled.AssignmentModeSwitch aria-label="담당 방식 선택">
           <button
@@ -2466,11 +2474,11 @@ function RunHistory({
     cancelled: "취소",
   };
   return (
-    <Styled.RunHistory className="panel">
-      <div className="section-heading compact">
+    <Styled.RunHistory>
+      <SectionHeading $compact>
         <h2>실행 기록</h2>
         <span>{runs.length}</span>
-      </div>
+      </SectionHeading>
       {runs.map((entry) => {
         const progress = progressByRun[entry.id] ?? [];
         return (

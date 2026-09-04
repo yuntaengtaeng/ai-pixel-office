@@ -1,10 +1,21 @@
-import { colors, mediaQuery } from "@ai-pixel-office/design-token";
+import { colors, mediaQuery } from "@ai-pixel-office/design-system";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog } from "radix-ui";
-import styled, { keyframes } from "styled-components";
-import { Button, CloseIcon, Input, Kicker, Select } from "@ai-pixel-office/ui";
+import styled from "styled-components";
+import {
+  Button,
+  CloseIcon,
+  Dialog,
+  Field,
+  Fieldset,
+  Input,
+  Kicker,
+  Legend,
+  Panel,
+  Select,
+  useDialogIds,
+} from "@ai-pixel-office/design-system";
 import type {
   Agent,
   ActivityLog,
@@ -24,74 +35,49 @@ import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
+import { PromptSuggestions } from "../../shared/ui/PromptSuggestions.tsx";
+import { SectionHeading, SectionHeadingCount } from "../../shared/ui/SectionHeading.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
 import { InboxPanel } from "../inbox/InboxPanel.tsx";
+import { LiveBadge, OfficeCard, OfficeLoading } from "../office/OfficeCard.tsx";
 
 const PixelOffice = lazy(async () => {
   const module = await import("../office/PixelOffice.tsx");
   return { default: module.PixelOffice };
 });
 
-const dialogFade = keyframes`
-  from {
-    opacity: 0;
-  }
-`;
-
-const dialogPop = keyframes`
-  from {
-    opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
-  }
-`;
-
 const Styled = {
-  DialogOverlay: styled(Dialog.Overlay)`
-    position: fixed;
-    inset: 0;
-    z-index: ${({ theme }) => theme.zIndex.notification};
-    background: rgb(31 38 36 / 62%);
-    backdrop-filter: blur(2px);
-    animation: ${dialogFade} 0.16s ease-out;
-  `,
-  DialogContent: styled(Dialog.Content)`
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    z-index: ${({ theme }) => theme.zIndex.notification};
-    width: min(680px, calc(100vw - 28px));
-    max-height: calc(100vh - 32px);
-    padding: 24px;
-    overflow: auto;
-    transform: translate(-50%, -50%);
-    border: 3px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    box-shadow: 8px 8px 0 rgb(20 31 28 / 48%);
-    animation: ${dialogPop} 0.18s ease-out;
+  DialogContent: styled(Dialog)`
+    .dialog-content {
+      width: min(680px, calc(100vw - 28px));
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
-    > header {
-      display: flex;
-      justify-content: space-between;
-      gap: 20px;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 2px dashed ${({ theme }) => theme.colors.border.default};
-    }
+      > header {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px dashed ${({ theme }) => theme.colors.border.default};
+      }
 
-    h2 {
-      margin: 4px 0 8px;
-      font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
-    }
+      h2 {
+        margin: 4px 0 8px;
+        font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
+      }
 
-    header p {
-      margin: 0;
-      max-width: 540px;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.55;
+      header p {
+        margin: 0;
+        max-width: 540px;
+        color: ${({ theme }) => theme.colors.text.muted};
+        font-size: ${({ theme }) => theme.typography.fontSize.sm};
+        line-height: 1.55;
+      }
     }
   `,
-  DialogClose: styled(Dialog.Close)`
+  DialogClose: styled.button`
     flex: 0 0 auto;
     width: 32px;
     height: 32px;
@@ -126,15 +112,6 @@ const Styled = {
     justify-content: flex-end;
     gap: 8px;
   `,
-  PriorityField: styled.fieldset`
-    margin: 0;
-    padding: 0;
-    border: 0;
-
-    legend {
-      margin-bottom: 8px;
-    }
-  `,
   PriorityPicker: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -162,7 +139,7 @@ const Styled = {
     display: inline-block;
     background: ${({ $priority }) => PRIORITY_COLORS[$priority]};
   `,
-  ResultField: styled.div`
+  ResultField: styled(Field)`
     min-width: 0;
 
     small {
@@ -209,7 +186,7 @@ const Styled = {
     align-items: center;
     margin-bottom: 16px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -274,17 +251,17 @@ const Styled = {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
-  TaskSection: styled.section<{ $status: TaskStatus }>`
+  TaskSection: styled(Panel).attrs({ as: "section" })<{ $status: TaskStatus }>`
     min-height: 185px;
-    padding: 16px;
+    padding: ${({ theme }) => theme.space.x4};
     border-top-color: ${({ $status }) => STATUS[$status].color};
   `,
   TaskList: styled.div`
@@ -303,18 +280,18 @@ const Styled = {
       grid-column: 1 / -1;
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
-  ActivityPanel: styled.section`
-    padding: 16px;
+  ActivityPanel: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x4};
 
-    .section-heading select {
+    ${SectionHeading} select {
       min-width: 0;
       flex: 1 1 auto;
-      margin-left: 12px;
-      padding: 4px 8px;
+      margin-left: ${({ theme }) => theme.space.x3};
+      padding: ${({ theme }) => theme.space.x1} ${({ theme }) => theme.space.x2};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
@@ -322,7 +299,7 @@ const Styled = {
       font-family: inherit;
     }
 
-    .section-heading h2 {
+    ${SectionHeading} h2 {
       flex: 0 0 auto;
       white-space: nowrap;
     }
@@ -478,9 +455,10 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
       return;
     removeTask.mutate(task.id);
   };
+  const { titleId, descriptionId } = useDialogIds();
   return (
     <BaseLayout>
-      <Dialog.Root open={showComposer} onOpenChange={setShowComposer}>
+      <>
         <PageHeader
           eyebrow={new Intl.DateTimeFormat("ko-KR", {
             month: "long",
@@ -489,34 +467,41 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           }).format(new Date())}
           title="오늘의 오피스"
           action={
-            <Dialog.Trigger asChild>
-              <Button $variant="primary">+ 새 작업</Button>
-            </Dialog.Trigger>
+            <Button $variant="primary" onClick={() => setShowComposer(true)}>
+              + 새 작업
+            </Button>
           }
         />
-        <Dialog.Portal>
-          <Styled.DialogOverlay />
-          <Styled.DialogContent>
-            <header>
-              <div>
-                <Kicker>NEW TASK</Kicker>
-                <Dialog.Title>새 작업 만들기</Dialog.Title>
-                <Dialog.Description>
-                  할 일을 먼저 만들고 다음 화면에서 프로젝트와 담당 에이전트를 정할 수 있어요.
-                </Dialog.Description>
-              </div>
-              <Styled.DialogClose aria-label="닫기" title="닫기">
-                <CloseIcon size={16} />
-              </Styled.DialogClose>
-            </header>
-            <TaskComposer workspace={workspace} onDone={() => setShowComposer(false)} />
-          </Styled.DialogContent>
-        </Dialog.Portal>
+        <Styled.DialogContent
+          open={showComposer}
+          onOpenChange={setShowComposer}
+          titleId={titleId}
+          descriptionId={descriptionId}
+        >
+          <header>
+            <div>
+              <Kicker>NEW TASK</Kicker>
+              <h2 id={titleId}>새 작업 만들기</h2>
+              <p id={descriptionId}>
+                할 일을 먼저 만들고 다음 화면에서 프로젝트와 담당 에이전트를 정할 수 있어요.
+              </p>
+            </div>
+            <Styled.DialogClose
+              type="button"
+              aria-label="닫기"
+              title="닫기"
+              onClick={() => setShowComposer(false)}
+            >
+              <CloseIcon size={16} />
+            </Styled.DialogClose>
+          </header>
+          <TaskComposer workspace={workspace} onDone={() => setShowComposer(false)} />
+        </Styled.DialogContent>
         {(agents.isError || tasks.isError) && (
           <ErrorBanner>{messageOf(agents.error ?? tasks.error)}</ErrorBanner>
         )}
-        <section className="office-card">
-          <div className="section-heading">
+        <OfficeCard>
+          <SectionHeading>
             <div>
               <Kicker>LIVE OFFICE</Kicker>
               <h2>우리 팀은 지금</h2>
@@ -532,12 +517,12 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                   ))}
                 </Styled.RuntimeLegend>
               )}
-              <span className="live-badge">
+              <LiveBadge>
                 <Styled.OnlineDot /> 실시간
-              </span>
+              </LiveBadge>
             </Styled.HeadingMeta>
-          </div>
-          <Suspense fallback={<div className="office-loading">픽셀 오피스를 준비하는 중...</div>}>
+          </SectionHeading>
+          <Suspense fallback={<OfficeLoading>픽셀 오피스를 준비하는 중...</OfficeLoading>}>
             <PixelOffice
               agents={agentList}
               tasks={taskList}
@@ -550,7 +535,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           {officeQuickAssign.isError && (
             <ErrorBanner>{messageOf(officeQuickAssign.error)}</ErrorBanner>
           )}
-        </section>
+        </OfficeCard>
         <InboxPanel workspace={workspace} />
         <Styled.Toolbar aria-label="작업 검색과 상태 필터">
           <Styled.Search>
@@ -610,8 +595,8 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
               deletingId={removeTask.isPending ? removeTask.variables : undefined}
             />
           )}
-          <Styled.ActivityPanel className="panel">
-            <div className="section-heading compact">
+          <Styled.ActivityPanel>
+            <SectionHeading $compact>
               <h2>최근 활동</h2>
               <Select
                 value={activityFilter}
@@ -624,7 +609,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                 <option value="approval">승인</option>
                 <option value="agent">에이전트</option>
               </Select>
-            </div>
+            </SectionHeading>
             <Styled.ActivityList>
               {filteredActivities.slice(0, showAllActivity ? 20 : 8).map((activity) => (
                 <Styled.ActivityItem $category={activityCategory(activity)} key={activity.id}>
@@ -657,7 +642,7 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
         </Styled.LowerGrid>
         {removeTask.isError && <ErrorBanner>{messageOf(removeTask.error)}</ErrorBanner>}
         <ConfirmDialog {...dialogProps} />
-      </Dialog.Root>
+      </>
     </BaseLayout>
   );
 }
@@ -700,7 +685,7 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
         mutation.mutate();
       }}
     >
-      <div className="field grow">
+      <Field $grow>
         <label>무엇을 만들거나 해결할까요?</label>
         <Input
           autoFocus
@@ -709,9 +694,9 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
           placeholder="예: 컴포넌트 추출"
           required
         />
-      </div>
-      <Styled.PriorityField>
-        <legend>우선순위</legend>
+      </Field>
+      <Fieldset>
+        <Legend>우선순위</Legend>
         <Styled.PriorityPicker>
           {(Object.entries(PRIORITIES) as Array<[NonNullable<Task["priority"]>, string]>).map(
             ([value, label]) => (
@@ -727,28 +712,26 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
             ),
           )}
         </Styled.PriorityPicker>
-      </Styled.PriorityField>
-      <Styled.ResultField className="field grow">
+      </Fieldset>
+      <Styled.ResultField $grow>
         <label>원하는 결과 · 선택 사항</label>
         <Input
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="예: 선택한 화면의 버튼과 입력창을 React 컴포넌트로 분리해 주세요"
         />
-        <div className="prompt-suggestions" aria-label="원하는 결과 예시">
+        <PromptSuggestions aria-label="원하는 결과 예시">
           {resultExamples.map((example) => (
             <button type="button" key={example.label} onClick={() => setDescription(example.value)}>
               {example.label}
             </button>
           ))}
-        </div>
+        </PromptSuggestions>
       </Styled.ResultField>
       <Styled.DialogActions>
-        <Dialog.Close asChild>
-          <Button $variant="secondary" type="button">
-            취소
-          </Button>
-        </Dialog.Close>
+        <Button $variant="secondary" type="button" onClick={onDone}>
+          취소
+        </Button>
         <Button $variant="primary" disabled={mutation.isPending || !title.trim()}>
           {mutation.isPending ? "만드는 중..." : "작업 만들기"}
         </Button>
@@ -774,13 +757,13 @@ function TaskSection({
   deletingId?: string;
 }) {
   return (
-    <Styled.TaskSection className="panel" $status={status}>
-      <div className="section-heading compact">
+    <Styled.TaskSection $status={status}>
+      <SectionHeading $compact>
         <h2>
           <span>{STATUS[status].icon}</span> {title ?? STATUS[status].label}
         </h2>
-        <span className="count">{tasks.length}</span>
-      </div>
+        <SectionHeadingCount>{tasks.length}</SectionHeadingCount>
+      </SectionHeading>
       <Styled.TaskList>
         {tasks.map((task) => (
           <TaskCard

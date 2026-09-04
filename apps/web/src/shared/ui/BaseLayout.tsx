@@ -1,4 +1,4 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
 
 /**
@@ -13,7 +13,7 @@ export const BaseLayout = styled.div`
   padding: 44px 48px 72px;
   margin: 0 auto;
 
-  @media ${mediaQuery.mobile} {
+  @media ${mediaQuery.md} {
     padding: 28px 16px 56px;
   }
 `;

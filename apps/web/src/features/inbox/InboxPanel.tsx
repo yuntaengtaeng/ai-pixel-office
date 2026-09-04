@@ -1,9 +1,9 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, Kicker, Select, Surface, TextArea } from "@ai-pixel-office/ui";
+import { Button, Kicker, Select, Surface, TextArea } from "@ai-pixel-office/design-system";
 import type { Input, Workspace } from "@ai-pixel-office/domain/entities";
 import { inputApi } from "./api.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
@@ -99,7 +99,7 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -134,7 +134,7 @@ const Styled = {
       line-height: 1.5;
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
 
       select {
@@ -158,7 +158,7 @@ const Styled = {
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -201,7 +201,7 @@ const Styled = {
     align-items: center;
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       justify-content: flex-end;
     }
   `,

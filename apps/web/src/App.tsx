@@ -1,4 +1,4 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { workspaceApi } from "./features/workspaces/api.ts";
 import { TaskNotifications } from "./features/notifications/TaskNotifications.tsx";
 import { messageOf } from "./shared/lib/errors.ts";
 import { FullScreenMessage } from "./shared/ui/FullScreenMessage.tsx";
+import { PageLoading } from "./shared/ui/PageLoading.tsx";
 import { Sidebar } from "./shared/ui/Sidebar.tsx";
 
 const TodayPage = lazy(() =>
@@ -63,7 +64,7 @@ const Styled = {
     display: grid;
     grid-template-columns: 228px minmax(0, 1fr);
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       display: block;
     }
   `,
@@ -117,7 +118,7 @@ function AppShell({ workspace }: { workspace: Workspace }) {
       <TaskNotifications workspaceId={workspace.id} />
       <Sidebar workspace={workspace} runtimeStatus={runtimeStatus.data} />
       <Styled.Content>
-        <Suspense fallback={<div className="page-loading">화면을 준비하는 중...</div>}>
+        <Suspense fallback={<PageLoading>화면을 준비하는 중...</PageLoading>}>
           <Routes>
             <Route path="/" element={<TodayPage workspace={workspace} />} />
             <Route path="/projects" element={<ProjectsPage workspace={workspace} />} />

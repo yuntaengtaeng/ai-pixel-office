@@ -1,17 +1,22 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
 import {
+  BackButton,
   Button,
+  Field,
+  Fieldset,
   HelperText,
   Input,
   Kicker,
+  Legend,
+  Panel,
   Select,
   TextArea,
   TrashIcon,
-} from "@ai-pixel-office/ui";
+} from "@ai-pixel-office/design-system";
 import type {
   AgentPermissions,
   ModelPolicy,
@@ -35,6 +40,7 @@ import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
+import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { ProjectDirectorySelect } from "../projects/ProjectSelect.tsx";
 import { ModelPolicyFields } from "./ModelPolicyFields.tsx";
 import { defaultManualModel } from "./model-options.ts";
@@ -50,20 +56,20 @@ const Styled = {
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   `,
-  Roster: styled.section`
-    margin-top: 24px;
-    padding: 20px;
+  Roster: styled(Panel).attrs({ as: "section" })`
+    margin-top: ${({ theme }) => theme.space.x6};
+    padding: ${({ theme }) => theme.space.x5};
   `,
   RosterGrid: styled.div`
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -152,20 +158,20 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.negative};
     }
   `,
-  QuickJobs: styled.section`
-    margin-top: 20px;
-    padding: 20px;
+  QuickJobs: styled(Panel).attrs({ as: "section" })`
+    margin-top: ${({ theme }) => theme.space.x5};
+    padding: ${({ theme }) => theme.space.x5};
   `,
   QuickJobList: styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -242,7 +248,7 @@ const Styled = {
     padding-top: 16px;
     border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       display: grid;
     }
   `,
@@ -252,7 +258,7 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
     }
   `,
@@ -260,8 +266,8 @@ const Styled = {
     display: grid;
     gap: 16px;
   `,
-  ProfileStats: styled.section`
-    padding: 16px;
+  ProfileStats: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x4};
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
@@ -284,8 +290,8 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
-  ProfilePanel: styled.section`
-    padding: 20px;
+  ProfilePanel: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x5};
   `,
   TemplateList: styled.div`
     display: grid;
@@ -340,7 +346,7 @@ const Styled = {
     gap: 8px;
     margin-top: 12px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -374,14 +380,14 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.desktopSmall} {
+    @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
     }
   `,
-  BuilderForm: styled.form`
-    padding: 24px;
+  BuilderForm: styled(Panel).attrs({ as: "form" })`
+    padding: ${({ theme }) => theme.space.x6};
     display: grid;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
 
     h2 {
       margin: 0;
@@ -516,8 +522,8 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
   `,
-  AvatarLibrary: styled.section`
-    padding: 24px;
+  AvatarLibrary: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x6};
 
     h3 {
       margin: 20px 0 8px;
@@ -530,7 +536,7 @@ const Styled = {
     grid-template-columns: repeat(5, 1fr);
     gap: 8px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: repeat(3, 1fr);
     }
   `,
@@ -707,7 +713,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
       <PageHeader eyebrow="TEAM BUILDER" title="AI 동료 만들기" />
       <Styled.BuilderLayout>
         <Styled.BuilderForm
-          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             mutation.mutate();
@@ -721,7 +726,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               <small>{selectedPet.breed}</small>
             </div>
           </Styled.SelectedPet>
-          <div className="field">
+          <Field>
             <label>이름</label>
             <Input
               value={name}
@@ -729,8 +734,8 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               placeholder="예: 프론트엔드 개발자"
               required
             />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>어떤 도움을 주나요?</label>
             <TextArea
               value={role}
@@ -738,9 +743,9 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               placeholder="이 동료가 도와줄 일을 적어 주세요."
               required
             />
-          </div>
-          <fieldset className="skill-selector">
-            <legend>스킬 · 선택 사항</legend>
+          </Field>
+          <Fieldset>
+            <Legend>스킬 · 선택 사항</Legend>
             <HelperText>
               스킬 없이도 기본 업무를 수행합니다. 반복해서 잘해야 할 전문 업무가 있으면 스킬을
               연결하세요.
@@ -779,11 +784,11 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                 </div>
               </Styled.MappedPermissions>
             )}
-          </fieldset>
+          </Fieldset>
           <Styled.AdvancedOptions>
             <summary>고급 설정 · 실행 엔진과 모델</summary>
             <div>
-              <div className="field">
+              <Field>
                 <label>실행 엔진</label>
                 <Styled.EnginePicker>
                   <button
@@ -807,7 +812,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                     Claude <small>로컬 CLI</small>
                   </button>
                 </Styled.EnginePicker>
-              </div>
+              </Field>
               <ModelPolicyFields
                 runtime={model}
                 policy={modelPolicy}
@@ -825,8 +830,8 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                   label="기본 실행 폴더"
                   emptyLabel="워크스페이스 기본값"
                 />
-                <fieldset>
-                  <legend>도구 권한</legend>
+                <Fieldset>
+                  <Legend>도구 권한</Legend>
                   <Styled.CheckGrid>
                     {PERMISSIONS.map(({ key, label }) => {
                       const required = key === "fileRead" || key === "terminal";
@@ -848,7 +853,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                       );
                     })}
                   </Styled.CheckGrid>
-                </fieldset>
+                </Fieldset>
               </>
             </div>
           </Styled.AdvancedOptions>
@@ -861,13 +866,13 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           </Button>
           {mutation.isError && <ErrorBanner>{messageOf(mutation.error)}</ErrorBanner>}
         </Styled.BuilderForm>
-        <Styled.AvatarLibrary className="panel">
-          <div className="section-heading">
+        <Styled.AvatarLibrary>
+          <SectionHeading>
             <div>
               <Kicker>PET LIBRARY</Kicker>
               <h2>캐릭터 고르기</h2>
             </div>
-          </div>
+          </SectionHeading>
           <h3>강아지</h3>
           <Styled.PetGrid>
             {PETS.filter((pet) => pet.species === "dog").map((pet) => (
@@ -892,11 +897,11 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           </Styled.PetGrid>
         </Styled.AvatarLibrary>
       </Styled.BuilderLayout>
-      <Styled.Roster className="panel">
-        <div className="section-heading compact">
+      <Styled.Roster>
+        <SectionHeading $compact>
           <h2>현재 동료</h2>
           <span>{agents.data?.length ?? 0}</span>
-        </div>
+        </SectionHeading>
         <Styled.RosterGrid>
           {(agents.data ?? []).map((agent) => (
             <Styled.AgentCard key={agent.id} $selected={selectedAgentId === agent.id}>
@@ -940,13 +945,13 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         {removeAgent.isError && <ErrorBanner>{messageOf(removeAgent.error)}</ErrorBanner>}
       </Styled.Roster>
       {selectedAgent && (
-        <Styled.QuickJobs className="panel">
-          <div className="section-heading">
+        <Styled.QuickJobs>
+          <SectionHeading>
             <div>
               <Kicker>QUICK ASSIGN</Kicker>
               <h2>{selectedAgent.name}에게 바로 맡기기</h2>
             </div>
-          </div>
+          </SectionHeading>
           <HelperText>
             자주 하는 일을 등록해 두면 동료를 클릭한 뒤 한 번에 작업을 만들 수 있습니다.
           </HelperText>
@@ -997,7 +1002,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               saveTemplate.mutate();
             }}
           >
-            <div className="field">
+            <Field>
               <label>작업 이름</label>
               <Input
                 value={templateTitle}
@@ -1005,15 +1010,15 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                 placeholder="예: UI 검토"
                 required
               />
-            </div>
-            <div className="field grow">
+            </Field>
+            <Field $grow>
               <label>기본 요청</label>
               <Input
                 value={templateDescription}
                 onChange={(event) => setTemplateDescription(event.target.value)}
                 placeholder="예: Figma 화면의 사용성과 일관성을 검토해 줘"
               />
-            </div>
+            </Field>
             <Button $variant="secondary" disabled={saveTemplate.isPending || !templateTitle.trim()}>
               등록
             </Button>
@@ -1173,13 +1178,10 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
   };
   return (
     <BaseLayout>
-      <button className="back-button" onClick={() => navigate("/agents")}>
-        ← 에이전트 목록
-      </button>
+      <BackButton onClick={() => navigate("/agents")}>← 에이전트 목록</BackButton>
       <PageHeader eyebrow="AGENT PROFILE" title={agentQuery.data.name} />
       <Styled.DetailGrid>
         <Styled.BuilderForm
-          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             save.mutate();
@@ -1195,7 +1197,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
               </small>
             </div>
           </Styled.SelectedPet>
-          <div className="field">
+          <Field>
             <label>캐릭터</label>
             <Select value={avatarId} onChange={(event) => setAvatarId(event.target.value)}>
               {PETS.map((pet) => (
@@ -1204,24 +1206,24 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>이름</label>
             <Input value={name} onChange={(event) => setName(event.target.value)} required />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>역할</label>
             <TextArea value={role} onChange={(event) => setRole(event.target.value)} required />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>설명</label>
             <TextArea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
-          </div>
-          <fieldset className="skill-selector">
-            <legend>스킬 · 선택 사항</legend>
+          </Field>
+          <Fieldset>
+            <Legend>스킬 · 선택 사항</Legend>
             <HelperText>
               스킬은 선택 사항이며, 연결한 스킬에 필요한 권한은 자동으로 적용됩니다.
             </HelperText>
@@ -1240,11 +1242,11 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                 <Empty>등록된 스킬이 없습니다. 스킬 없이도 기본 업무를 수행할 수 있습니다.</Empty>
               )}
             </Styled.CheckGrid>
-          </fieldset>
+          </Fieldset>
           <Styled.AdvancedOptions>
             <summary>고급 설정 · 실행 엔진과 모델</summary>
             <div>
-              <div className="field">
+              <Field>
                 <label>실행 엔진</label>
                 <Styled.EnginePicker>
                   <button
@@ -1268,7 +1270,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                     Claude
                   </button>
                 </Styled.EnginePicker>
-              </div>
+              </Field>
               <ModelPolicyFields
                 runtime={model}
                 policy={modelPolicy}
@@ -1286,8 +1288,8 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                   label="기본 실행 폴더"
                   emptyLabel="워크스페이스 기본값"
                 />
-                <fieldset>
-                  <legend>권한</legend>
+                <Fieldset>
+                  <Legend>권한</Legend>
                   <Styled.CheckGrid>
                     {PERMISSIONS.map(({ key, label }) => (
                       <Styled.CheckChip key={key}>
@@ -1306,7 +1308,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                       </Styled.CheckChip>
                     ))}
                   </Styled.CheckGrid>
-                </fieldset>
+                </Fieldset>
               </>
             </div>
           </Styled.AdvancedOptions>
@@ -1341,7 +1343,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
           )}
         </Styled.BuilderForm>
         <Styled.DetailSide>
-          <Styled.ProfileStats className="panel">
+          <Styled.ProfileStats>
             <div>
               <strong>{agentTasks.length}</strong>
               <span>전체 작업</span>
@@ -1355,11 +1357,11 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
               <span>실패</span>
             </div>
           </Styled.ProfileStats>
-          <Styled.ProfilePanel className="panel">
-            <div className="section-heading compact">
+          <Styled.ProfilePanel>
+            <SectionHeading $compact>
               <h2>자주 맡기는 작업</h2>
               <span>{templates.data?.length ?? 0}</span>
-            </div>
+            </SectionHeading>
             <Styled.TemplateList>
               {(templates.data ?? []).map((template) => (
                 <div key={template.id}>
@@ -1403,11 +1405,11 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
               </Button>
             </Styled.TemplateForm>
           </Styled.ProfilePanel>
-          <Styled.ProfilePanel className="panel">
-            <div className="section-heading compact">
+          <Styled.ProfilePanel>
+            <SectionHeading $compact>
               <h2>최근 작업</h2>
               <span>{agentTasks.length}</span>
-            </div>
+            </SectionHeading>
             <Styled.TaskList>
               {agentTasks.slice(0, 8).map((task) => (
                 <Link to={`/tasks/${task.id}`} key={task.id}>

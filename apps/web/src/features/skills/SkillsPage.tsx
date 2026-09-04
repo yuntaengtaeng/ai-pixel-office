@@ -1,8 +1,8 @@
-import { mediaQuery } from "@ai-pixel-office/design-token";
+import { mediaQuery } from "@ai-pixel-office/design-system";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, Input, Select, TextArea } from "@ai-pixel-office/ui";
+import { Button, Field, Input, Panel, Select, TextArea } from "@ai-pixel-office/design-system";
 import type { Skill, Workspace } from "@ai-pixel-office/domain/entities";
 import { skillApi } from "./api.ts";
 import { localizeSkillCategory } from "./presentation.ts";
@@ -14,6 +14,7 @@ import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
+import { PromptSuggestions } from "../../shared/ui/PromptSuggestions.tsx";
 
 const Styled = {
   Layout: styled.div`
@@ -22,7 +23,7 @@ const Styled = {
     gap: 20px;
     align-items: start;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -35,15 +36,15 @@ const Styled = {
     align-content: start;
     padding: 4px 8px 8px 4px;
 
-    @media ${mediaQuery.mobile} {
+    @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
       max-height: none;
       overflow: visible;
       padding-right: 4px;
     }
   `,
-  Card: styled.article`
-    padding: 16px;
+  Card: styled(Panel).attrs({ as: "article" })`
+    padding: ${({ theme }) => theme.space.x4};
     display: grid;
     grid-template-columns: 42px minmax(0, 1fr);
     gap: 12px;
@@ -224,13 +225,13 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
   `,
-  Suggestions: styled.div`
-    margin-bottom: 4px;
+  Suggestions: styled(PromptSuggestions)`
+    margin-bottom: ${({ theme }) => theme.space.x1};
   `,
-  Form: styled.form`
-    padding: 24px;
+  Form: styled(Panel).attrs({ as: "form" })`
+    padding: ${({ theme }) => theme.space.x6};
     display: grid;
-    gap: 20px;
+    gap: ${({ theme }) => theme.space.x5};
 
     h2 {
       margin: 0;
@@ -293,7 +294,6 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
       <PageHeader eyebrow="CAPABILITY LIBRARY" title="스킬 작업실" />
       <Styled.Layout>
         <Styled.Form
-          className="panel"
           onSubmit={(event) => {
             event.preventDefault();
             mutation.mutate();
@@ -301,7 +301,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
         >
           <h2>AI로 새 스킬 만들기</h2>
           <Styled.AiDraftBox>
-            <div className="field">
+            <Field>
               <label>이 스킬이 반복해서 어떤 일을 잘했으면 하나요?</label>
               <TextArea
                 rows={3}
@@ -321,8 +321,8 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
                 }}
                 placeholder="예: Figma 링크를 받으면 간격과 타이포그래피를 검토하고 개선안을 정리해 줘"
               />
-            </div>
-            <Styled.Suggestions className="prompt-suggestions">
+            </Field>
+            <Styled.Suggestions>
               {[
                 "Figma 화면의 사용성과 일관성을 검토해 줘",
                 "React 화면에서 재사용할 컴포넌트를 찾아 분리해 줘",
@@ -345,7 +345,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
             {draft.isError && <ErrorBanner>{messageOf(draft.error)}</ErrorBanner>}
           </Styled.AiDraftBox>
           <Styled.FormDivider>AI 초안을 확인하고 필요하면 수정하세요</Styled.FormDivider>
-          <div className="field">
+          <Field>
             <label>이름</label>
             <Input
               value={name}
@@ -353,8 +353,8 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
               placeholder="예: React 컴포넌트 제작"
               required
             />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>카테고리</label>
             <Select value={category} onChange={(event) => setCategory(event.target.value)}>
               <option>개발</option>
@@ -364,8 +364,8 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
               <option>운영</option>
               <option>기타</option>
             </Select>
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>설명</label>
             <Input
               value={description}
@@ -373,8 +373,8 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
               placeholder="언제 사용하는 스킬인가요?"
               required
             />
-          </div>
-          <div className="field">
+          </Field>
+          <Field>
             <label>지시문</label>
             <TextArea
               rows={7}
@@ -383,7 +383,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
               placeholder="에이전트가 따라야 할 구체적인 절차를 적어 주세요."
               required
             />
-          </div>
+          </Field>
           {(tools.length > 0 || requiredPermissions.length > 0) && (
             <Styled.GeneratedSettings>
               <label>AI가 제안한 연결</label>
@@ -423,9 +423,9 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
             />
           ))}
           {skills.data?.length === 0 && (
-            <div className="panel">
+            <Panel>
               <Empty>첫 번째 스킬을 만들어 보세요.</Empty>
-            </div>
+            </Panel>
           )}
         </Styled.Library>
       </Styled.Layout>
@@ -456,7 +456,7 @@ function SkillCard({
     })),
   ];
   return (
-    <Styled.Card className="panel">
+    <Styled.Card>
       <Styled.CardIcon>✦</Styled.CardIcon>
       <Styled.CardBody>
         <Styled.CardHeader>
