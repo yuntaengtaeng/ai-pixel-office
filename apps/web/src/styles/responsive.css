@@ -1,0 +1,167 @@
+@media (max-width: 1100px) {
+  .today-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .builder-layout {
+    grid-template-columns: 1fr;
+  }
+  .roster-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .quick-job-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .settings-grid,
+  .agent-detail-grid,
+  .project-layout,
+  .project-detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .project-create {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .snackbar-region {
+    right: 14px;
+    bottom: 14px;
+  }
+  .task-brief-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .app-shell {
+    display: block;
+  }
+  .sidebar {
+    position: sticky;
+    width: 100%;
+    height: auto;
+    padding: 10px 13px;
+    border: 0;
+    border-bottom: 4px solid #283d39;
+    flex-direction: row;
+    align-items: center;
+  }
+  .brand > span:last-child,
+  .workspace-chip,
+  .sidebar-note,
+  .sidebar-runtimes {
+    display: none;
+  }
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+  .sidebar nav {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .sidebar nav a {
+    padding: 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .sidebar nav a span {
+    font-size: 15px;
+    width: 16px;
+  }
+  .main-content {
+    padding: 26px 14px 55px;
+  }
+  .page-header {
+    min-height: 66px;
+  }
+  .page-header h1 {
+    font-size: 30px;
+  }
+  .office-card {
+    padding: 11px;
+  }
+  .today-grid,
+  .lower-grid,
+  .skills-layout,
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .inbox-capture,
+  .today-toolbar,
+  .inbox-item {
+    grid-template-columns: 1fr;
+  }
+  .inbox-capture select {
+    min-height: 38px;
+  }
+  .inbox-item-actions {
+    justify-content: flex-end;
+  }
+  .project-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .project-task-create {
+    grid-template-columns: 1fr;
+  }
+  .pet-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .skill-library {
+    grid-template-columns: 1fr;
+  }
+  .skill-library {
+    max-height: none;
+    overflow: visible;
+    padding-right: 2px;
+  }
+  .roster-grid {
+    grid-template-columns: 1fr;
+  }
+  .quick-job-list {
+    grid-template-columns: 1fr;
+  }
+  .quick-job-form {
+    display: grid;
+  }
+  .profile-panel > form {
+    grid-template-columns: 1fr;
+  }
+  .project-add-form {
+    display: grid;
+  }
+  .advanced-default-row,
+  .agent-mode-picker {
+    grid-template-columns: 1fr;
+  }
+  .manual-model-fields {
+    grid-template-columns: 1fr;
+  }
+  .review-followup {
+    grid-template-columns: 1fr;
+  }
+  .review-finish {
+    align-items: flex-start;
+  }
+  .task-danger-zone {
+    grid-template-columns: 1fr;
+  }
+  .task-remove-button {
+    width: 100%;
+  }
+  .composer {
+    display: grid;
+  }
+  .run-row {
+    grid-template-columns: 12px 70px 1fr;
+  }
+  .run-row time {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .office-agent-slot,
+  .office-status-label {
+    animation: none;
+  }
+}

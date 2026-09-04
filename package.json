@@ -1,0 +1,61 @@
+{
+  "name": "ai-pixel-office",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c green,cyan \"npm:dev:server\" \"npm:dev:web\"",
+    "office": "node scripts/check-node-version.mjs && concurrently -k -n server,web -c green,cyan \"npm:start\" \"npm:dev:web\"",
+    "dev:server": "node --watch --experimental-strip-types apps/server/src/index.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "start": "node scripts/check-node-version.mjs && node --experimental-strip-types apps/server/src/index.ts",
+    "build": "vite build --config apps/web/vite.config.ts",
+    "lint": "eslint apps packages scripts test",
+    "lint:fix": "eslint apps packages scripts test --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "validate": "npm run check && npm run lint && npm run format:check && npm test && npm run build",
+    "smoke:mvp": "node --experimental-strip-types scripts/mvp-smoke.ts",
+    "check": "tsc --noEmit && tsc --noEmit -p apps/web/tsconfig.json",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "spike:capabilities": "node --experimental-strip-types scripts/runtime-spike/capabilities.ts",
+    "spike:run": "node --experimental-strip-types scripts/runtime-spike/codex.ts",
+    "spike:permission": "node --experimental-strip-types scripts/runtime-spike/permission-roundtrip.ts",
+    "spike:cancel": "node --experimental-strip-types scripts/runtime-spike/cancel.ts",
+    "spike:resume": "node --experimental-strip-types scripts/runtime-spike/resume.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@tanstack/react-query": "^5.102.8",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.1",
+    "pixi.js": "^8.20.1",
+    "radix-ui": "^1.6.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.3",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "eslint": "10.9.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.6",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "8.69.0",
+    "vite": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
