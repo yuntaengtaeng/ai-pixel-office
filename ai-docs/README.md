@@ -9,7 +9,8 @@
 2. [`architecture.md`](./architecture.md)
 3. [`lesson.md`](./lesson.md)
 4. 비사소한 작업이면 [`workflow-routing.md`](./workflow-routing.md)
-5. 작업과 관련된 [`adr/`](./adr/) 문서
+5. 작업에 적용되는 [`skills/`](./skills/) 문서
+6. 작업과 관련된 [`adr/`](./adr/) 문서
 
 ## 문서 책임
 
@@ -19,6 +20,7 @@
 | `architecture.md`        | 현재 workspace/runtime 지도, 목표 구조, 의존 방향 |
 | `lesson.md`              | 실제 실패에서 얻은 판단·검증·운영 교훈            |
 | `workflow-routing.md`    | 작업 유형별 권장 에이전트와 위임 기준             |
+| `skills/`                | 작업 유형에 따라 적용하는 코드 및 문구 작성 규칙  |
 | `adr/`                   | 중요한 구조 결정의 맥락, 결과, 재검토 조건        |
 | `AGENTS.md`, `CLAUDE.md` | 도구별 최소 진입 절차                             |
 
