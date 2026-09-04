@@ -15,7 +15,6 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
-import { ProjectDirectorySelect } from "../projects/ProjectSelect.tsx";
 
 const Styled = {
   Grid: styled.div`
@@ -68,16 +67,6 @@ const Styled = {
     display: grid;
     gap: ${({ theme }) => theme.space.x4};
   `,
-  AdvancedDefaultRow: styled.div`
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: ${({ theme }) => theme.space.x2};
-
-    @media ${mediaQuery.md} {
-      grid-template-columns: 1fr;
-    }
-  `,
   ProjectAddForm: styled.form`
     display: flex;
     align-items: end;
@@ -91,29 +80,14 @@ const Styled = {
     display: grid;
     gap: ${({ theme }) => theme.space.x2};
   `,
-  ProjectRow: styled.article<{ $selected: boolean }>`
+  ProjectRow: styled.article`
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    ${({ $selected, theme }) =>
-      $selected &&
-      `
-        border-color: ${theme.colors.brand.primary};
-        background: ${theme.colors.background.positiveSubtle};
-        box-shadow: inset 4px 0 ${theme.colors.brand.primary};
-      `}
-
-    > span {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
   `,
-  ProjectSelectButton: styled.button`
+  ProjectSelectButton: styled.div`
     min-width: 0;
     padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
     border: 0;
@@ -121,7 +95,6 @@ const Styled = {
     text-align: left;
     display: grid;
     gap: ${({ theme }) => theme.space.x1};
-    cursor: pointer;
 
     strong {
       font-size: ${({ theme }) => theme.typography.fontSize.md};
@@ -278,29 +251,24 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
     queryFn: () => projectApi.list(workspace.id),
   });
   const [workspaceName, setWorkspaceName] = useState(workspace.name);
-  const [workingDirectory, setWorkingDirectory] = useState(workspace.workingDirectory ?? "");
   const [projectName, setProjectName] = useState("");
   const [projectPath, setProjectPath] = useState("");
   useEffect(() => {
     setWorkspaceName(workspace.name);
-    setWorkingDirectory(workspace.workingDirectory ?? "");
   }, [workspace]);
   const save = useMutation({
     mutationFn: () =>
       workspaceApi.update(workspace.id, {
         name: workspaceName,
-        workingDirectory: workingDirectory.trim() || "",
       }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["workspace"] }),
   });
   const addProject = useMutation({
     mutationFn: () =>
       projectApi.create({ workspaceId: workspace.id, name: projectName, path: projectPath }),
-    onSuccess: (project) => {
+    onSuccess: () => {
       setProjectName("");
       setProjectPath("");
-      if ((projects.data?.length ?? 0) === 0 && !workingDirectory && project.path)
-        setWorkingDirectory(project.path);
       void queryClient.invalidateQueries({ queryKey: ["projects", workspace.id] });
     },
   });
@@ -420,23 +388,6 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
             <HelperText>
               코드 작업이 필요한 경우에만 설정하세요. PM·디자인 대화에는 필요하지 않습니다.
             </HelperText>
-            <Styled.AdvancedDefaultRow>
-              <ProjectDirectorySelect
-                workspaceId={workspace.id}
-                value={workingDirectory}
-                onChange={setWorkingDirectory}
-                label="기본 실행 폴더"
-                emptyLabel="서버 실행 폴더"
-              />
-              <Button
-                type="button"
-                $variant="secondary"
-                disabled={save.isPending}
-                onClick={() => save.mutate()}
-              >
-                기본값 저장
-              </Button>
-            </Styled.AdvancedDefaultRow>
             <Styled.ProjectAddForm
               onSubmit={(event) => {
                 event.preventDefault();
@@ -480,15 +431,11 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
               {(projects.data ?? [])
                 .filter((project) => project.path)
                 .map((project) => (
-                  <Styled.ProjectRow key={project.id} $selected={workingDirectory === project.path}>
-                    <Styled.ProjectSelectButton
-                      type="button"
-                      onClick={() => setWorkingDirectory(project.path!)}
-                    >
+                  <Styled.ProjectRow key={project.id}>
+                    <Styled.ProjectSelectButton>
                       <strong>{project.name}</strong>
                       <span title={project.path}>{project.path}</span>
                     </Styled.ProjectSelectButton>
-                    <span>{workingDirectory === project.path ? "기본 선택" : ""}</span>
                     <Styled.ProjectDeleteButton
                       type="button"
                       disabled={removeProject.isPending && removeProject.variables === project.id}

@@ -40,6 +40,28 @@ import type { AppDatabase } from "./database.ts";
 
 type Row = Record<string, unknown>;
 
+type CreateActivityInput = {
+  workspaceId: string;
+  type: ActivityType;
+  message: string;
+  agentId?: string;
+  taskId?: string;
+  runId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type RunReservation = {
+  expectedTaskStatus: TaskStatus;
+  expectedProjectPath?: string;
+  expectedAssigneeAgentId?: string;
+  concurrencyLimit: number;
+  workflowStepId?: string;
+  resetFailedWorkflowStep?: boolean;
+  assigneeAgentId?: string;
+  review?: Omit<TaskReview, "id" | "createdAt">;
+  activities: CreateActivityInput[];
+};
+
 function now(): string {
   return new Date().toISOString();
 }
@@ -183,6 +205,8 @@ function runFrom(row: Row): AgentRun {
     usage: json<RunUsage | undefined>(row.usage_json, undefined),
     request: optional(row.request_text),
     result: json<TaskResult | undefined>(row.result_json, undefined),
+    scopeType: (optional(row.scope_type) ?? "general") as AgentRun["scopeType"],
+    scopeProjectId: optional(row.scope_project_id),
     workingDirectory: optional(row.working_directory),
     error: optional(row.error),
     cleanupPolicy: row.cleanup_policy as AgentRun["cleanupPolicy"],
@@ -296,33 +320,47 @@ export class Repository {
     id: string,
     input: Partial<Pick<Project, "name" | "description" | "status" | "figmaUrl" | "path">>,
   ): Promise<Project> {
-    const current = requireEntity(await this.getProject(id), "Project", id);
-    const updated: Project = { ...current, ...input, updatedAt: now() };
-    this.database
-      .prepare(
-        "UPDATE projects SET name = ?, description = ?, status = ?, figma_url = ?, working_directory = ?, updated_at = ? WHERE id = ?",
-      )
-      .run(
-        updated.name,
-        updated.description ?? null,
-        updated.status,
-        updated.figmaUrl ?? null,
-        updated.path ?? null,
-        updated.updatedAt,
-        id,
-      );
-    return updated;
+    return this.transaction(() => {
+      const current = requireEntity(this.getProjectSync(id), "Project", id);
+      if ("path" in input && input.path !== current.path) {
+        const runs = this.database
+          .prepare(
+            `SELECT COUNT(*) AS count FROM agent_runs
+             JOIN tasks ON tasks.id = agent_runs.task_id
+             WHERE tasks.project_id = ?`,
+          )
+          .get(id) as { count: number };
+        if (runs.count > 0) {
+          throw new DomainError(
+            "PROJECT_SCOPE_LOCKED",
+            "실행 이력이 있는 프로젝트의 폴더는 변경할 수 없습니다",
+            409,
+          );
+        }
+      }
+      const updated: Project = { ...current, ...input, updatedAt: now() };
+      this.writeProject(updated);
+      return updated;
+    });
   }
 
   async deleteProjectDirectory(id: string): Promise<void> {
-    await this.transaction(() => {
-      this.database.prepare("UPDATE tasks SET project_id = NULL WHERE project_id = ?").run(id);
-      this.requireChanged(
-        this.database.prepare("DELETE FROM projects WHERE id = ?").run(id),
-        "Project",
-        id,
+    requireEntity(await this.getProject(id), "Project", id);
+    const referenced = this.database
+      .prepare("SELECT COUNT(*) AS count FROM tasks WHERE project_id = ?")
+      .get(id) as { count: number };
+    if (referenced.count > 0) {
+      throw new DomainError(
+        "PROJECT_IN_USE",
+        "연결된 작업이 있는 프로젝트는 삭제할 수 없습니다",
+        409,
       );
-    });
+    }
+    this.requireChanged(
+      this.database.prepare("DELETE FROM projects WHERE id = ?").run(id),
+      "Project",
+      id,
+    );
   }
 
   async listSkills(workspaceId?: string): Promise<Skill[]> {
@@ -436,7 +474,7 @@ export class Repository {
       createdAt,
       updatedAt: createdAt,
     };
-    await this.transaction(() => {
+    this.transaction(() => {
       this.database
         .prepare(
           `INSERT INTO agents
@@ -476,7 +514,7 @@ export class Repository {
     const current = requireEntity(await this.getAgent(id), "Agent", id);
     const updated: Agent = { ...current, ...input, updatedAt: now() };
     await this.assertSkillScope(updated.workspaceId, updated.skillIds);
-    await this.transaction(() => {
+    this.transaction(() => {
       this.database
         .prepare(
           `UPDATE agents SET name = ?, role = ?, description = ?, model = ?, model_policy = ?, model_name = ?, reasoning_effort = ?, mode = ?, avatar_id = ?,
@@ -594,36 +632,7 @@ export class Repository {
     if (input.assigneeAgentId)
       await this.assertAgentWorkspace(input.assigneeAgentId, input.workspaceId);
     if (input.projectId) await this.assertProjectWorkspace(input.projectId, input.workspaceId);
-    const createdAt = now();
-    const task: Task = {
-      id: randomUUID(),
-      ...input,
-      status: "todo",
-      createdAt,
-      updatedAt: createdAt,
-    };
-    this.database
-      .prepare(
-        `INSERT INTO tasks
-        (id, workspace_id, title, description, status, assignee_agent_id, source_input_id,
-         due_date, priority, project_id, working_directory, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        task.id,
-        task.workspaceId,
-        task.title,
-        task.description ?? null,
-        task.status,
-        task.assigneeAgentId ?? null,
-        task.sourceInputId ?? null,
-        task.dueDate ?? null,
-        task.priority ?? null,
-        task.projectId ?? null,
-        task.workingDirectory ?? null,
-        task.createdAt,
-        task.updatedAt,
-      );
+    const task = this.insertTask(input);
     await this.createActivity({
       workspaceId: task.workspaceId,
       type: "task_created",
@@ -634,28 +643,51 @@ export class Repository {
   }
 
   async updateTask(id: string, input: UpdateTaskInput): Promise<Task> {
-    const current = requireEntity(await this.getTask(id), "Task", id);
-    const updated: Task = { ...current, ...input, updatedAt: now() };
-    if (updated.assigneeAgentId)
-      await this.assertAgentWorkspace(updated.assigneeAgentId, updated.workspaceId);
-    if (updated.projectId)
-      await this.assertProjectWorkspace(updated.projectId, updated.workspaceId);
-    this.writeTask(updated);
-    return updated;
+    const captured = requireEntity(await this.getTask(id), "Task", id);
+    const assigneeAgentId = input.assigneeAgentId ?? captured.assigneeAgentId;
+    const projectId = "projectId" in input ? input.projectId : captured.projectId;
+    if (assigneeAgentId) await this.assertAgentWorkspace(assigneeAgentId, captured.workspaceId);
+    if (projectId) await this.assertProjectWorkspace(projectId, captured.workspaceId);
+
+    return this.transaction(() => {
+      const current = requireEntity(this.getTaskSync(id), "Task", id);
+      if (
+        "assigneeAgentId" in input &&
+        input.assigneeAgentId !== current.assigneeAgentId
+      ) {
+        const activeRun = this.database
+          .prepare(
+            "SELECT id FROM agent_runs WHERE task_id = ? AND status IN ('queued', 'running', 'waiting') LIMIT 1",
+          )
+          .get(id);
+        if (activeRun) {
+          throw new DomainError(
+            "TASK_ASSIGNMENT_LOCKED",
+            "실행 중인 작업의 담당 Agent는 변경할 수 없습니다",
+            409,
+          );
+        }
+      }
+      if ("projectId" in input && input.projectId !== current.projectId) {
+        const runs = this.database
+          .prepare("SELECT COUNT(*) AS count FROM agent_runs WHERE task_id = ?")
+          .get(id) as { count: number };
+        if (runs.count > 0) {
+          throw new DomainError(
+            "TASK_SCOPE_LOCKED",
+            "실행 이력이 있는 작업의 프로젝트는 변경할 수 없습니다",
+            409,
+          );
+        }
+      }
+      const updated: Task = { ...current, ...input, updatedAt: now() };
+      this.writeTask(updated);
+      return updated;
+    });
   }
 
   async transitionTask(id: string, status: TaskStatus, result?: TaskResult): Promise<Task> {
-    const current = requireEntity(await this.getTask(id), "Task", id);
-    assertTaskTransition(current.status, status);
-    const updated: Task = {
-      ...current,
-      status,
-      ...(result !== undefined ? { result } : {}),
-      updatedAt: now(),
-      completedAt: status === "done" ? now() : undefined,
-    };
-    this.writeTask(updated);
-    return updated;
+    return this.transitionTaskSync(id, status, result);
   }
 
   async deleteTask(id: string): Promise<void> {
@@ -760,27 +792,46 @@ export class Repository {
       Pick<CreateTaskInput, "title" | "description" | "assigneeAgentId" | "priority" | "projectId">
     >,
   ): Promise<{ input: Input; task: Task }> {
-    return this.transaction(async () => {
-      const captured = requireEntity(await this.getInput(id), "Input", id);
-      if (captured.status === "converted") {
+    const captured = requireEntity(await this.getInput(id), "Input", id);
+    if (captured.status === "converted") {
+      throw new DomainError(
+        "INPUT_ALREADY_CONVERTED",
+        "이미 작업으로 전환된 Inbox 항목입니다.",
+        409,
+      );
+    }
+    if (taskInput.assigneeAgentId)
+      await this.assertAgentWorkspace(taskInput.assigneeAgentId, captured.workspaceId);
+    if (taskInput.projectId)
+      await this.assertProjectWorkspace(taskInput.projectId, captured.workspaceId);
+
+    return this.transaction(() => {
+      const current = requireEntity(this.getInputSync(id), "Input", id);
+      if (current.status === "converted") {
         throw new DomainError(
           "INPUT_ALREADY_CONVERTED",
           "이미 작업으로 전환된 Inbox 항목입니다.",
           409,
         );
       }
-      const task = await this.createTask({
-        workspaceId: captured.workspaceId,
-        title: taskInput.title ?? captured.title ?? captured.content.slice(0, 80),
-        description: taskInput.description ?? captured.content,
+      const task = this.insertTask({
+        workspaceId: current.workspaceId,
+        title: taskInput.title ?? current.title ?? current.content.slice(0, 80),
+        description: taskInput.description ?? current.content,
         assigneeAgentId: taskInput.assigneeAgentId,
         priority: taskInput.priority ?? "medium",
         projectId: taskInput.projectId,
-        sourceInputId: captured.id,
+        sourceInputId: current.id,
       });
-      const converted: Input = { ...captured, status: "converted", updatedAt: now() };
+      this.createActivitySync({
+        workspaceId: task.workspaceId,
+        type: "task_created",
+        taskId: task.id,
+        message: `Task created: ${task.title}`,
+      });
+      const converted: Input = { ...current, status: "converted", updatedAt: now() };
       this.writeInput(converted);
-      await this.createActivity({
+      this.createActivitySync({
         workspaceId: converted.workspaceId,
         type: "input_converted",
         taskId: task.id,
@@ -900,7 +951,18 @@ export class Repository {
     }
     for (const agentId of agentIds) await this.assertAgentWorkspace(agentId, task.workspaceId);
 
-    const steps = await this.transaction(async () => {
+    const steps = this.transaction(() => {
+      const currentTask = requireEntity(this.getTaskSync(taskId), "Task", taskId);
+      const run = this.database
+        .prepare("SELECT id FROM agent_runs WHERE task_id = ? LIMIT 1")
+        .get(taskId);
+      if (currentTask.status !== "todo" || run) {
+        throw new DomainError(
+          "WORKFLOW_ALREADY_STARTED",
+          "실행 기록이 없는 Todo 작업에서만 Workflow를 변경할 수 있습니다.",
+          409,
+        );
+      }
       this.database.prepare("DELETE FROM task_workflow_steps WHERE task_id = ?").run(taskId);
       const insert = this.database.prepare(
         `INSERT INTO task_workflow_steps
@@ -921,7 +983,8 @@ export class Repository {
         insert.run(step.id, taskId, agentId, position, createdAt, createdAt);
         return step;
       });
-      if (agentIds[0]) await this.updateTask(taskId, { assigneeAgentId: agentIds[0] });
+      if (agentIds[0])
+        this.writeTask({ ...currentTask, assigneeAgentId: agentIds[0], updatedAt: now() });
       return created;
     });
     await this.createActivity({
@@ -938,28 +1001,7 @@ export class Repository {
     id: string,
     input: Partial<Pick<TaskWorkflowStep, "status" | "runId" | "result">>,
   ): Promise<TaskWorkflowStep> {
-    const currentRow = this.database
-      .prepare("SELECT * FROM task_workflow_steps WHERE id = ?")
-      .get(id);
-    const current = requireEntity(
-      currentRow ? workflowStepFrom(currentRow as Row) : undefined,
-      "WorkflowStep",
-      id,
-    );
-    const updated = { ...current, ...input, updatedAt: now() };
-    this.database
-      .prepare(
-        `UPDATE task_workflow_steps SET status = ?, run_id = ?, result_json = ?, updated_at = ?
-        WHERE id = ?`,
-      )
-      .run(
-        updated.status,
-        updated.runId ?? null,
-        updated.result ? JSON.stringify(updated.result) : null,
-        updated.updatedAt,
-        id,
-      );
-    return updated;
+    return this.updateWorkflowStepSync(id, input);
   }
 
   async resetFailedWorkflowStep(taskId: string): Promise<TaskWorkflowStep | undefined> {
@@ -982,32 +1024,132 @@ export class Repository {
       | "modelName"
       | "reasoningEffort"
       | "request"
+      | "scopeType"
+      | "scopeProjectId"
       | "workingDirectory"
     >,
   ): Promise<AgentRun> {
-    const run: AgentRun = { ...input, status: "queued", createdAt: now() };
-    this.database
-      .prepare(
-        `INSERT INTO agent_runs
-        (id, task_id, agent_id, runtime, model_policy, model_name, reasoning_effort, status,
-         request_text, working_directory, cleanup_policy, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        run.id,
-        run.taskId,
-        run.agentId,
-        run.runtime,
-        run.modelPolicy ?? "default",
-        run.modelName ?? null,
-        run.reasoningEffort ?? null,
-        run.status,
-        run.request ?? null,
-        run.workingDirectory ?? null,
-        run.cleanupPolicy,
-        run.createdAt,
-      );
-    return run;
+    return this.createRunSync(input);
+  }
+
+  async reserveRun(
+    input: Parameters<Repository["createRun"]>[0],
+    reservation: RunReservation,
+  ): Promise<{ run: AgentRun; task: Task; activities: ActivityLog[]; review?: TaskReview }> {
+    return this.transaction(() => {
+      const currentTask = requireEntity(this.getTaskSync(input.taskId), "Task", input.taskId);
+      if (currentTask.status !== reservation.expectedTaskStatus) {
+        throw new DomainError(
+          "TASK_NOT_RUNNABLE",
+          `Task must be ${reservation.expectedTaskStatus} to run`,
+          409,
+        );
+      }
+      if (currentTask.assigneeAgentId !== reservation.expectedAssigneeAgentId) {
+        throw new DomainError(
+          "TASK_ASSIGNMENT_CHANGED",
+          "실행 예약 중 작업의 담당 Agent가 변경되었습니다",
+          409,
+        );
+      }
+      if (currentTask.projectId !== input.scopeProjectId) {
+        throw new DomainError(
+          "EXECUTION_SCOPE_CHANGED",
+          "실행 예약 중 작업의 프로젝트가 변경되었습니다",
+          409,
+        );
+      }
+      if (input.scopeProjectId) {
+        const project = requireEntity(
+          this.getProjectSync(input.scopeProjectId),
+          "Project",
+          input.scopeProjectId,
+        );
+        if (
+          project.workspaceId !== currentTask.workspaceId ||
+          project.path !== reservation.expectedProjectPath
+        ) {
+          throw new DomainError(
+            "EXECUTION_SCOPE_CHANGED",
+            "실행 예약 중 프로젝트 폴더가 변경되었습니다",
+            409,
+          );
+        }
+      }
+      const activeRun = this.database
+        .prepare(
+          "SELECT id FROM agent_runs WHERE task_id = ? AND status IN ('queued', 'running', 'waiting') LIMIT 1",
+        )
+        .get(input.taskId);
+      if (activeRun) {
+        throw new DomainError("TASK_ALREADY_RUNNING", "Task already has an active run", 409);
+      }
+      const workspaceRuns = this.database
+        .prepare(
+          `SELECT COUNT(*) AS count FROM agent_runs runs
+          JOIN tasks ON tasks.id = runs.task_id
+          WHERE tasks.workspace_id = ? AND runs.status IN ('queued', 'running', 'waiting')`,
+        )
+        .get(currentTask.workspaceId) as { count: number };
+      if (workspaceRuns.count >= reservation.concurrencyLimit) {
+        throw new DomainError("CONCURRENCY_LIMIT", "Workspace run concurrency limit reached", 429);
+      }
+      if (reservation.expectedTaskStatus === "failed") {
+        assertTaskTransition("failed", "todo");
+        assertTaskTransition("todo", "working");
+      } else {
+        assertTaskTransition(currentTask.status, "working");
+      }
+      const task: Task = {
+        ...currentTask,
+        status: "working",
+        assigneeAgentId: reservation.assigneeAgentId ?? currentTask.assigneeAgentId,
+        updatedAt: now(),
+        completedAt: undefined,
+      };
+      this.writeTask(task);
+      const run = this.createRunSync(input);
+      if (reservation.workflowStepId) {
+        const step = requireEntity(
+          this.getWorkflowStepSync(reservation.workflowStepId),
+          "WorkflowStep",
+          reservation.workflowStepId,
+        );
+        if (step.taskId !== task.id) {
+          throw new DomainError("WORKFLOW_STEP_MISMATCH", "Workflow step belongs to another task", 409);
+        }
+        const expectedStepStatus = reservation.resetFailedWorkflowStep ? "failed" : "pending";
+        if (step.status !== expectedStepStatus) {
+          throw new DomainError(
+            reservation.resetFailedWorkflowStep
+              ? "WORKFLOW_NOT_FAILED"
+              : "WORKFLOW_STEP_NOT_PENDING",
+            `Workflow step must be ${expectedStepStatus} to run`,
+            409,
+          );
+        }
+        this.updateWorkflowStepSync(reservation.workflowStepId, {
+          status: "working",
+          runId: run.id,
+        });
+      } else {
+        const workflowStep = this.database
+          .prepare("SELECT id FROM task_workflow_steps WHERE task_id = ? LIMIT 1")
+          .get(task.id);
+        if (workflowStep) {
+          throw new DomainError(
+            "WORKFLOW_CHANGED",
+            "실행 예약 중 Task Workflow가 변경되었습니다",
+            409,
+          );
+        }
+      }
+      const review = reservation.review
+        ? this.createReviewSync(reservation.review)
+        : undefined;
+      const activities = reservation.activities.map((activity) => this.createActivitySync(activity));
+      return { run, task, activities, review };
+    });
   }
 
   async getRun(id: string): Promise<AgentRun | undefined> {
@@ -1073,16 +1215,19 @@ export class Repository {
       .map((row) => runFrom(row as Row));
     if (interrupted.length === 0) return 0;
 
-    await this.transaction(async () => {
+    this.transaction(() => {
       for (const run of interrupted) {
         const error = "Server restarted while the AgentRun was active. Retry the task to continue.";
-        await this.updateRun(run.id, { status: "failed", finishedAt: now(), error });
-        const workflowStep = await this.getWorkflowStepByRun(run.id);
-        if (workflowStep) await this.updateWorkflowStep(workflowStep.id, { status: "failed" });
-        const task = await this.getTask(run.taskId);
+        this.updateRunSync(run.id, { status: "failed", finishedAt: now(), error });
+        const workflowRow = this.database
+          .prepare("SELECT * FROM task_workflow_steps WHERE run_id = ?")
+          .get(run.id);
+        const workflowStep = workflowRow ? workflowStepFrom(workflowRow as Row) : undefined;
+        if (workflowStep) this.updateWorkflowStepSync(workflowStep.id, { status: "failed" });
+        const task = this.getTaskSync(run.taskId);
         if (task && ["working", "needs_input", "blocked"].includes(task.status)) {
-          const failedTask = await this.transitionTask(task.id, "failed");
-          await this.createActivity({
+          const failedTask = this.transitionTaskSync(task.id, "failed");
+          this.createActivitySync({
             workspaceId: failedTask.workspaceId,
             type: "task_failed",
             taskId: failedTask.id,
@@ -1119,42 +1264,11 @@ export class Repository {
       >
     >,
   ): Promise<AgentRun> {
-    const current = requireEntity(await this.getRun(id), "AgentRun", id);
-    const updated = { ...current, ...patch };
-    this.database
-      .prepare(
-        `UPDATE agent_runs SET status = ?, runtime_thread_id = ?, started_at = ?,
-        finished_at = ?, event_log_ref = ?, usage_json = ?, result_json = ?, error = ? WHERE id = ?`,
-      )
-      .run(
-        updated.status,
-        updated.runtimeThreadId ?? null,
-        updated.startedAt ?? null,
-        updated.finishedAt ?? null,
-        updated.eventLogRef ?? null,
-        updated.usage ? JSON.stringify(updated.usage) : null,
-        updated.result ? JSON.stringify(updated.result) : null,
-        updated.error ?? null,
-        id,
-      );
-    return updated;
+    return this.updateRunSync(id, patch);
   }
 
   async createReview(input: Omit<TaskReview, "id" | "createdAt">): Promise<TaskReview> {
-    const review: TaskReview = { id: randomUUID(), ...input, createdAt: now() };
-    this.database
-      .prepare(
-        "INSERT INTO task_reviews (id, task_id, run_id, action, feedback, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .run(
-        review.id,
-        review.taskId,
-        review.runId ?? null,
-        review.action,
-        review.feedback ?? null,
-        review.createdAt,
-      );
-    return review;
+    return this.createReviewSync(input);
   }
 
   async listReviews(taskId: string): Promise<TaskReview[]> {
@@ -1174,34 +1288,8 @@ export class Repository {
       });
   }
 
-  async createActivity(input: {
-    workspaceId: string;
-    type: ActivityType;
-    message: string;
-    agentId?: string;
-    taskId?: string;
-    runId?: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<ActivityLog> {
-    const activity: ActivityLog = { id: randomUUID(), ...input, createdAt: now() };
-    this.database
-      .prepare(
-        `INSERT INTO activity_logs
-        (id, workspace_id, type, agent_id, task_id, run_id, message, metadata_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        activity.id,
-        activity.workspaceId,
-        activity.type,
-        activity.agentId ?? null,
-        activity.taskId ?? null,
-        activity.runId ?? null,
-        activity.message,
-        activity.metadata ? JSON.stringify(activity.metadata) : null,
-        activity.createdAt,
-      );
-    return activity;
+  async createActivity(input: CreateActivityInput): Promise<ActivityLog> {
+    return this.createActivitySync(input);
   }
 
   async listActivities(workspaceId: string, limit = 100): Promise<ActivityLog[]> {
@@ -1224,6 +1312,208 @@ export class Repository {
           createdAt: String(row.created_at),
         };
       });
+  }
+
+  private getTaskSync(id: string): Task | undefined {
+    const row = this.database.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+    return row ? taskFrom(row as Row) : undefined;
+  }
+
+  private getProjectSync(id: string): Project | undefined {
+    const row = this.database.prepare("SELECT * FROM projects WHERE id = ?").get(id);
+    return row ? projectFrom(row as Row) : undefined;
+  }
+
+  private writeProject(project: Project): void {
+    this.database
+      .prepare(
+        "UPDATE projects SET name = ?, description = ?, status = ?, figma_url = ?, working_directory = ?, updated_at = ? WHERE id = ?",
+      )
+      .run(
+        project.name,
+        project.description ?? null,
+        project.status,
+        project.figmaUrl ?? null,
+        project.path ?? null,
+        project.updatedAt,
+        project.id,
+      );
+  }
+
+  private getInputSync(id: string): Input | undefined {
+    const row = this.database.prepare("SELECT * FROM inputs WHERE id = ?").get(id);
+    return row ? inputFrom(row as Row) : undefined;
+  }
+
+  private getWorkflowStepSync(id: string): TaskWorkflowStep | undefined {
+    const row = this.database.prepare("SELECT * FROM task_workflow_steps WHERE id = ?").get(id);
+    return row ? workflowStepFrom(row as Row) : undefined;
+  }
+
+  private insertTask(input: CreateTaskInput): Task {
+    const createdAt = now();
+    const task: Task = {
+      id: randomUUID(),
+      ...input,
+      status: "todo",
+      createdAt,
+      updatedAt: createdAt,
+    };
+    this.database
+      .prepare(
+        `INSERT INTO tasks
+        (id, workspace_id, title, description, status, assignee_agent_id, source_input_id,
+         due_date, priority, project_id, working_directory, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        task.id,
+        task.workspaceId,
+        task.title,
+        task.description ?? null,
+        task.status,
+        task.assigneeAgentId ?? null,
+        task.sourceInputId ?? null,
+        task.dueDate ?? null,
+        task.priority ?? null,
+        task.projectId ?? null,
+        task.workingDirectory ?? null,
+        task.createdAt,
+        task.updatedAt,
+      );
+    return task;
+  }
+
+  private transitionTaskSync(id: string, status: TaskStatus, result?: TaskResult): Task {
+    const current = requireEntity(this.getTaskSync(id), "Task", id);
+    assertTaskTransition(current.status, status);
+    const updated: Task = {
+      ...current,
+      status,
+      ...(result !== undefined ? { result } : {}),
+      updatedAt: now(),
+      completedAt: status === "done" ? now() : undefined,
+    };
+    this.writeTask(updated);
+    return updated;
+  }
+
+  private createRunSync(input: Parameters<Repository["createRun"]>[0]): AgentRun {
+    const run: AgentRun = { ...input, status: "queued", createdAt: now() };
+    this.database
+      .prepare(
+        `INSERT INTO agent_runs
+        (id, task_id, agent_id, runtime, model_policy, model_name, reasoning_effort, status,
+         request_text, scope_type, scope_project_id, working_directory, cleanup_policy, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        run.id,
+        run.taskId,
+        run.agentId,
+        run.runtime,
+        run.modelPolicy ?? "default",
+        run.modelName ?? null,
+        run.reasoningEffort ?? null,
+        run.status,
+        run.request ?? null,
+        run.scopeType,
+        run.scopeProjectId ?? null,
+        run.workingDirectory ?? null,
+        run.cleanupPolicy,
+        run.createdAt,
+      );
+    return run;
+  }
+
+  private getRunSync(id: string): AgentRun | undefined {
+    const row = this.database.prepare("SELECT * FROM agent_runs WHERE id = ?").get(id);
+    return row ? runFrom(row as Row) : undefined;
+  }
+
+  private updateRunSync(
+    id: string,
+    patch: Parameters<Repository["updateRun"]>[1],
+  ): AgentRun {
+    const current = requireEntity(this.getRunSync(id), "AgentRun", id);
+    const updated = { ...current, ...patch };
+    this.database
+      .prepare(
+        `UPDATE agent_runs SET status = ?, runtime_thread_id = ?, started_at = ?,
+        finished_at = ?, event_log_ref = ?, usage_json = ?, result_json = ?, error = ? WHERE id = ?`,
+      )
+      .run(
+        updated.status,
+        updated.runtimeThreadId ?? null,
+        updated.startedAt ?? null,
+        updated.finishedAt ?? null,
+        updated.eventLogRef ?? null,
+        updated.usage ? JSON.stringify(updated.usage) : null,
+        updated.result ? JSON.stringify(updated.result) : null,
+        updated.error ?? null,
+        id,
+      );
+    return updated;
+  }
+
+  private updateWorkflowStepSync(
+    id: string,
+    input: Partial<Pick<TaskWorkflowStep, "status" | "runId" | "result">>,
+  ): TaskWorkflowStep {
+    const current = requireEntity(this.getWorkflowStepSync(id), "WorkflowStep", id);
+    const updated = { ...current, ...input, updatedAt: now() };
+    this.database
+      .prepare(
+        `UPDATE task_workflow_steps SET status = ?, run_id = ?, result_json = ?, updated_at = ?
+        WHERE id = ?`,
+      )
+      .run(
+        updated.status,
+        updated.runId ?? null,
+        updated.result ? JSON.stringify(updated.result) : null,
+        updated.updatedAt,
+        id,
+      );
+    return updated;
+  }
+
+  private createReviewSync(input: Omit<TaskReview, "id" | "createdAt">): TaskReview {
+    const review: TaskReview = { id: randomUUID(), ...input, createdAt: now() };
+    this.database
+      .prepare(
+        "INSERT INTO task_reviews (id, task_id, run_id, action, feedback, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        review.id,
+        review.taskId,
+        review.runId ?? null,
+        review.action,
+        review.feedback ?? null,
+        review.createdAt,
+      );
+    return review;
+  }
+
+  private createActivitySync(input: CreateActivityInput): ActivityLog {
+    const activity: ActivityLog = { id: randomUUID(), ...input, createdAt: now() };
+    this.database
+      .prepare(
+        `INSERT INTO activity_logs
+        (id, workspace_id, type, agent_id, task_id, run_id, message, metadata_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        activity.id,
+        activity.workspaceId,
+        activity.type,
+        activity.agentId ?? null,
+        activity.taskId ?? null,
+        activity.runId ?? null,
+        activity.message,
+        activity.metadata ? JSON.stringify(activity.metadata) : null,
+        activity.createdAt,
+      );
+    return activity;
   }
 
   private agentFrom(row: Row): Agent {
@@ -1318,18 +1608,13 @@ export class Repository {
       .run(input.type, input.title ?? null, input.content, input.status, input.updatedAt, input.id);
   }
 
-  /**
-   * BEGIN/COMMIT/ROLLBACK stay synchronous (`node:sqlite` has no async API), but the wrapped
-   * `action` may itself await other now-async Repository methods. Since nothing in `action` ever
-   * performs real async I/O (every await here resolves on the next microtask, not on a timer or
-   * socket), no other queued work observably interleaves between BEGIN and COMMIT in practice.
-   * A future async DB backend that performs genuine I/O inside a transaction would need a real
-   * connection-scoped transaction instead of this call-timing assumption.
-   */
-  private async transaction<T>(action: () => T | Promise<T>): Promise<T> {
+  private transaction<T>(action: () => T): T {
     this.database.exec("BEGIN IMMEDIATE");
     try {
-      const result = await action();
+      const result = action();
+      if (result instanceof Promise) {
+        throw new Error("Repository transactions must use synchronous callbacks");
+      }
       this.database.exec("COMMIT");
       return result;
     } catch (error) {

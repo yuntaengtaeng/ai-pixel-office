@@ -36,7 +36,6 @@ export const taskApi = {
     assigneeAgentId?: string;
     priority?: "low" | "medium" | "high";
     projectId?: string;
-    workingDirectory?: string;
   }) => post<Task>("/api/tasks", input),
   get: (id: string) => request<TaskDetail>(`/api/tasks/${id}`),
   executionContexts: (id: string) =>
@@ -44,10 +43,7 @@ export const taskApi = {
   update: (
     id: string,
     input: Partial<
-      Pick<
-        Task,
-        "title" | "description" | "assigneeAgentId" | "priority" | "projectId" | "workingDirectory"
-      >
+      Pick<Task, "title" | "description" | "assigneeAgentId" | "priority" | "projectId">
     >,
   ) => request<Task>(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   remove: (id: string) => request<void>(`/api/tasks/${id}`, { method: "DELETE" }),

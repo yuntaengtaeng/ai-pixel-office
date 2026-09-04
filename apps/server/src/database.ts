@@ -156,6 +156,8 @@ function migrate(database: AppDatabase): void {
       usage_json TEXT,
       request_text TEXT,
       result_json TEXT,
+      scope_type TEXT NOT NULL DEFAULT 'general' CHECK(scope_type IN ('general', 'project')),
+      scope_project_id TEXT,
       working_directory TEXT,
       error TEXT,
       cleanup_policy TEXT NOT NULL DEFAULT 'preserve' CHECK(cleanup_policy IN ('preserve', 'discard')),
@@ -291,6 +293,12 @@ function migrate(database: AppDatabase): void {
   }
   if (!runColumns.some((column) => column.name === "working_directory")) {
     database.exec("ALTER TABLE agent_runs ADD COLUMN working_directory TEXT");
+  }
+  if (!runColumns.some((column) => column.name === "scope_type")) {
+    database.exec("ALTER TABLE agent_runs ADD COLUMN scope_type TEXT NOT NULL DEFAULT 'general'");
+  }
+  if (!runColumns.some((column) => column.name === "scope_project_id")) {
+    database.exec("ALTER TABLE agent_runs ADD COLUMN scope_project_id TEXT");
   }
   database.exec(`INSERT OR IGNORE INTO projects
     (id, workspace_id, name, status, working_directory, created_at, updated_at)

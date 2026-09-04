@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
 import test from "node:test";
 import { EventBus } from "../apps/server/src/events.ts";
 import { createHttpServer } from "../apps/server/src/http.ts";
 import { openDatabase } from "../apps/server/src/database.ts";
 import { Orchestrator } from "../apps/server/src/orchestrator.ts";
 import { Repository } from "../apps/server/src/repository.ts";
+import { resolveGeneralWorkingDirectory } from "../apps/server/src/index.ts";
 import type { RuntimeAdapter } from "../apps/server/src/runtime.ts";
 
 const inactiveRuntime: RuntimeAdapter = {
@@ -19,14 +21,21 @@ const inactiveRuntime: RuntimeAdapter = {
   },
 };
 
+test("rejects a relative general working directory", () => {
+  assert.throws(() => resolveGeneralWorkingDirectory("."), /absolute path/);
+});
+
 test("serves workspace, skill, agent, and task CRUD", async () => {
   const repository = new Repository(openDatabase(":memory:"));
   const events = new EventBus();
-  const orchestrator = new Orchestrator(repository, inactiveRuntime, events);
+  const orchestrator = new Orchestrator(repository, inactiveRuntime, events, {
+    generalWorkingDirectory: tmpdir(),
+  });
   const server = createHttpServer({
     repository,
     orchestrator,
     events,
+    generalWorkingDirectory: tmpdir(),
     skillDraftGenerator: async (brief) => ({
       name: "UI Review",
       category: "Design",
@@ -57,8 +66,8 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
       body: JSON.stringify({ name: "Studio", workingDirectory: process.cwd() }),
     });
     assert.equal(workspaceResponse.response.statusCode, 201);
-    const workspace = workspaceResponse.body?.data as { id: string; workingDirectory: string };
-    assert.equal(workspace.workingDirectory, process.cwd());
+    const workspace = workspaceResponse.body?.data as { id: string; workingDirectory?: string };
+    assert.equal(workspace.workingDirectory, undefined);
 
     const inputResponse = await request("/api/inputs", {
       method: "POST",
@@ -100,6 +109,11 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     };
     assert.equal(project.description, "Ship the new app");
     assert.equal(project.status, "active");
+    const relativeProjectUpdate = await request(`/api/projects/${project.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ path: "." }),
+    });
+    assert.equal(relativeProjectUpdate.response.statusCode, 422);
     const projectUpdate = await request(`/api/projects/${project.id}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "paused", path: process.cwd() }),
@@ -145,10 +159,10 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     const agent = agentResponse.body?.data as {
       id: string;
       avatarId: string;
-      workingDirectory: string;
+      workingDirectory?: string;
     };
     assert.equal(agent.avatarId, "dog-corgi");
-    assert.equal(agent.workingDirectory, process.cwd());
+    assert.equal(agent.workingDirectory, undefined);
 
     const secondAgentResponse = await request("/api/agents", {
       method: "POST",
@@ -240,11 +254,14 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     assert.equal((invalid.body?.error as { code: string }).code, "INVALID_FIELD");
 
     const projectDelete = await request(`/api/projects/${project.id}`, { method: "DELETE" });
-    assert.equal(projectDelete.response.statusCode, 204);
-    const detachedTask = await request(`/api/tasks/${task.id}`);
-    assert.equal((detachedTask.body?.data as { projectId?: string }).projectId, undefined);
+    assert.equal(projectDelete.response.statusCode, 409);
+    assert.equal((projectDelete.body?.error as { code: string }).code, "PROJECT_IN_USE");
     const taskDelete = await request(`/api/tasks/${task.id}`, { method: "DELETE" });
     assert.equal(taskDelete.response.statusCode, 204);
+    const projectDeleteAfterTask = await request(`/api/projects/${project.id}`, {
+      method: "DELETE",
+    });
+    assert.equal(projectDeleteAfterTask.response.statusCode, 204);
     const deletedTask = await request(`/api/tasks/${task.id}`);
     assert.equal(deletedTask.response.statusCode, 404);
   } finally {

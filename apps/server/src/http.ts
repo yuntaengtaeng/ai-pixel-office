@@ -2,7 +2,7 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   DomainError,
   parseCreateAgent,
@@ -30,6 +30,7 @@ export type AppDependencies = {
   repository: Repository;
   orchestrator: Orchestrator;
   events: EventBus;
+  generalWorkingDirectory: string;
   corsOrigin?: string;
   staticRoot?: string;
   skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
@@ -279,7 +280,9 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     if (!body || typeof body.brief !== "string" || body.brief.trim() === "") {
       throw new DomainError("INVALID_BRIEF", "만들고 싶은 스킬을 한 문장 이상 입력해 주세요.");
     }
-    const generator = dependencies.skillDraftGenerator ?? generateSkillDraft;
+    const generator =
+      dependencies.skillDraftGenerator ??
+      ((brief: string) => generateSkillDraft(brief, dependencies.generalWorkingDirectory));
     return data(reply, 200, await generator(body.brief.trim()));
   });
   app.get<{ Params: IdParams }>("/api/skills/:id", async (request, reply) =>
@@ -597,7 +600,11 @@ function resolveProjectDirectory(value: unknown): string | undefined {
   if (typeof value !== "string") {
     throw new DomainError("INVALID_PROJECT", "프로젝트 폴더 경로가 올바르지 않습니다.");
   }
-  const directory = resolve(value.trim());
+  const path = value.trim();
+  if (!isAbsolute(path)) {
+    throw new DomainError("INVALID_DIRECTORY", "프로젝트 폴더는 절대 경로로 입력해 주세요", 422);
+  }
+  const directory = resolve(path);
   try {
     if (!statSync(directory).isDirectory()) throw new Error("not directory");
   } catch {

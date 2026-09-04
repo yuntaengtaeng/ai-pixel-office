@@ -19,7 +19,10 @@ const permissionNames = new Set<keyof AgentPermissions>([
   "figma",
 ]);
 
-export async function generateSkillDraft(brief: string): Promise<SkillDraft> {
+export async function generateSkillDraft(
+  brief: string,
+  generalWorkingDirectory: string,
+): Promise<SkillDraft> {
   const prompt = [
     "Create one reusable AI agent skill from the user's short description.",
     "",
@@ -42,7 +45,7 @@ export async function generateSkillDraft(brief: string): Promise<SkillDraft> {
   ].join("\n");
   const result = await runCodexSpike({
     prompt,
-    cwd: process.cwd(),
+    cwd: generalWorkingDirectory,
     approvalPolicy: "never",
     sandbox: "read-only",
     timeoutMs: 60_000,

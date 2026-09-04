@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   compileAgentInstructions,
   DomainError,
   type Agent,
   type AgentRun,
+  type ExecutionScopeType,
   type RunLimits,
   type Task,
   type TaskResult,
@@ -43,8 +44,16 @@ type WorkflowContinuation = {
   sameSession?: boolean;
 };
 
+type RunReservationOptions = {
+  expectedTaskStatus?: Task["status"];
+  expectedAssigneeAgentId?: string;
+  resetFailedWorkflowStep?: boolean;
+  review?: Parameters<Repository["createReview"]>[0];
+  activities?: Array<Parameters<Repository["createActivity"]>[0]>;
+};
+
 export type OrchestratorOptions = {
-  workspacePath?: string;
+  generalWorkingDirectory: string;
   concurrentRunLimit?: number;
   defaultRunLimits?: RunLimits;
 };
@@ -60,7 +69,7 @@ export class Orchestrator {
   private readonly repository: Repository;
   private readonly runtime: RuntimeAdapter;
   private readonly events: EventBus;
-  private readonly workspacePath: string;
+  private readonly generalWorkingDirectory: string;
   private readonly concurrentRunLimit: number;
   private readonly limits: RunLimits;
   private readonly activeRuns = new Map<string, ActiveRunContext>();
@@ -70,12 +79,12 @@ export class Orchestrator {
     repository: Repository,
     runtime: RuntimeAdapter,
     events: EventBus,
-    options: OrchestratorOptions = {},
+    options: OrchestratorOptions,
   ) {
     this.repository = repository;
     this.runtime = runtime;
     this.events = events;
-    this.workspacePath = resolve(options.workspacePath ?? process.cwd());
+    this.generalWorkingDirectory = resolve(options.generalWorkingDirectory);
     this.concurrentRunLimit = options.concurrentRunLimit ?? 2;
     this.limits = options.defaultRunLimits ?? {
       maxDurationMs: 20 * 60_000,
@@ -109,14 +118,12 @@ export class Orchestrator {
 
     const contexts: TaskExecutionContext[] = [];
     for (const { agent, ...assignment } of assignments) {
+      const executionScope = await this.resolveExecutionScope(task);
       contexts.push({
         agentId: agent.id,
         agentName: agent.name,
         ...assignment,
-        ...inspectProjectRuntimeContext(
-          agent.model,
-          await this.resolveWorkingDirectory(task, agent),
-        ),
+        ...inspectProjectRuntimeContext(agent.model, executionScope.workingDirectory),
       });
     }
     return contexts;
@@ -144,20 +151,24 @@ export class Orchestrator {
     if (task.status !== "failed") {
       throw new DomainError("TASK_NOT_FAILED", "Only a failed task can be retried", 409);
     }
+    await this.assertExecutionScopeUnchanged(task, await this.repository.latestRun(task.id));
     const workflow = await this.repository.listWorkflowSteps(taskId);
     if (workflow.length > 0) {
       const failedStep = workflow.find((step) => step.status === "failed");
       if (!failedStep) {
         throw new DomainError("WORKFLOW_NOT_FAILED", "실패한 Workflow 단계가 없습니다.", 409);
       }
-      await this.requireAgent(failedStep.agentId);
-      await this.repository.resetFailedWorkflowStep(taskId);
-    } else {
-      await this.requireRuntimeAgent(task);
+      return this.startWorkflowStep(task, failedStep, undefined, {
+        expectedTaskStatus: "failed",
+        resetFailedWorkflowStep: true,
+      });
     }
-    const reset = await this.repository.transitionTask(taskId, "todo");
-    this.publishTask(reset);
-    return this.startTask(taskId);
+    const agent = await this.requireRuntimeAgent(task);
+    const skills = await this.requireSkills(agent);
+    const prompt = compileAgentInstructions(agent, skills, task);
+    return this.queueRun(task, agent, prompt, undefined, undefined, undefined, undefined, {
+      expectedTaskStatus: "failed",
+    });
   }
 
   async approveTask(taskId: string): Promise<Task> {
@@ -191,19 +202,8 @@ export class Orchestrator {
     }
     const agent = await this.requireRuntimeAgent(task);
     const previousRun = await this.repository.latestRun(task.id);
-    await this.repository.createReview({
-      taskId,
-      runId: previousRun?.id,
-      action: "changes_requested",
-      feedback: feedback.trim(),
-    });
-    await this.activity(
-      task,
-      "change_requested",
-      `Changes requested: ${feedback.trim()}`,
-      previousRun?.id,
-    );
-    return this.queueRun(
+    await this.assertExecutionScopeUnchanged(task, previousRun);
+    const run = await this.queueRun(
       task,
       agent,
       `REVISION REQUEST\n${feedback.trim()}\n\nRevise your previous result for task: ${task.title}`,
@@ -211,7 +211,27 @@ export class Orchestrator {
       undefined,
       undefined,
       feedback.trim(),
+      {
+        expectedTaskStatus: "needs_review",
+        review: {
+          taskId,
+          runId: previousRun?.id,
+          action: "changes_requested",
+          feedback: feedback.trim(),
+        },
+        activities: [
+          {
+            workspaceId: task.workspaceId,
+            type: "change_requested",
+            taskId: task.id,
+            agentId: task.assigneeAgentId,
+            runId: previousRun?.id,
+            message: `Changes requested: ${feedback.trim()}`,
+          },
+        ],
+      },
     );
+    return run;
   }
 
   async continueTask(taskId: string): Promise<AgentRun> {
@@ -377,52 +397,76 @@ export class Orchestrator {
     workflowStep?: TaskWorkflowStep,
     sessionBudget?: SessionBudget,
     request = task.description?.trim() || task.title,
+    reservationOptions: RunReservationOptions = {},
   ): Promise<AgentRun> {
-    const workingDirectory = await this.resolveWorkingDirectory(task, agent);
+    const executionScope = await this.resolveExecutionScope(task);
     const modelSelection = selectModel(agent, task);
-    const workspaceRuns = [...this.activeRuns.values()].filter(
-      (active) => active.workspaceId === task.workspaceId,
-    ).length;
-    if (workspaceRuns >= this.concurrentRunLimit) {
-      throw new DomainError("CONCURRENCY_LIMIT", "Workspace run concurrency limit reached", 429);
-    }
     const existingRuns = await this.repository.listRuns(task.id);
-    if (existingRuns.some((run) => ["queued", "running", "waiting"].includes(run.status))) {
-      throw new DomainError("TASK_ALREADY_RUNNING", "Task already has an active run", 409);
-    }
-    const run = await this.repository.createRun({
-      id: randomUUID(),
-      taskId: task.id,
-      agentId: agent.id,
-      runtime: agent.model,
-      modelPolicy: modelSelection.policy,
-      modelName: modelSelection.modelName,
-      reasoningEffort: modelSelection.reasoningEffort,
-      request,
-      workingDirectory,
-      cleanupPolicy: "preserve",
-    });
-    const updatedTask = await this.repository.transitionTask(task.id, "working");
-    if (workflowStep) {
-      await this.repository.updateWorkflowStep(workflowStep.id, {
-        status: "working",
-        runId: run.id,
-      });
-      await this.activity(
-        updatedTask,
-        "workflow_step_started",
-        `Workflow ${workflowStep.position + 1}단계 시작: ${agent.name}`,
-        run.id,
-        { workflowStepId: workflowStep.id, position: workflowStep.position },
-      );
-    }
-    await this.activity(updatedTask, "task_started", `Task assigned to ${agent.name}`, run.id);
+    const previousRun = existingRuns[0];
+    this.assertMatchingExecutionScope(previousRun, executionScope);
+    const runId = randomUUID();
+    const activities: Array<Parameters<Repository["createActivity"]>[0]> = [
+      ...(workflowStep
+        ? [
+            {
+              workspaceId: task.workspaceId,
+              type: "workflow_step_started" as const,
+              taskId: task.id,
+              agentId: agent.id,
+              runId,
+              message: `Workflow ${workflowStep.position + 1}단계 시작: ${agent.name}`,
+              metadata: { workflowStepId: workflowStep.id, position: workflowStep.position },
+            },
+          ]
+        : []),
+      ...(reservationOptions.activities ?? []),
+      {
+        workspaceId: task.workspaceId,
+        type: "task_started",
+        taskId: task.id,
+        agentId: agent.id,
+        runId,
+        message: `Task assigned to ${agent.name}`,
+      },
+    ];
+    const reserved = await this.repository.reserveRun(
+      {
+        id: runId,
+        taskId: task.id,
+        agentId: agent.id,
+        runtime: agent.model,
+        modelPolicy: modelSelection.policy,
+        modelName: modelSelection.modelName,
+        reasoningEffort: modelSelection.reasoningEffort,
+        request,
+        scopeType: executionScope.type,
+        scopeProjectId: executionScope.projectId,
+        workingDirectory: executionScope.workingDirectory,
+        cleanupPolicy: "preserve",
+      },
+      {
+        expectedTaskStatus: reservationOptions.expectedTaskStatus ?? task.status,
+        expectedProjectPath: executionScope.projectPath,
+        expectedAssigneeAgentId:
+          "expectedAssigneeAgentId" in reservationOptions
+            ? reservationOptions.expectedAssigneeAgentId
+            : task.assigneeAgentId,
+        concurrencyLimit: this.concurrentRunLimit,
+        workflowStepId: workflowStep?.id,
+        resetFailedWorkflowStep: reservationOptions.resetFailedWorkflowStep,
+        assigneeAgentId: agent.id,
+        review: reservationOptions.review,
+        activities,
+      },
+    );
+    const { run, task: updatedTask } = reserved;
     this.publishTask(updatedTask);
     this.publishRun(run, task.workspaceId);
+    for (const activity of reserved.activities) this.publishActivity(activity);
     this.activeRuns.set(run.id, {
       workspaceId: task.workspaceId,
       taskId: task.id,
-      workingDirectory,
+      workingDirectory: executionScope.workingDirectory,
       ...(workflowStep ? { workflowStepId: workflowStep.id } : {}),
       ...(sessionBudget ? { sessionBudget } : {}),
     });
@@ -452,7 +496,10 @@ export class Orchestrator {
           modelName: run.modelName,
           reasoningEffort: run.reasoningEffort,
           prompt,
-          cwd: this.activeRuns.get(run.id)?.workingDirectory ?? this.workspacePath,
+          cwd:
+            this.activeRuns.get(run.id)?.workingDirectory ??
+            run.workingDirectory ??
+            this.generalWorkingDirectory,
           resumeThreadId,
           writable: agent.permissions.fileWrite === true,
           browser: agent.permissions.browser === true,
@@ -857,10 +904,11 @@ export class Orchestrator {
     task: Task,
     step: TaskWorkflowStep,
     continuation?: WorkflowContinuation,
+    reservationOptions?: RunReservationOptions,
   ): Promise<AgentRun> {
     const agent = await this.requireAgent(step.agentId);
-    const assignedTask = await this.repository.updateTask(task.id, { assigneeAgentId: agent.id });
     const skills = await this.requireSkills(agent);
+    const assignedTask = { ...task, assigneeAgentId: agent.id };
     const steps = await this.repository.listWorkflowSteps(task.id);
     const previousResults = steps
       .filter((candidate) => candidate.position < step.position && candidate.result)
@@ -884,6 +932,10 @@ export class Orchestrator {
           ? "같은 작업 세션의 한도를 늘려 계속"
           : "새 작업 세션에서 이어가기"
         : assignedTask.description?.trim() || assignedTask.title,
+      {
+        ...reservationOptions,
+        expectedAssigneeAgentId: task.assigneeAgentId,
+      },
     );
   }
 
@@ -941,25 +993,70 @@ export class Orchestrator {
     if (active.hardTimer) clearTimeout(active.hardTimer);
   }
 
-  private async resolveWorkingDirectory(task: Task, agent: Agent): Promise<string> {
-    const workspace = await this.repository.getWorkspace(task.workspaceId);
+  private async resolveExecutionScope(
+    task: Task,
+  ): Promise<{
+    type: ExecutionScopeType;
+    projectId?: string;
+    projectPath?: string;
+    workingDirectory: string;
+  }> {
     const project = task.projectId ? await this.repository.getProject(task.projectId) : undefined;
-    const configured =
-      task.workingDirectory ??
-      project?.path ??
-      agent.workingDirectory ??
-      workspace?.workingDirectory;
-    const directory = resolve(configured ?? this.workspacePath);
-    try {
-      if (!statSync(directory).isDirectory()) throw new Error("not a directory");
-    } catch {
+    if (task.projectId && (!project || project.workspaceId !== task.workspaceId)) {
       throw new DomainError(
-        "WORKING_DIRECTORY_INVALID",
-        `프로젝트 폴더를 찾을 수 없습니다: ${directory}`,
+        "PROJECT_NOT_FOUND",
+        `프로젝트를 찾을 수 없습니다: ${task.projectId}`,
         422,
       );
     }
-    return directory;
+    if (project && !project.path) {
+      throw new DomainError("PROJECT_PATH_REQUIRED", "프로젝트 폴더를 먼저 설정해 주세요", 422);
+    }
+    const type: ExecutionScopeType = project ? "project" : "general";
+    const configuredDirectory = resolve(project?.path ?? this.generalWorkingDirectory);
+    let directory: string;
+    try {
+      if (!statSync(configuredDirectory).isDirectory()) throw new Error("not a directory");
+      directory = realpathSync.native(configuredDirectory);
+    } catch {
+      const scopeLabel = type === "project" ? "프로젝트" : "일반 대화";
+      throw new DomainError(
+        "WORKING_DIRECTORY_INVALID",
+        `${scopeLabel} 폴더를 찾을 수 없습니다: ${configuredDirectory}`,
+        422,
+      );
+    }
+    return {
+      type,
+      projectId: project?.id,
+      projectPath: project?.path,
+      workingDirectory: directory,
+    };
+  }
+
+  private async assertExecutionScopeUnchanged(
+    task: Task,
+    previousRun: AgentRun | undefined,
+  ): Promise<void> {
+    this.assertMatchingExecutionScope(previousRun, await this.resolveExecutionScope(task));
+  }
+
+  private assertMatchingExecutionScope(
+    previousRun: AgentRun | undefined,
+    executionScope: { type: ExecutionScopeType; projectId?: string; workingDirectory: string },
+  ): void {
+    if (
+      previousRun &&
+      (previousRun.scopeType !== executionScope.type ||
+        previousRun.scopeProjectId !== executionScope.projectId ||
+        previousRun.workingDirectory !== executionScope.workingDirectory)
+    ) {
+      throw new DomainError(
+        "EXECUTION_SCOPE_CHANGED",
+        "기존 세션의 프로젝트가 변경되어 이어서 실행할 수 없습니다",
+        409,
+      );
+    }
   }
 
   private async activity(
@@ -978,9 +1075,13 @@ export class Orchestrator {
       message,
       metadata,
     });
+    this.publishActivity(activity);
+  }
+
+  private publishActivity(activity: Awaited<ReturnType<Repository["createActivity"]>>): void {
     this.events.publish({
       type: "activity.created",
-      workspaceId: task.workspaceId,
+      workspaceId: activity.workspaceId,
       data: { activity },
     });
   }

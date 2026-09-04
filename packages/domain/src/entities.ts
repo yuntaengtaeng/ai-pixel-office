@@ -127,6 +127,7 @@ export type AgentTaskTemplate = {
 
 export type AgentRunStatus =
   "queued" | "running" | "waiting" | "completed" | "failed" | "cancelled";
+export type ExecutionScopeType = "general" | "project";
 
 export type RunUsage = {
   inputTokens?: number;
@@ -151,6 +152,8 @@ export type AgentRun = {
   usage?: RunUsage;
   request?: string;
   result?: TaskResult;
+  scopeType: ExecutionScopeType;
+  scopeProjectId?: string;
   workingDirectory?: string;
   error?: string;
   cleanupPolicy: "preserve" | "discard";
@@ -238,8 +241,7 @@ export type RunLimits = {
   maxEstimatedCost?: number;
 };
 
-export type CreateWorkspaceInput = Pick<Workspace, "name"> &
-  Partial<Pick<Workspace, "workingDirectory">>;
+export type CreateWorkspaceInput = Pick<Workspace, "name">;
 export type UpdateWorkspaceInput = Partial<CreateWorkspaceInput>;
 
 export type CreateAgentInput = Pick<
@@ -252,7 +254,6 @@ export type CreateAgentInput = Pick<
       | "description"
       | "systemPrompt"
       | "avatarId"
-      | "workingDirectory"
       | "mode"
       | "modelPolicy"
       | "modelName"
@@ -272,26 +273,11 @@ export type CreateTaskInput = Pick<Task, "workspaceId" | "title"> &
   Partial<
     Pick<
       Task,
-      | "description"
-      | "assigneeAgentId"
-      | "sourceInputId"
-      | "dueDate"
-      | "priority"
-      | "workingDirectory"
-      | "projectId"
+      "description" | "assigneeAgentId" | "sourceInputId" | "dueDate" | "priority" | "projectId"
     >
   >;
 export type UpdateTaskInput = Partial<
-  Pick<
-    Task,
-    | "title"
-    | "description"
-    | "assigneeAgentId"
-    | "dueDate"
-    | "priority"
-    | "workingDirectory"
-    | "projectId"
-  >
+  Pick<Task, "title" | "description" | "assigneeAgentId" | "dueDate" | "priority" | "projectId">
 >;
 
 export type CreateInputInput = Pick<Input, "workspaceId" | "content"> &

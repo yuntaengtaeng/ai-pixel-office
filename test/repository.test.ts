@@ -72,6 +72,7 @@ test("persists run lifecycle, result review, and usage summaries", async () => {
       agentId: agent.id,
       runtime: "codex",
       request: "Add the requested feature",
+      scopeType: "general",
       workingDirectory: process.cwd(),
       cleanupPolicy: "preserve",
     });
@@ -88,6 +89,7 @@ test("persists run lifecycle, result review, and usage summaries", async () => {
     assert.equal((await repository.getRun(run.id))?.usage?.inputTokens, 10);
     assert.equal((await repository.getRun(run.id))?.request, "Add the requested feature");
     assert.equal((await repository.getRun(run.id))?.result?.summary, "Done");
+    assert.equal((await repository.getRun(run.id))?.scopeType, "general");
     assert.equal((await repository.getRun(run.id))?.workingDirectory, process.cwd());
     assert.equal((await repository.getTask(task.id))?.result?.summary, "Done");
     assert.equal((await repository.listReviews(task.id))[0]?.action, "approved");
@@ -119,6 +121,7 @@ test("recovers waiting runs after a server restart", async () => {
       taskId: task.id,
       agentId: agent.id,
       runtime: "codex",
+      scopeType: "general",
       cleanupPolicy: "preserve",
     });
     await repository.updateRun(run.id, { status: "waiting" });

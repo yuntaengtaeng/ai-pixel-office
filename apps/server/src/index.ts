@@ -1,3 +1,6 @@
+import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
 import { EventBus } from "./events.ts";
 import { createHttpServer } from "./http.ts";
 import { openDatabase } from "./database.ts";
@@ -7,8 +10,16 @@ import { ClaudeRuntimeAdapter } from "./claude-runtime.ts";
 import { CodexRuntimeAdapter, RuntimeRouter } from "./runtime.ts";
 
 export async function startServer(
-  options: { port?: number; host?: string; databasePath?: string; staticRoot?: string } = {},
+  options: {
+    port?: number;
+    host?: string;
+    databasePath?: string;
+    staticRoot?: string;
+    generalWorkingDirectory?: string;
+  } = {},
 ) {
+  const generalWorkingDirectory = resolveGeneralWorkingDirectory(options.generalWorkingDirectory);
+  mkdirSync(generalWorkingDirectory, { recursive: true });
   const repository = new Repository(openDatabase(options.databasePath));
   const recoveredRuns = await repository.recoverInterruptedRuns();
   if (recoveredRuns > 0)
@@ -18,11 +29,14 @@ export async function startServer(
     codex: new CodexRuntimeAdapter(),
     claude: new ClaudeRuntimeAdapter(),
   });
-  const orchestrator = new Orchestrator(repository, runtime, events);
+  const orchestrator = new Orchestrator(repository, runtime, events, {
+    generalWorkingDirectory,
+  });
   const server = createHttpServer({
     repository,
     orchestrator,
     events,
+    generalWorkingDirectory,
     staticRoot: options.staticRoot,
   });
   const port = options.port ?? Number(process.env.PORT ?? 47372);
@@ -31,4 +45,12 @@ export async function startServer(
   const address = await server.listen({ port, host });
   console.log(`AI Pixel Office API listening at ${address}`);
   return { server, repository, orchestrator, address };
+}
+
+export function resolveGeneralWorkingDirectory(configured?: string): string {
+  const directory = configured ?? join(tmpdir(), "ai-pixel-office", "general");
+  if (!isAbsolute(directory)) {
+    throw new Error("generalWorkingDirectory must be an absolute path");
+  }
+  return resolve(directory);
 }

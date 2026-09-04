@@ -38,7 +38,7 @@ import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
-import { ProjectDirectorySelect, ProjectSelect } from "../projects/ProjectSelect.tsx";
+import { ProjectSelect } from "../projects/ProjectSelect.tsx";
 
 const pixelWork = keyframes`
   from {
@@ -1622,10 +1622,6 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     mutationFn: () => taskApi.update(id, { description: taskBrief.trim() }),
     onSuccess: refresh,
   });
-  const updateWorkingDirectory = useMutation({
-    mutationFn: (workingDirectory: string) => taskApi.update(id, { workingDirectory }),
-    onSuccess: refresh,
-  });
   const updateProject = useMutation({
     mutationFn: (projectId: string) => taskApi.update(id, { projectId }),
     onSuccess: refresh,
@@ -1710,7 +1706,6 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     updateWorkflow.error ??
     createWorkflowPreset.error ??
     deleteWorkflowPreset.error ??
-    updateWorkingDirectory.error ??
     remove.error;
   if (task.isPending) return <FullScreenMessage>작업을 불러오는 중...</FullScreenMessage>;
   if (!item || task.isError)
@@ -1992,13 +1987,6 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
           )}
           <TechnicalDetails>
             <summary>개발자 옵션</summary>
-            <ProjectDirectorySelect
-              workspaceId={workspace.id}
-              value={item.workingDirectory ?? ""}
-              onChange={(value) => updateWorkingDirectory.mutate(value)}
-              label="실행 폴더 덮어쓰기"
-              emptyLabel="프로젝트/에이전트 기본값"
-            />
             {latestRun?.usage && (
               <dl>
                 <div>

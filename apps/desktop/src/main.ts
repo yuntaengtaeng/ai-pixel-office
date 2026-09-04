@@ -25,6 +25,7 @@ function startPackagedServer(): Promise<string> {
       PIXEL_OFFICE_SERVER_HOST: "127.0.0.1",
       PIXEL_OFFICE_SERVER_PORT: "0",
       PIXEL_OFFICE_DATABASE_PATH: join(app.getPath("userData"), "ai-pixel-office.sqlite"),
+      PIXEL_OFFICE_GENERAL_WORKING_DIRECTORY: join(app.getPath("userData"), "general"),
       PIXEL_OFFICE_STATIC_ROOT: join(process.resourcesPath, "web"),
     },
     stdio: ["ignore", "pipe", "pipe", "ipc"],

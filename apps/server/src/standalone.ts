@@ -13,6 +13,7 @@ async function main(): Promise<void> {
     host: process.env.PIXEL_OFFICE_SERVER_HOST ?? process.env.HOST ?? "127.0.0.1",
     databasePath: process.env.PIXEL_OFFICE_DATABASE_PATH,
     staticRoot: process.env.PIXEL_OFFICE_STATIC_ROOT,
+    generalWorkingDirectory: process.env.PIXEL_OFFICE_GENERAL_WORKING_DIRECTORY,
   });
   process.send?.({ type: "ready", address: runtime.address });
 

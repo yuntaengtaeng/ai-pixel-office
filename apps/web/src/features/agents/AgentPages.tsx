@@ -41,7 +41,6 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
-import { ProjectDirectorySelect } from "../projects/ProjectSelect.tsx";
 import { ModelPolicyFields } from "./ModelPolicyFields.tsx";
 import { defaultManualModel } from "./model-options.ts";
 
@@ -604,7 +603,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
   const [modelPolicy, setModelPolicy] = useState<ModelPolicy>("default");
   const [modelName, setModelName] = useState(defaultManualModel("codex"));
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("medium");
-  const [workingDirectory, setWorkingDirectory] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<AgentPermissions>({
     fileRead: true,
@@ -636,12 +634,10 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         avatarId,
         skillIds: selectedSkills,
         permissions: { ...permissions, fileRead: true, terminal: true },
-        workingDirectory: workingDirectory.trim() || undefined,
       }),
     onSuccess: (agent) => {
       setName("");
       setRole("");
-      setWorkingDirectory("");
       setSelectedSkills([]);
       setPermissions({ fileRead: true, fileWrite: true, terminal: true });
       setSelectedAgentId(agent.id);
@@ -826,13 +822,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
                 onReasoningEffortChange={setReasoningEffort}
               />
               <>
-                <ProjectDirectorySelect
-                  workspaceId={workspace.id}
-                  value={workingDirectory}
-                  onChange={setWorkingDirectory}
-                  label="기본 실행 폴더"
-                  emptyLabel="워크스페이스 기본값"
-                />
                 <Fieldset>
                   <Legend>도구 권한</Legend>
                   <Styled.CheckGrid>
@@ -1086,7 +1075,6 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
   const [modelName, setModelName] = useState(defaultManualModel("codex"));
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("medium");
   const [avatarId, setAvatarId] = useState(PETS[0]!.id);
-  const [workingDirectory, setWorkingDirectory] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<AgentPermissions>({});
   const [templateTitle, setTemplateTitle] = useState("");
@@ -1102,7 +1090,6 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
     setModelName(agent.modelName ?? defaultManualModel(agent.model));
     setReasoningEffort(agent.reasoningEffort ?? "medium");
     setAvatarId(agent.avatarId ?? PETS[0]!.id);
-    setWorkingDirectory(agent.workingDirectory ?? "");
     setSelectedSkills(agent.skillIds);
     setPermissions({
       ...agent.permissions,
@@ -1123,7 +1110,6 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
         reasoningEffort: modelPolicy === "manual" ? reasoningEffort : undefined,
         mode: "worker",
         avatarId,
-        workingDirectory,
         skillIds: selectedSkills,
         permissions: { ...permissions, fileRead: true, terminal: true },
       }),
@@ -1284,13 +1270,6 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                 onReasoningEffortChange={setReasoningEffort}
               />
               <>
-                <ProjectDirectorySelect
-                  workspaceId={workspace.id}
-                  value={workingDirectory}
-                  onChange={setWorkingDirectory}
-                  label="기본 실행 폴더"
-                  emptyLabel="워크스페이스 기본값"
-                />
                 <Fieldset>
                   <Legend>권한</Legend>
                   <Styled.CheckGrid>

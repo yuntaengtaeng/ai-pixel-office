@@ -103,7 +103,6 @@ export function parseCreateWorkspace(value: unknown): CreateWorkspaceInput {
   const body = object(value);
   return {
     name: string(body.name, "name") as string,
-    workingDirectory: optionalString(body.workingDirectory, "workingDirectory"),
   };
 }
 
@@ -111,9 +110,6 @@ export function parseUpdateWorkspace(value: unknown): UpdateWorkspaceInput {
   const body = object(value);
   return {
     ...(body.name !== undefined ? { name: string(body.name, "name") } : {}),
-    ...(body.workingDirectory !== undefined
-      ? { workingDirectory: optionalString(body.workingDirectory, "workingDirectory") }
-      : {}),
   };
 }
 
@@ -135,7 +131,6 @@ export function parseCreateAgent(value: unknown): CreateAgentInput {
     skillIds: stringArray(body.skillIds ?? [], "skillIds"),
     permissions: permissions(body.permissions ?? {}),
     systemPrompt: optionalString(body.systemPrompt, "systemPrompt"),
-    workingDirectory: optionalString(body.workingDirectory, "workingDirectory"),
   };
 }
 
@@ -161,9 +156,6 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
     ...(body.permissions !== undefined ? { permissions: permissions(body.permissions) } : {}),
     ...(body.systemPrompt !== undefined
       ? { systemPrompt: optionalString(body.systemPrompt, "systemPrompt") }
-      : {}),
-    ...(body.workingDirectory !== undefined
-      ? { workingDirectory: optionalString(body.workingDirectory, "workingDirectory") }
       : {}),
   };
 }
@@ -238,7 +230,6 @@ export function parseCreateTask(value: unknown): CreateTaskInput {
     dueDate: optionalString(body.dueDate, "dueDate"),
     priority,
     projectId: optionalString(body.projectId, "projectId"),
-    workingDirectory: optionalString(body.workingDirectory, "workingDirectory"),
   };
 }
 
@@ -288,7 +279,6 @@ export function parseUpdateTask(value: unknown): UpdateTaskInput {
     "assigneeAgentId",
     "dueDate",
     "priority",
-    "workingDirectory",
     "projectId",
   ] as const) {
     if (body[key] !== undefined) Object.assign(result, { [key]: seed[key] });
