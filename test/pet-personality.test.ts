@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { petMessage } from "../apps/web/src/features/office/pet-personality.ts";
+import { petMessage } from "../apps/web/src/features/office/utils/pet-personality.ts";
 
 test("미션 펫은 상태별 고유 멘트를 사용한다", () => {
   assert.equal(
