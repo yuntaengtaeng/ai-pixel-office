@@ -7,26 +7,17 @@ import {
   Button,
   CloseIcon,
   Dialog,
-  Field,
-  Fieldset,
   Input,
   Kicker,
-  Legend,
   Panel,
   Select,
   useDialogIds,
 } from "@ai-pixel-office/design-system";
-import type {
-  Agent,
-  ActivityLog,
-  Task,
-  TaskStatus,
-  Workspace,
-} from "@ai-pixel-office/domain/entities";
+import type { ActivityLog, Task, TaskStatus, Workspace } from "@ai-pixel-office/domain/entities";
 import { activityApi } from "../activity/api.ts";
 import { agentApi } from "../agents/api.ts";
 import { taskApi } from "../tasks/api.ts";
-import { PRIORITIES, PRIORITY_COLORS, RUNTIME, STATUS } from "../../shared/config/presentation.ts";
+import { RUNTIME, STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
@@ -35,12 +26,11 @@ import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
-import { PromptSuggestions } from "../../shared/ui/PromptSuggestions.tsx";
-import { SectionHeading, SectionHeadingCount } from "../../shared/ui/SectionHeading.tsx";
-import { TaskCard } from "../tasks/TaskCard.tsx";
+import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { InboxPanel } from "../inbox/InboxPanel.tsx";
-import { inputApi } from "../inbox/api.ts";
 import { LiveBadge, OfficeCard, OfficeLoading } from "../office/OfficeCard.tsx";
+import { TaskComposer } from "./components/TaskComposer.tsx";
+import { TaskSection } from "./components/TaskSection.tsx";
 
 const PixelOffice = lazy(async () => {
   const module = await import("../office/PixelOffice.tsx");
@@ -112,41 +102,6 @@ const Styled = {
     display: flex;
     justify-content: flex-end;
     gap: ${({ theme }) => theme.space.x2};
-  `,
-  PriorityPicker: styled.div`
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: ${({ theme }) => theme.space.x2};
-
-    button {
-      min-height: 36px;
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      cursor: pointer;
-
-      &.selected {
-        border: 2px solid ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.background.positiveSubtle};
-        color: ${({ theme }) => theme.colors.text.positive};
-      }
-    }
-  `,
-  PriorityChoiceDot: styled.span<{ $priority: NonNullable<Task["priority"]> }>`
-    width: 7px;
-    height: 7px;
-    margin-right: ${({ theme }) => theme.space.x2};
-    display: inline-block;
-    background: ${({ $priority }) => PRIORITY_COLORS[$priority]};
-  `,
-  ResultField: styled(Field)`
-    min-width: 0;
-
-    small {
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
   `,
   HeadingMeta: styled.div`
     display: flex;
@@ -260,17 +215,6 @@ const Styled = {
       grid-template-columns: 1fr;
     }
   `,
-  TaskSection: styled(Panel).attrs({ as: "section" })<{ $status: TaskStatus }>`
-    min-height: 185px;
-    padding: ${({ theme }) => theme.space.x4};
-    border-top-color: ${({ $status }) => STATUS[$status].color};
-  `,
-  TaskList: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    max-height: 360px;
-    overflow: auto;
-  `,
   LowerGrid: styled.div`
     display: grid;
     grid-template-columns: 1.2fr 0.8fr;
@@ -366,13 +310,6 @@ const Styled = {
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     cursor: pointer;
-  `,
-  Composer: styled.form`
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: ${({ theme }) => theme.space.x4};
-    align-items: end;
   `,
 };
 
@@ -645,161 +582,6 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
         <ConfirmDialog {...dialogProps} />
       </>
     </BaseLayout>
-  );
-}
-
-function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () => void }) {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<NonNullable<Task["priority"]>>("medium");
-  const resultExamples = [
-    {
-      label: "결과물 + 변경 내용",
-      value: "바로 사용할 수 있는 결과물과 변경 내용을 함께 알려 주세요.",
-    },
-    {
-      label: "선택지 비교 + 추천",
-      value: "먼저 선택지를 비교하고 가장 좋은 방법을 추천해 주세요.",
-    },
-    { label: "확인 방법 + 주의사항", value: "완료 후 확인 방법과 남은 주의사항을 정리해 주세요." },
-  ];
-  const mutation = useMutation({
-    mutationFn: () =>
-      taskApi.create({
-        workspaceId: workspace.id,
-        title,
-        description: description || undefined,
-        priority,
-      }),
-    onSuccess: (task) => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
-      onDone();
-      navigate(`/tasks/${task.id}`);
-    },
-  });
-  const storeForLater = useMutation({
-    mutationFn: () =>
-      inputApi.create({
-        workspaceId: workspace.id,
-        title: title.trim(),
-        content: description.trim() || title.trim(),
-        type: "request",
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["inputs", workspace.id] });
-      onDone();
-    },
-  });
-  return (
-    <Styled.Composer
-      onSubmit={(event) => {
-        event.preventDefault();
-        mutation.mutate();
-      }}
-    >
-      <Field $grow>
-        <label>무엇을 만들거나 해결할까요?</label>
-        <Input
-          autoFocus
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="예: 컴포넌트 추출"
-          required
-        />
-      </Field>
-      <Fieldset>
-        <Legend>우선순위</Legend>
-        <Styled.PriorityPicker>
-          {(Object.entries(PRIORITIES) as Array<[NonNullable<Task["priority"]>, string]>).map(
-            ([value, label]) => (
-              <button
-                type="button"
-                className={priority === value ? "selected" : ""}
-                key={value}
-                onClick={() => setPriority(value)}
-              >
-                <Styled.PriorityChoiceDot $priority={value} />
-                {label}
-              </button>
-            ),
-          )}
-        </Styled.PriorityPicker>
-      </Fieldset>
-      <Styled.ResultField $grow>
-        <label>원하는 결과 · 선택 사항</label>
-        <Input
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="예: 선택한 화면의 버튼과 입력창을 React 컴포넌트로 분리해 주세요"
-        />
-        <PromptSuggestions aria-label="원하는 결과 예시">
-          {resultExamples.map((example) => (
-            <button type="button" key={example.label} onClick={() => setDescription(example.value)}>
-              {example.label}
-            </button>
-          ))}
-        </PromptSuggestions>
-      </Styled.ResultField>
-      <Styled.DialogActions>
-        <Button
-          $variant="secondary"
-          type="button"
-          disabled={!title.trim() || storeForLater.isPending}
-          onClick={() => storeForLater.mutate()}
-        >
-          {storeForLater.isPending ? "보관 중..." : "나중에 할 일로 보관"}
-        </Button>
-        <Button $variant="primary" disabled={mutation.isPending || !title.trim()}>
-          {mutation.isPending ? "만드는 중..." : "지금 작업 만들기"}
-        </Button>
-      </Styled.DialogActions>
-      {(mutation.isError || storeForLater.isError) && (
-        <ErrorBanner>{messageOf(mutation.error ?? storeForLater.error)}</ErrorBanner>
-      )}
-    </Styled.Composer>
-  );
-}
-
-function TaskSection({
-  status,
-  title,
-  tasks,
-  agents,
-  onDelete,
-  deletingId,
-}: {
-  status: TaskStatus;
-  title?: string;
-  tasks: Task[];
-  agents: Agent[];
-  onDelete: (task: Task) => void;
-  deletingId?: string;
-}) {
-  return (
-    <Styled.TaskSection $status={status}>
-      <SectionHeading $compact>
-        <h2>
-          <span>{STATUS[status].icon}</span> {title ?? STATUS[status].label}
-        </h2>
-        <SectionHeadingCount>{tasks.length}</SectionHeadingCount>
-      </SectionHeading>
-      <Styled.TaskList>
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            agent={agents.find((agent) => agent.id === task.assigneeAgentId)}
-            onDelete={
-              ["working", "needs_input"].includes(task.status) ? undefined : () => onDelete(task)
-            }
-            deleting={deletingId === task.id}
-          />
-        ))}
-        {tasks.length === 0 && <Empty>비어 있습니다.</Empty>}
-      </Styled.TaskList>
-    </Styled.TaskSection>
   );
 }
 

@@ -9,7 +9,6 @@ import { skillApi } from "../skills/api.ts";
 import { workflowApi } from "../workflows/api.ts";
 import { taskApi } from "./api.ts";
 import { PetPreview } from "../office/PetPreview.tsx";
-import { STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { isSubmitKey } from "../../shared/lib/keyboard.ts";
@@ -20,6 +19,7 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
+import { StatusPill } from "../../shared/ui/StatusPill.tsx";
 import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
 import { ProjectSelect } from "../projects/ProjectSelect.tsx";
 import { recordApi } from "../records/api.ts";
@@ -39,7 +39,6 @@ import { WorkflowResults } from "./components/results/WorkflowResults.tsx";
 
 import * as DS from "@ai-pixel-office/design-system";
 import styled, { keyframes } from "styled-components";
-import type { TaskStatus } from "@ai-pixel-office/domain/entities";
 
 const pixelWork = keyframes`
   from {
@@ -67,16 +66,6 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.muted};
       max-width: 720px;
     }
-  `,
-  StatusPill: styled.span<{ $status: TaskStatus }>`
-    display: inline-block;
-    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-    border: 2px solid currentColor;
-    border-top-color: ${({ $status }) => STATUS[$status].color};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-    font-size: ${({ theme }) => theme.typography.fontSize.sm};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   `,
   PrimaryActionBar: styled.div`
     position: sticky;
@@ -634,7 +623,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     <BaseLayout>
       <BackButton onClick={() => navigate(-1)}>← 작업 목록</BackButton>
       <Styled.Heading>
-        <Styled.StatusPill $status={item.status}>{STATUS[item.status].label}</Styled.StatusPill>
+        <StatusPill status={item.status} />
         <h1>{item.title}</h1>
         <p>
           {item.status === "todo"
