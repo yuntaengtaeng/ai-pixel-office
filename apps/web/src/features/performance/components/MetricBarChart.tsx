@@ -54,13 +54,21 @@ const Fill = styled.div<{ $ratio: number }>`
 
 export type BarChartRow = { id: string; label: string; value: number };
 
-export function MetricBarChart({ title, rows }: { title: string; rows: BarChartRow[] }) {
+export function MetricBarChart({
+  title,
+  rows,
+  emptyMessage = "표시할 활동이 아직 없어요",
+}: {
+  title: string;
+  rows: BarChartRow[];
+  emptyMessage?: string;
+}) {
   const max = Math.max(...rows.map((row) => row.value), 1);
   return (
     <Section as="section">
       <h2>{title}</h2>
       {rows.length === 0 ? (
-        <Empty>표시할 활동이 아직 없어요</Empty>
+        <Empty>{emptyMessage}</Empty>
       ) : (
         <List>
           {rows.map((row) => (

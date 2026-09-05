@@ -14,8 +14,10 @@ export const ChatFrame = styled(Panel)<{ $muted?: boolean }>`
 export const EndedTag = styled.span`
   padding: 1px ${({ theme }) => theme.space.x1};
   border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  background: ${({ theme }) => theme.colors.background.surfaceMuted};
   color: ${({ theme }) => theme.colors.text.muted};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
 export const ChatHeader = styled.div`

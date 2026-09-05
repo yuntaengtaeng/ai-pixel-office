@@ -60,6 +60,7 @@ export const Button = styled.button<{ $variant?: ButtonVariant; $fullWidth?: boo
 
   &:disabled {
     opacity: 0.47;
+    box-shadow: none;
     cursor: not-allowed;
   }
 `;

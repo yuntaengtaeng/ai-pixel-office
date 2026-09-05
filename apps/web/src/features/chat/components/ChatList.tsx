@@ -38,12 +38,8 @@ const Row = styled.li<{ $active: boolean; $ended: boolean }>`
     width: 100%;
     padding: ${({ theme }) => theme.space.x3} ${({ theme }) => theme.space.x2};
     border: 0;
-    background: ${({ $active, $ended, theme }) =>
-      $active
-        ? theme.colors.background.positiveSubtle
-        : $ended
-          ? theme.colors.background.surfaceMuted
-          : "transparent"};
+    background: ${({ $active, theme }) =>
+      $active ? theme.colors.background.positiveSubtle : "transparent"};
     border-left: 3px solid
       ${({ $active, theme }) => ($active ? theme.colors.border.positive : "transparent")};
     display: flex;

@@ -150,6 +150,8 @@ const Styled = {
   CommandRow: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x2};
     margin-top: ${({ theme }) => theme.space.x2};
 
     code {
@@ -160,13 +162,6 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.primary};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
       white-space: nowrap;
-    }
-
-    button {
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      cursor: pointer;
     }
   `,
   SettingsActions: styled.div`
@@ -577,16 +572,16 @@ function ConnectionCard({
           )}
           <Styled.CommandRow>
             <code>{command}</code>
-            <button type="button" onClick={() => void copy(command)}>
+            <Button $variant="secondary" type="button" onClick={() => void copy(command)}>
               복사
-            </button>
+            </Button>
           </Styled.CommandRow>
           {secondaryCommand && (
             <Styled.CommandRow>
               <code>{secondaryCommand}</code>
-              <button type="button" onClick={() => void copy(secondaryCommand)}>
+              <Button $variant="secondary" type="button" onClick={() => void copy(secondaryCommand)}>
                 복사
-              </button>
+              </Button>
             </Styled.CommandRow>
           )}
         </div>

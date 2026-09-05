@@ -1,5 +1,5 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
 import { Button, Field, Input, Panel, Select, TextArea } from "@ai-pixel-office/design-system";
@@ -42,6 +42,17 @@ const Styled = {
       max-height: none;
       overflow: visible;
       padding-right: ${({ theme }) => theme.space.x1};
+    }
+  `,
+  EmptyLibraryButton: styled(Panel).attrs({ as: "button", type: "button" })`
+    width: 100%;
+    cursor: pointer;
+    transition: box-shadow 0.12s;
+
+    &:hover,
+    &:focus-visible {
+      box-shadow: ${({ theme }) => `1px 1px 0 ${theme.colors.shadow.default}`};
+      outline: none;
     }
   `,
   Card: styled(Panel).attrs({ as: "article" })`
@@ -243,6 +254,7 @@ const Styled = {
 export function SkillsPage({ workspace }: { workspace: Workspace }) {
   const queryClient = useQueryClient();
   const { confirm, dialogProps } = useConfirmDialog();
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const skills = useQuery({
     queryKey: ["skills", workspace.id],
     queryFn: () => skillApi.list(workspace.id),
@@ -343,6 +355,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
           <Field>
             <label>이름</label>
             <Input
+              ref={nameInputRef}
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="예: React 컴포넌트 제작"
@@ -418,9 +431,9 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
             />
           ))}
           {skills.data?.length === 0 && (
-            <Panel>
+            <Styled.EmptyLibraryButton onClick={() => nameInputRef.current?.focus()}>
               <Empty>첫 번째 스킬을 만들어 보세요.</Empty>
-            </Panel>
+            </Styled.EmptyLibraryButton>
           )}
         </Styled.Library>
       </Styled.Layout>
