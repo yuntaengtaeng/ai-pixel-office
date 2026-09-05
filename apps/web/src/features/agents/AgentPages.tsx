@@ -17,22 +17,14 @@ import {
   TextArea,
   TrashIcon,
 } from "@ai-pixel-office/design-system";
-import type {
-  AgentPermissions,
-  ModelPolicy,
-  ReasoningEffort,
-  Skill,
-  TaskStatus,
-  Workspace,
-} from "@ai-pixel-office/domain/entities";
+import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { taskApi } from "../tasks/api.ts";
 import { skillApi } from "../skills/api.ts";
 import { agentApi } from "./api.ts";
 import { PETS } from "@ai-pixel-office/pet";
 import { PetPreview } from "../office/PetPreview.tsx";
-import { PERMISSIONS, STATUS } from "../../shared/config/presentation.ts";
+import { PERMISSIONS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
-import { toggle } from "../../shared/lib/collections.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
@@ -41,21 +33,14 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
+import { StatusPill } from "../../shared/ui/StatusPill.tsx";
 import { ModelPolicyFields } from "./ModelPolicyFields.tsx";
 import { defaultManualModel } from "./model-options.ts";
-import { petUnlockApi, type PetUnlockProgress } from "./pet-unlocks-api.ts";
+import { petUnlockApi } from "./pet-unlocks-api.ts";
+import { useAgentForm } from "./hooks/useAgentForm.ts";
+import { PetChoice } from "./components/PetChoice.tsx";
 
 const Styled = {
-  StatusPill: styled.span<{ $status: TaskStatus }>`
-    display: inline-block;
-    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-    border: 2px solid currentColor;
-    border-top-color: ${({ $status }) => STATUS[$status].color};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-    font-size: ${({ theme }) => theme.typography.fontSize.sm};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-  `,
   Roster: styled(Panel).attrs({ as: "section" })`
     margin-top: ${({ theme }) => theme.space.x6};
     padding: ${({ theme }) => theme.space.x5};
@@ -543,71 +528,6 @@ const Styled = {
       grid-template-columns: repeat(3, 1fr);
     }
   `,
-  PetChoice: styled.button<{ $selected: boolean; $locked: boolean }>`
-    min-width: 0;
-    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
-    border: 2px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-
-    ${({ $locked }) =>
-      $locked &&
-      `
-        cursor: not-allowed;
-      `}
-
-    &:hover {
-      border-color: ${({ theme }) => theme.colors.border.default};
-    }
-
-    ${({ $selected, theme }) =>
-      $selected &&
-      `
-        border-color: ${theme.colors.border.positive};
-        background: ${theme.colors.background.surfaceMuted};
-        box-shadow: 3px 3px 0 ${theme.colors.border.positive};
-      `}
-
-    strong {
-      margin-top: ${({ theme }) => theme.space.x1};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-    }
-
-    span {
-      margin-top: ${({ theme }) => theme.space.x1};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      color: ${({ theme }) => theme.colors.text.muted};
-      overflow: hidden;
-      white-space: nowrap;
-      width: 100%;
-    }
-
-    small {
-      min-height: 28px;
-      margin-top: ${({ theme }) => theme.space.x1};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      line-height: 1.3;
-    }
-  `,
-  PetPortrait: styled.div`
-    position: relative;
-
-    > strong {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      color: ${({ theme }) => theme.colors.text.primary};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.xl};
-      margin: 0;
-      text-shadow: 1px 1px 0 ${({ theme }) => theme.colors.background.surface};
-    }
-  `,
 };
 
 export function AgentsPage({ workspace }: { workspace: Workspace }) {
@@ -630,19 +550,27 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["pet-unlocks", workspace.id],
     queryFn: () => petUnlockApi.progress(workspace.id),
   });
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [avatarId, setAvatarId] = useState(PETS[0]!.id);
-  const [model, setModel] = useState<"codex" | "claude">("codex");
-  const [modelPolicy, setModelPolicy] = useState<ModelPolicy>("default");
-  const [modelName, setModelName] = useState(defaultManualModel("codex"));
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("medium");
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [permissions, setPermissions] = useState<AgentPermissions>({
-    fileRead: true,
-    fileWrite: true,
-    terminal: true,
-  });
+  const {
+    name,
+    setName,
+    role,
+    setRole,
+    model,
+    setModel,
+    modelPolicy,
+    setModelPolicy,
+    modelName,
+    setModelName,
+    reasoningEffort,
+    setReasoningEffort,
+    avatarId,
+    setAvatarId,
+    selectedSkills,
+    permissions,
+    setPermissions,
+    toggleSkill,
+    reset: resetForm,
+  } = useAgentForm();
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [templateTitle, setTemplateTitle] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
@@ -670,10 +598,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         permissions: { ...permissions, fileRead: true, terminal: true },
       }),
     onSuccess: (agent) => {
-      setName("");
-      setRole("");
-      setSelectedSkills([]);
-      setPermissions({ fileRead: true, fileWrite: true, terminal: true });
+      resetForm();
       setSelectedAgentId(agent.id);
       void queryClient.invalidateQueries({ queryKey: ["agents", workspace.id] });
     },
@@ -686,17 +611,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         .flatMap((skill) => skill.requiredPermissions ?? []),
     ),
   );
-  const toggleSkill = (skill: Skill) => {
-    const selecting = !selectedSkills.includes(skill.id);
-    setSelectedSkills(toggle(selectedSkills, skill.id));
-    if (selecting)
-      setPermissions((current) =>
-        (skill.requiredPermissions ?? []).reduce(
-          (next, permission) => ({ ...next, [permission]: true }),
-          { ...current, fileRead: true, terminal: true },
-        ),
-      );
-  };
   const selectedAgent = agents.data?.find((agent) => agent.id === selectedAgentId);
   const quickTask = useMutation({
     mutationFn: (input: {
@@ -1075,47 +989,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
   );
 }
 
-function PetChoice({
-  pet,
-  selected,
-  onSelect,
-  unlock,
-}: {
-  pet: (typeof PETS)[number];
-  selected: boolean;
-  onSelect: (id: string) => void;
-  unlock?: PetUnlockProgress;
-}) {
-  const isMissionPet = pet.unlock !== undefined;
-  const locked = isMissionPet && unlock?.unlocked !== true;
-  let unlockLabel: string | undefined;
-  if (isMissionPet) {
-    unlockLabel = "해금 조건 확인 중";
-    if (unlock) unlockLabel = unlock.hint;
-    if (unlock?.unlocked) unlockLabel = "해금 완료";
-  }
-  return (
-    <Styled.PetChoice
-      type="button"
-      $selected={selected}
-      $locked={locked}
-      aria-disabled={locked}
-      onClick={() => {
-        if (!locked) onSelect(pet.id);
-      }}
-      title={locked ? unlock?.hint : `${pet.breed}, ${pet.accessories.join(", ")}`}
-    >
-      <Styled.PetPortrait>
-        <PetPreview petId={pet.id} size={54} silhouette={locked} />
-        {locked && <strong aria-hidden="true">?</strong>}
-      </Styled.PetPortrait>
-      <strong>{pet.name}</strong>
-      <span>{locked ? "미지의 동료" : pet.breed}</span>
-      {unlockLabel && <small>{unlockLabel}</small>}
-    </Styled.PetChoice>
-  );
-}
-
 export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -1139,37 +1012,30 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
     queryFn: () => agentApi.listTaskTemplates(id),
     enabled: Boolean(id),
   });
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [description, setDescription] = useState("");
-  const [model, setModel] = useState<"codex" | "claude">("codex");
-  const [modelPolicy, setModelPolicy] = useState<ModelPolicy>("default");
-  const [modelName, setModelName] = useState(defaultManualModel("codex"));
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("medium");
-  const [avatarId, setAvatarId] = useState(PETS[0]!.id);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [permissions, setPermissions] = useState<AgentPermissions>({});
+  const {
+    name,
+    setName,
+    role,
+    setRole,
+    description,
+    setDescription,
+    model,
+    setModel,
+    modelPolicy,
+    setModelPolicy,
+    modelName,
+    setModelName,
+    reasoningEffort,
+    setReasoningEffort,
+    avatarId,
+    setAvatarId,
+    selectedSkills,
+    permissions,
+    setPermissions,
+    toggleSkill: toggleAgentSkill,
+  } = useAgentForm(agentQuery.data);
   const [templateTitle, setTemplateTitle] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
-  useEffect(() => {
-    const agent = agentQuery.data;
-    if (!agent) return;
-    setName(agent.name);
-    setRole(agent.role);
-    setDescription(agent.description ?? "");
-    setModel(agent.model);
-    setModelPolicy(agent.modelPolicy ?? "default");
-    setModelName(agent.modelName ?? defaultManualModel(agent.model));
-    setReasoningEffort(agent.reasoningEffort ?? "medium");
-    setAvatarId(agent.avatarId ?? PETS[0]!.id);
-    setSelectedSkills(agent.skillIds);
-    setPermissions({
-      ...agent.permissions,
-      fileRead: true,
-      fileWrite: agent.mode === "chat" ? true : agent.permissions.fileWrite,
-      terminal: true,
-    });
-  }, [agentQuery.data]);
   const save = useMutation({
     mutationFn: () =>
       agentApi.update(id, {
@@ -1226,17 +1092,6 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
       </BaseLayout>
     );
   const agentTasks = (tasks.data ?? []).filter((task) => task.assigneeAgentId === id);
-  const toggleAgentSkill = (skill: Skill) => {
-    const selecting = !selectedSkills.includes(skill.id);
-    setSelectedSkills(toggle(selectedSkills, skill.id));
-    if (selecting)
-      setPermissions((current) =>
-        (skill.requiredPermissions ?? []).reduce(
-          (next, permission) => ({ ...next, [permission]: true }),
-          { ...current, fileRead: true, terminal: true },
-        ),
-      );
-  };
   return (
     <BaseLayout>
       <BackButton onClick={() => navigate("/agents")}>← 에이전트 목록</BackButton>
@@ -1477,9 +1332,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
             <Styled.TaskList>
               {agentTasks.slice(0, 8).map((task) => (
                 <Link to={`/tasks/${task.id}`} key={task.id}>
-                  <Styled.StatusPill $status={task.status}>
-                    {STATUS[task.status].label}
-                  </Styled.StatusPill>
+                  <StatusPill status={task.status} />
                   <strong>{task.title}</strong>
                   <time>{relativeTime(task.updatedAt)}</time>
                 </Link>
