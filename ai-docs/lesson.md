@@ -52,3 +52,70 @@ pnpm run dev acceptance
 - `apps/desktop/dist/main.js`는 Fastify나 server 구현을 포함하지 않아야 한다.
 - production `server.cjs`는 Electron main과 별도로 실행되고 ready/shutdown 메시지 계약을 지켜야 한다.
 - Electron 종료 시 child server가 함께 종료되어야 한다.
+
+## 2026-09-04 — Label 토큰을 mono로 잘못 설계
+
+### 아쉬웠던 점
+
+`packages/design-system`의 `Label.md`를 처음에 모노스페이스로 설계했다. 배지·pill류가 모노스페이스를
+쓸 거라는 예상만으로 `Button`이 소비하는 sans 텍스트용 토큰과 배지용 모노 토큰을 하나로 묶은 것이
+원인이었다. `Button`이 `Label.md`를 쓰고 있었기 때문에 이 결정 하나로 `apps/web` 전체 버튼 43개의
+폰트가 한꺼번에 모노스페이스로 바뀌는 회귀가 났다.
+
+### 다음 작업의 원칙
+
+- 폰트 패밀리처럼 화면 전반에 영향을 주는 design token은 이름(`Label.md`)이 아니라 실제 소비처를
+  먼저 확인하고 값을 정한다. "배지에 어울릴 것 같다"는 예상 용도로 공용 토큰의 기본값을 정하지
+  않는다.
+- 공용 typography 토큰을 바꿀 때는 그 토큰을 쓰는 컴포넌트 목록을 먼저 grep해 영향 범위를
+  확인한다.
+
+### 유지해야 할 회귀 조건
+
+- `Label.md`(sans, `Button`이 소비)와 `Label.mono`(모노스페이스, 배지/pill류)는 서로 다른 토큰으로
+  유지되어야 한다.
+
+## 2026-09-05 — Popover가 조상 stacking context에 갇히는 회귀
+
+### 아쉬웠던 점
+
+`PixelOffice`의 `AgentSlot`처럼 `transform`을 쓰는 CSS `animation`이 걸린 조상 안에 `Popover`의
+panel을 그대로 렌더링했다. 네이티브 Popover API(`popover="auto"`) 스펙상 top layer 승격이 그 조상의
+stacking context 안에 갇혀버려서, 형제 `AgentSlot`의 다른 엘리먼트가 popover 위를 시각적으로 덮었다.
+그 결과 popover 안의 input을 클릭해도 실제로는 덮고 있던 엘리먼트가 클릭을 가로채 "바깥 클릭"으로
+오인되어 popover가 즉시 닫혔다. 렌더링 순서와 z-index만 봐서는 원인이 보이지 않았고, CDP로 실제
+클릭을 재현해서야 확정할 수 있었다.
+
+### 다음 작업의 원칙
+
+- 네이티브 Popover API나 `<dialog>`처럼 top layer 승격에 의존하는 요소는 `transform`이 걸린 조상
+  안에 두면 안 된다. 의심되면 렌더링 위치를 `document.body`로 옮겨 재현되는지 먼저 확인한다.
+- "닫혀야 할 때 안 닫힌다"가 아니라 "열려 있어야 할 때 닫힌다"류의 버그는 이벤트 리스너 로직보다
+  stacking context/top layer 문제를 먼저 의심한다. DevTools의 Elements 패널 z-index만으로는
+  안 보이므로 CDP나 실제 클릭 좌표 재현이 필요할 수 있다.
+
+### 유지해야 할 회귀 조건
+
+- `Popover`의 panel은 `createPortal`로 `document.body`에 렌더링되어야 한다. 위치 계산 로직과 이
+  렌더링 위치를 분리해서 유지한다.
+
+## 2026-09-05 — HelperText margin 이중 보정
+
+### 아쉬웠던 점
+
+`HelperText`가 처음에 `margin: -4px 0 15px`로 앞 요소의 margin과 상쇄하도록 설계돼 있었다. 그런데
+앞 요소가 이미 자기 `margin-bottom`을 갖고 있어서, 두 컴포넌트가 서로 다른 방향으로 같은 간격을
+보정하려는 모순이 생겼다. 원본 상태(레이아웃 간격)를 한 컴포넌트가 아니라 두 컴포넌트가 나눠
+가지면서 실제 렌더링 결과를 예측하기 어려워졌다.
+
+### 다음 작업의 원칙
+
+- 공용 텍스트/leaf 컴포넌트에 배치 목적의 margin을 기본값으로 넣지 않는다. margin은 그 컴포넌트를
+  실제로 배치하는 부모(grid `gap`이 있는 컨테이너, 또는 caller가 만든 wrapper)가 문맥에 맞게
+  책임진다.
+- 간격이 안 맞는 버그를 고칠 때 반대 방향 margin을 추가해 상쇄하는 방식을 먼저 의심한다. 두
+  컴포넌트가 같은 간격을 서로 다르게 보정하고 있지 않은지 확인한 뒤 고친다.
+
+### 유지해야 할 회귀 조건
+
+- `HelperText`는 자체 margin을 갖지 않아야 한다.
