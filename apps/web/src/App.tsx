@@ -1,13 +1,13 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
 import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import styled from "styled-components";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { systemApi } from "./features/system/api.ts";
 import { workspaceApi } from "./features/workspaces/api.ts";
 import { TaskNotifications } from "./features/notifications/TaskNotifications.tsx";
-import { useWorkspaceEvent } from "./shared/hooks/useWorkspaceEvent.ts";
+import { useLiveUpdates } from "./shared/hooks/useLiveUpdates.ts";
 import { messageOf } from "./shared/lib/errors.ts";
 import { FullScreenMessage } from "./shared/ui/FullScreenMessage.tsx";
 import { PageLoading } from "./shared/ui/PageLoading.tsx";
@@ -85,25 +85,6 @@ const Styled = {
     min-width: 0;
   `,
 };
-
-const LIVE_UPDATE_EVENTS = [
-  "task.status_changed",
-  "task.result_updated",
-  "agent.status_changed",
-  "activity.created",
-  "approval.requested",
-  "run.progress",
-];
-
-function useLiveUpdates(workspaceId: string) {
-  const queryClient = useQueryClient();
-  useWorkspaceEvent(workspaceId, LIVE_UPDATE_EVENTS, () => {
-    void queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] });
-    void queryClient.invalidateQueries({ queryKey: ["activities", workspaceId] });
-    void queryClient.invalidateQueries({ queryKey: ["task"] });
-    void queryClient.invalidateQueries({ queryKey: ["pet-unlocks", workspaceId] });
-  });
-}
 
 export function App() {
   const workspace = useWorkspace();

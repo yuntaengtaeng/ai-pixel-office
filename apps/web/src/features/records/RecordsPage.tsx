@@ -10,10 +10,11 @@ import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { recordApi } from "./api.ts";
 import { taskApi } from "../tasks/api.ts";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { MarkdownContent } from "../../shared/ui/MarkdownContent.tsx";
+import { useSelectedDocumentId } from "./hooks/useSelectedDocumentId.ts";
 
 const Styled = {
   Toolbar: styled.div`
@@ -284,11 +285,9 @@ function download(document: KnowledgeDocument) {
 
 export function RecordsPage({ workspace }: { workspace: Workspace }) {
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialogProps } = useConfirmDialog();
   const fileInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string>();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [viewMode, setViewMode] = useState<"preview" | "edit">("edit");
@@ -300,13 +299,8 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["tasks", workspace.id],
     queryFn: () => taskApi.list(workspace.id),
   });
+  const { selectedId, select } = useSelectedDocumentId(records.data);
   const selected = records.data?.find((document) => document.id === selectedId);
-  useEffect(() => {
-    const documentId = searchParams.get("document");
-    if (documentId && records.data?.some((document) => document.id === documentId)) {
-      setSelectedId(documentId);
-    }
-  }, [records.data, searchParams]);
   const visible = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("ko-KR");
     return (records.data ?? []).filter(
@@ -329,7 +323,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
         ? recordApi.update(workspace.id, selected.id, { title: title.trim(), content })
         : recordApi.create({ workspaceId: workspace.id, title: title.trim(), content }),
     onSuccess: (document) => {
-      setSelectedId(document.id);
+      select(document.id);
       setViewMode("preview");
       refresh();
     },
@@ -337,14 +331,14 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
   const remove = useMutation({
     mutationFn: () => recordApi.remove(workspace.id, selected!.id),
     onSuccess: () => {
-      setSelectedId(undefined);
+      select(undefined);
       refresh();
     },
   });
   const importRecord = useMutation({
     mutationFn: async (file: File) => recordApi.import(workspace.id, file.name, await file.text()),
     onSuccess: (document) => {
-      setSelectedId(document.id);
+      select(document.id);
       refresh();
     },
   });
@@ -357,10 +351,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
         action={
           <Button
             $variant="primary"
-            onClick={() => {
-              setSelectedId(undefined);
-              setSearchParams({});
-            }}
+            onClick={() => select(undefined)}
           >
             + 새 문서
           </Button>
@@ -399,10 +390,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
               key={document.id}
               type="button"
               $selected={document.id === selectedId}
-              onClick={() => {
-                setSelectedId(document.id);
-                setSearchParams({ document: document.id });
-              }}
+              onClick={() => select(document.id)}
             >
               <strong>{document.title}</strong>
               <span>
