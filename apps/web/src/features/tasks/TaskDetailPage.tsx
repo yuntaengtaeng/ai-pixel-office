@@ -12,6 +12,7 @@ import { PetPreview } from "../office/PetPreview.tsx";
 import { STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
+import { josa } from "../../shared/lib/korean.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
@@ -643,7 +644,8 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       <Styled.PrimaryActionBar>
         {createRecord.isPending ? (
           <Styled.Organizing>
-            <b aria-hidden="true">▦</b> {agent?.name ?? "AI"}가 기록을 주섬주섬 정리하고 있어요.
+            <b aria-hidden="true">▦</b> {agent?.name ?? "AI"}
+            {josa(agent?.name ?? "AI", "이/가")} 기록을 문서로 정리하고 있어요.
           </Styled.Organizing>
         ) : (
           <span>

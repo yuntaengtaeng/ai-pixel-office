@@ -27,11 +27,11 @@ const STATUS_LABEL: Record<TaskStatus | "idle", string> = {
   idle: "쉬는 중",
   todo: "준비 중",
   working: "작업 중",
-  needs_review: "검토 부탁!",
+  needs_review: "검토 부탁해요",
   needs_input: "질문 있어요",
   blocked: "막혔어요",
-  done: "완료!",
-  failed: "문제 발생",
+  done: "작업 마쳤어요",
+  failed: "문제가 생겼어요",
 };
 
 const IDLE_MESSAGES = [
