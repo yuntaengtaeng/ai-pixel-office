@@ -1,7 +1,6 @@
 import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
 import {
-  DomainError,
   parseCreateInput,
   parseCreateTask,
   parseUpdateInput,
@@ -59,9 +58,6 @@ export const inputRoutes: FastifyPluginAsyncZod = async (app) => {
         (await app.repository.getInput(request.params.id)) ??
         notFound("Input", request.params.id);
       const body = request.body ?? {};
-      if ("title" in body && typeof body.title !== "string" && body.title !== undefined) {
-        throw new DomainError("INVALID_FIELD", "title must be a string");
-      }
       const parsed = parseCreateTask({
         ...body,
         workspaceId: captured.workspaceId,

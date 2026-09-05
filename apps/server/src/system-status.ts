@@ -75,7 +75,7 @@ export async function getSystemStatus(): Promise<SystemStatus> {
       integration.name,
       {
         codex: codexMcpStatus(codexMcpValue, integration),
-        claude: claudeMcpStatus(claudeMcpOutput, integration),
+        claude: claudeMcpStatus(claudeMcpList.ok, claudeMcpOutput, integration),
       },
     ]),
   ) as Record<McpIntegrationName, McpIntegrationStatus>;
@@ -192,8 +192,12 @@ function mcpServerStatusFromEntry(server: Record<string, unknown>): McpServerSta
   };
 }
 
-function claudeMcpStatus(output: string, integration: McpIntegrationConfig): McpServerStatus {
-  const configured = integration.claudeNamePattern.test(output);
+function claudeMcpStatus(
+  ok: boolean,
+  output: string,
+  integration: McpIntegrationConfig,
+): McpServerStatus {
+  const configured = ok && integration.claudeNamePattern.test(output);
   const authenticated = configured && integration.claudeAuthenticatedPattern.test(output)
     ? true
     : undefined;

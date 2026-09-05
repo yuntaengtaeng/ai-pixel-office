@@ -27,11 +27,12 @@ const updateBody = z.object({
 });
 
 function resolveProjectDirectory(value: string | undefined): string | undefined {
-  if (value === undefined || value === "") return undefined;
-  if (!isAbsolute(value)) {
+  const trimmed = value?.trim();
+  if (trimmed === undefined || trimmed === "") return undefined;
+  if (!isAbsolute(trimmed)) {
     throw new DomainError("INVALID_DIRECTORY", "프로젝트 폴더는 절대 경로로 입력해 주세요", 422);
   }
-  const directory = resolve(value);
+  const directory = resolve(trimmed);
   try {
     if (!statSync(directory).isDirectory()) throw new Error("not directory");
   } catch {

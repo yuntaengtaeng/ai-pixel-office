@@ -32,7 +32,11 @@ export type AppDependencies = {
 };
 
 export function createHttpServer(dependencies: AppDependencies): FastifyInstance {
-  const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
+  // logger: false makes request.log a no-op logger (Fastify swaps in an abstract no-op
+  // instance), so the error handler's request.log.error(error) call below would silently
+  // print nothing. level: "error" keeps per-request access logs off while still emitting our
+  // own .error() calls.
+  const app = Fastify({ logger: { level: "error" }, bodyLimit: 1024 * 1024 });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 

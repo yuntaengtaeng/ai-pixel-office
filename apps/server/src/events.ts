@@ -22,10 +22,7 @@ export class EventBus {
     const group = this.clients.get(workspaceId) ?? new Set<ServerResponse>();
     group.add(response);
     this.clients.set(workspaceId, group);
-    const unsubscribe = () => {
-      group.delete(response);
-      if (group.size === 0) this.clients.delete(workspaceId);
-    };
+    const unsubscribe = () => this.unsubscribe(workspaceId, response);
     // A broken SSE socket (client killed the connection, network drop) emits "error" on the
     // response stream; Node re-throws an unhandled EventEmitter "error" as a process crash, so
     // this listener is required, not optional cleanup.
@@ -42,8 +39,15 @@ export class EventBus {
       try {
         response.write(`event: ${event.type}\ndata: ${JSON.stringify(message)}\n\n`);
       } catch {
-        group.delete(response);
+        this.unsubscribe(event.workspaceId, response);
       }
     }
+  }
+
+  private unsubscribe(workspaceId: string, response: ServerResponse): void {
+    const group = this.clients.get(workspaceId);
+    if (!group) return;
+    group.delete(response);
+    if (group.size === 0) this.clients.delete(workspaceId);
   }
 }
