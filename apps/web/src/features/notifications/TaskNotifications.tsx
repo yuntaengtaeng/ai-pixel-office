@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import type { Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { usePageVisibility } from "../../shared/hooks/usePageVisibility.ts";
+import { useWorkspaceEvent } from "../../shared/hooks/useWorkspaceEvent.ts";
 
 type SnackbarItem = {
   id: string;
@@ -267,47 +268,35 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
     [dismiss, navigate],
   );
 
-  useEffect(() => {
-    const stream = new EventSource(`/api/events?workspaceId=${encodeURIComponent(workspaceId)}`);
-    const parseTask = (event: Event): Task | undefined => {
-      try {
-        const envelope = JSON.parse((event as MessageEvent<string>).data) as {
-          data?: { task?: Task };
-        };
-        return envelope.data?.task;
-      } catch {
-        return undefined;
+  const parseTask = (event: MessageEvent<string>): Task | undefined => {
+    try {
+      const envelope = JSON.parse(event.data) as { data?: { task?: Task } };
+      return envelope.data?.task;
+    } catch {
+      return undefined;
+    }
+  };
+
+  useWorkspaceEvent(workspaceId, "task.status_changed", (event) => {
+    const task = parseTask(event);
+    if (task) show({ kind: "task", task });
+  });
+
+  useWorkspaceEvent(workspaceId, "session.limit_warning", (event) => {
+    const task = parseTask(event);
+    if (task) show({ kind: "session_warning", task });
+  });
+
+  useWorkspaceEvent(workspaceId, "session.limit_reached", (event) => {
+    try {
+      const envelope = JSON.parse(event.data) as { data?: { task?: Task; reason?: string } };
+      if (envelope.data?.task) {
+        show({ kind: "session_reached", task: envelope.data.task, reason: envelope.data.reason });
       }
-    };
-    const onTask = (event: Event) => {
-      const task = parseTask(event);
-      if (task) show({ kind: "task", task });
-    };
-    const onSessionWarning = (event: Event) => {
-      const task = parseTask(event);
-      if (task) show({ kind: "session_warning", task });
-    };
-    const onSessionReached = (event: Event) => {
-      try {
-        const envelope = JSON.parse((event as MessageEvent<string>).data) as {
-          data?: { task?: Task; reason?: string };
-        };
-        if (envelope.data?.task) {
-          show({
-            kind: "session_reached",
-            task: envelope.data.task,
-            reason: envelope.data.reason,
-          });
-        }
-      } catch {
-        // A malformed optional notification must not interrupt live task updates.
-      }
-    };
-    stream.addEventListener("task.status_changed", onTask);
-    stream.addEventListener("session.limit_warning", onSessionWarning);
-    stream.addEventListener("session.limit_reached", onSessionReached);
-    return () => stream.close();
-  }, [show, workspaceId]);
+    } catch {
+      // 파싱 실패해도 다른 실시간 이벤트 구독에 영향 주지 않도록 이 알림만 무시
+    }
+  });
 
   const requestPermission = async () => {
     if (!("Notification" in window)) {

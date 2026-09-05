@@ -7,6 +7,7 @@ import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { systemApi } from "./features/system/api.ts";
 import { workspaceApi } from "./features/workspaces/api.ts";
 import { TaskNotifications } from "./features/notifications/TaskNotifications.tsx";
+import { useWorkspaceEvent } from "./shared/hooks/useWorkspaceEvent.ts";
 import { messageOf } from "./shared/lib/errors.ts";
 import { FullScreenMessage } from "./shared/ui/FullScreenMessage.tsx";
 import { PageLoading } from "./shared/ui/PageLoading.tsx";
@@ -85,27 +86,23 @@ const Styled = {
   `,
 };
 
+const LIVE_UPDATE_EVENTS = [
+  "task.status_changed",
+  "task.result_updated",
+  "agent.status_changed",
+  "activity.created",
+  "approval.requested",
+  "run.progress",
+];
+
 function useLiveUpdates(workspaceId: string) {
   const queryClient = useQueryClient();
-  useEffect(() => {
-    const stream = new EventSource(`/api/events?workspaceId=${encodeURIComponent(workspaceId)}`);
-    const refresh = () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] });
-      void queryClient.invalidateQueries({ queryKey: ["activities", workspaceId] });
-      void queryClient.invalidateQueries({ queryKey: ["task"] });
-      void queryClient.invalidateQueries({ queryKey: ["pet-unlocks", workspaceId] });
-    };
-    for (const event of [
-      "task.status_changed",
-      "task.result_updated",
-      "agent.status_changed",
-      "activity.created",
-      "approval.requested",
-      "run.progress",
-    ])
-      stream.addEventListener(event, refresh);
-    return () => stream.close();
-  }, [queryClient, workspaceId]);
+  useWorkspaceEvent(workspaceId, LIVE_UPDATE_EVENTS, () => {
+    void queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] });
+    void queryClient.invalidateQueries({ queryKey: ["activities", workspaceId] });
+    void queryClient.invalidateQueries({ queryKey: ["task"] });
+    void queryClient.invalidateQueries({ queryKey: ["pet-unlocks", workspaceId] });
+  });
 }
 
 export function App() {
