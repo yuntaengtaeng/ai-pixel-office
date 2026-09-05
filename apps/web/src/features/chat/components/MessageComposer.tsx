@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, TextArea } from "@ai-pixel-office/design-system";
 import { ChatInputBar } from "./ChatFrame.tsx";
+import { isSubmitKey } from "../../../shared/lib/keyboard.ts";
 
 /** draft를 컴포저 내부에 가둬서, 부모는 확정된 메시지 문자열만 받고 draft 상태/초기화를 신경 쓰지 않아도 됨 */
 export function MessageComposer({
@@ -21,10 +22,16 @@ export function MessageComposer({
   autoFocus?: boolean;
 }) {
   const [draft, setDraft] = useState("");
+  const submittingRef = useRef(false);
+
+  useEffect(() => {
+    if (!pending) submittingRef.current = false;
+  }, [pending]);
 
   const submit = () => {
     const message = draft.trim();
-    if (!message || disabled || pending) return;
+    if (!message || disabled || pending || submittingRef.current) return;
+    submittingRef.current = true;
     setDraft("");
     onSend(message);
   };
@@ -40,7 +47,7 @@ export function MessageComposer({
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
+          if (isSubmitKey(event)) {
             event.preventDefault();
             submit();
           }

@@ -8,6 +8,7 @@ import type { Input, Workspace } from "@ai-pixel-office/domain/entities";
 import { inputApi } from "./api.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
+import { isSubmitKey } from "../../shared/lib/keyboard.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
@@ -305,13 +306,7 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
           value={content}
           onChange={(event) => setContent(event.target.value)}
           onKeyDown={(event) => {
-            if (
-              (event.ctrlKey || event.metaKey) &&
-              event.key === "Enter" &&
-              !event.nativeEvent.isComposing &&
-              content.trim() &&
-              !create.isPending
-            ) {
+            if (isSubmitKey(event, "modifier-enter") && content.trim() && !create.isPending) {
               event.preventDefault();
               event.currentTarget.form?.requestSubmit();
             }

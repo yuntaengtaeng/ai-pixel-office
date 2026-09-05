@@ -1,6 +1,7 @@
 import { fork, spawn, type ChildProcess } from "node:child_process";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { runtimeEnvironment } from "../../../scripts/runtime-spike/process.ts";
 import type { RuntimeName } from "./preload.ts";
 
 let mainWindow: BrowserWindow | undefined;
@@ -26,6 +27,7 @@ function startPackagedServer(): Promise<string> {
       PIXEL_OFFICE_SERVER_PORT: "0",
       PIXEL_OFFICE_DATABASE_PATH: join(app.getPath("userData"), "ai-pixel-office.sqlite"),
       PIXEL_OFFICE_GENERAL_WORKING_DIRECTORY: join(app.getPath("userData"), "general"),
+      PIXEL_OFFICE_RUNTIME_LOG_DIRECTORY: join(app.getPath("userData"), "runtime-logs"),
       PIXEL_OFFICE_STATIC_ROOT: join(process.resourcesPath, "web"),
     },
     stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -103,7 +105,10 @@ function installRuntimeCli(runtime: RuntimeName): Promise<InstallRuntimeResult> 
           stdio: ["ignore", "pipe", "pipe"],
           windowsHide: true,
         })
-      : spawn(npmCommand, args, { stdio: ["ignore", "pipe", "pipe"] });
+      : spawn(npmCommand, args, {
+          stdio: ["ignore", "pipe", "pipe"],
+          env: runtimeEnvironment(),
+        });
 
   return new Promise((resolve) => {
     let stderr = "";
@@ -134,7 +139,11 @@ function launchRuntimeLogin(runtime: RuntimeName): { started: true } {
           stdio: "ignore",
           windowsHide: true,
         })
-      : spawn(command, args, { detached: true, stdio: "ignore" });
+      : spawn(command, args, {
+          detached: true,
+          stdio: "ignore",
+          env: runtimeEnvironment(),
+        });
   child.unref();
   return { started: true };
 }

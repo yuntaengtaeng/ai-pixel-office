@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { EventBus } from "../apps/server/src/events.ts";
 import { createHttpServer } from "../apps/server/src/http.ts";
 import { openDatabase } from "../apps/server/src/database.ts";
 import { Orchestrator } from "../apps/server/src/orchestrator.ts";
 import { Repository } from "../apps/server/src/repository/index.ts";
-import { resolveGeneralWorkingDirectory } from "../apps/server/src/index.ts";
+import {
+  resolveGeneralWorkingDirectory,
+  resolveRuntimeLogDirectory,
+} from "../apps/server/src/index.ts";
 import type { RuntimeAdapter } from "../apps/server/src/runtime/index.ts";
 
 const inactiveRuntime: RuntimeAdapter = {
@@ -23,6 +27,18 @@ const inactiveRuntime: RuntimeAdapter = {
 
 test("rejects a relative general working directory", () => {
   assert.throws(() => resolveGeneralWorkingDirectory("."), /absolute path/);
+});
+
+test("keeps runtime logs under an absolute application-owned directory", () => {
+  const generalDirectory = join(tmpdir(), "ai-pixel-office", "general");
+  assert.equal(
+    resolveRuntimeLogDirectory(undefined, generalDirectory),
+    join(generalDirectory, ".runtime-logs"),
+  );
+  assert.throws(
+    () => resolveRuntimeLogDirectory(".runtime-logs", generalDirectory),
+    /absolute path/,
+  );
 });
 
 test("serves workspace, skill, agent, and task CRUD", async () => {

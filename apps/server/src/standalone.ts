@@ -14,6 +14,7 @@ async function main(): Promise<void> {
     databasePath: process.env.PIXEL_OFFICE_DATABASE_PATH,
     staticRoot: process.env.PIXEL_OFFICE_STATIC_ROOT,
     generalWorkingDirectory: process.env.PIXEL_OFFICE_GENERAL_WORKING_DIRECTORY,
+    runtimeLogDirectory: process.env.PIXEL_OFFICE_RUNTIME_LOG_DIRECTORY,
   });
   process.send?.({ type: "ready", address: runtime.address });
 

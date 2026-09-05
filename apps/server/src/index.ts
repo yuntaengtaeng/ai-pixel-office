@@ -18,18 +18,24 @@ export async function startServer(
     databasePath?: string;
     staticRoot?: string;
     generalWorkingDirectory?: string;
+    runtimeLogDirectory?: string;
   } = {},
 ) {
   const generalWorkingDirectory = resolveGeneralWorkingDirectory(options.generalWorkingDirectory);
+  const runtimeLogDirectory = resolveRuntimeLogDirectory(
+    options.runtimeLogDirectory,
+    generalWorkingDirectory,
+  );
   mkdirSync(generalWorkingDirectory, { recursive: true });
+  mkdirSync(runtimeLogDirectory, { recursive: true });
   const repository = new Repository(openDatabase(options.databasePath));
   const recoveredRuns = await repository.recoverInterruptedRuns();
   if (recoveredRuns > 0)
     console.warn(`Recovered ${recoveredRuns} interrupted AgentRun(s) as failed`);
   const events = new EventBus();
   const runtime = new RuntimeRouter({
-    codex: new CodexRuntimeAdapter(),
-    claude: new ClaudeRuntimeAdapter(),
+    codex: new CodexRuntimeAdapter(runtimeLogDirectory),
+    claude: new ClaudeRuntimeAdapter(runtimeLogDirectory),
   });
   const knowledgeDocuments = new KnowledgeDocumentStore(generalWorkingDirectory);
   const orchestrator = new Orchestrator(repository, runtime, events, {
@@ -56,6 +62,17 @@ export function resolveGeneralWorkingDirectory(configured?: string): string {
   const directory = configured ?? join(tmpdir(), "ai-pixel-office", "general");
   if (!isAbsolute(directory)) {
     throw new Error("generalWorkingDirectory must be an absolute path");
+  }
+  return resolve(directory);
+}
+
+export function resolveRuntimeLogDirectory(
+  configured: string | undefined,
+  generalWorkingDirectory: string,
+): string {
+  const directory = configured ?? join(generalWorkingDirectory, ".runtime-logs");
+  if (!isAbsolute(directory)) {
+    throw new Error("runtimeLogDirectory must be an absolute path");
   }
   return resolve(directory);
 }

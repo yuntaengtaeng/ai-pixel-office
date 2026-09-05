@@ -12,6 +12,7 @@ import { PetPreview } from "../office/PetPreview.tsx";
 import { STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
+import { isSubmitKey } from "../../shared/lib/keyboard.ts";
 import { josa } from "../../shared/lib/korean.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
@@ -711,9 +712,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                   onChange={(event) => setTaskBrief(event.target.value)}
                   onKeyDown={(event) => {
                     if (
-                      event.key === "Enter" &&
-                      !event.shiftKey &&
-                      !event.nativeEvent.isComposing &&
+                      isSubmitKey(event) &&
                       agent &&
                       !missingRuntimePermissions &&
                       !run.isPending

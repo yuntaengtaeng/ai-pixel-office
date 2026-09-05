@@ -9,6 +9,7 @@ import { localizeSkillCategory } from "./presentation.ts";
 import { PERMISSIONS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
+import { isSubmitKey } from "../../shared/lib/keyboard.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
@@ -308,13 +309,7 @@ export function SkillsPage({ workspace }: { workspace: Workspace }) {
                 value={brief}
                 onChange={(event) => setBrief(event.target.value)}
                 onKeyDown={(event) => {
-                  if (
-                    (event.ctrlKey || event.metaKey) &&
-                    event.key === "Enter" &&
-                    !event.nativeEvent.isComposing &&
-                    brief.trim() &&
-                    !draft.isPending
-                  ) {
+                  if (isSubmitKey(event, "modifier-enter") && brief.trim() && !draft.isPending) {
                     event.preventDefault();
                     draft.mutate();
                   }

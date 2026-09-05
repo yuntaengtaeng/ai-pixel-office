@@ -44,6 +44,8 @@ Runtime의 작업 디렉터리는 Task의 `projectId` 하나로 결정한다. �
 `Project.path`에서 실행해 해당 프로젝트의 Agent 지침, Skill, 설정을 발견한다. 프로젝트를 선택하지 않은
 Task는 Electron `userData/general`(개발 server는 별도의 임시 general 경로)에서 실행해 제품 개발 저장소나
 다른 프로젝트의 설정이 유입되지 않게 한다. 사용자 홈, 인증, runtime 전역 설정은 변경하지 않는다.
+패키징된 앱의 runtime JSONL 로그는 프로세스 현재 디렉터리의 상대경로가 아니라 Electron이 전달한
+`userData/runtime-logs` 절대경로에 저장한다. 개발 server는 general 폴더 아래 `.runtime-logs`를 사용한다.
 `task`/`agent`/`workspace`의 기존 `workingDirectory`는 호환 데이터일 뿐 실행 fallback으로 사용하지 않으며,
 새 API와 UI에서도 더 이상 받지 않는다. 각 `agent_runs` 행은 실행 당시의 `scopeType`(`general` 또는
 `project`), project ID와 실제 작업 디렉터리를 기록한다. 첫 run 이후 이 세 값이 달라지면 retry, 변경
