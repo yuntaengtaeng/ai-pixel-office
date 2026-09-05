@@ -4,12 +4,12 @@ import test from "node:test";
 import { EventBus } from "../apps/server/src/events.ts";
 import { openDatabase } from "../apps/server/src/database.ts";
 import { Orchestrator } from "../apps/server/src/orchestrator.ts";
-import { Repository } from "../apps/server/src/repository.ts";
+import { Repository } from "../apps/server/src/repository/index.ts";
 import type {
   RuntimeAdapter,
   RuntimeCallbacks,
   RuntimeRunInput,
-} from "../apps/server/src/runtime.ts";
+} from "../apps/server/src/runtime/index.ts";
 import type { CodexSpikeResult } from "../scripts/runtime-spike/codex.ts";
 import type { ApprovalDecision } from "../scripts/runtime-spike/types.ts";
 

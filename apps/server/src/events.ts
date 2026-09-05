@@ -22,17 +22,28 @@ export class EventBus {
     const group = this.clients.get(workspaceId) ?? new Set<ServerResponse>();
     group.add(response);
     this.clients.set(workspaceId, group);
-    response.write(`event: connected\ndata: ${JSON.stringify({ workspaceId })}\n\n`);
-    return () => {
+    const unsubscribe = () => {
       group.delete(response);
       if (group.size === 0) this.clients.delete(workspaceId);
     };
+    // A broken SSE socket (client killed the connection, network drop) emits "error" on the
+    // response stream; Node re-throws an unhandled EventEmitter "error" as a process crash, so
+    // this listener is required, not optional cleanup.
+    response.on("error", unsubscribe);
+    response.write(`event: connected\ndata: ${JSON.stringify({ workspaceId })}\n\n`);
+    return unsubscribe;
   }
 
   publish(event: Omit<RealtimeEvent, "createdAt">): void {
     const message: RealtimeEvent = { ...event, createdAt: new Date().toISOString() };
-    for (const response of this.clients.get(event.workspaceId) ?? []) {
-      response.write(`event: ${event.type}\ndata: ${JSON.stringify(message)}\n\n`);
+    const group = this.clients.get(event.workspaceId);
+    if (!group) return;
+    for (const response of group) {
+      try {
+        response.write(`event: ${event.type}\ndata: ${JSON.stringify(message)}\n\n`);
+      } catch {
+        group.delete(response);
+      }
     }
   }
 }

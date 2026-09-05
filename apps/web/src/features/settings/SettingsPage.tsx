@@ -329,21 +329,21 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
               />
               <ConnectionCard
                 name="Figma MCP · Codex"
-                installed={status.data.figma.configured}
+                installed={status.data.mcp.figma.codex.configured}
                 connected={
-                  status.data.figma.configured &&
-                  status.data.figma.enabled &&
-                  status.data.figma.authenticated === true
+                  status.data.mcp.figma.codex.configured &&
+                  status.data.mcp.figma.codex.enabled &&
+                  status.data.mcp.figma.codex.authenticated === true
                 }
-                detail={status.data.figma.detail}
+                detail={status.data.mcp.figma.codex.detail}
                 command="codex mcp add figma --url https://mcp.figma.com/mcp"
                 secondaryCommand="codex mcp login figma"
               />
               <ConnectionCard
                 name="Figma · Claude"
-                installed={status.data.figma.claudeConfigured}
-                connected={status.data.figma.claudeAuthenticated === true}
-                detail={status.data.figma.claudeDetail}
+                installed={status.data.mcp.figma.claude.configured}
+                connected={status.data.mcp.figma.claude.authenticated === true}
+                detail={status.data.mcp.figma.claude.detail}
                 command="claude mcp add --transport http --scope user figma-remote-mcp https://mcp.figma.com/mcp"
                 secondaryCommand="claude"
               />

@@ -1,18 +1,22 @@
 import { post, request } from "../../shared/api/client.ts";
 
+export type McpServerStatus = {
+  configured: boolean;
+  enabled: boolean;
+  authenticated?: boolean;
+  detail: string;
+};
+
+export type McpIntegrationStatus = {
+  codex: McpServerStatus;
+  claude: McpServerStatus;
+};
+
 export type SystemStatus = {
   serverWorkingDirectory: string;
   codex: { installed: boolean; version?: string; authenticated: boolean; detail: string };
   claude: { installed: boolean; version?: string; authenticated: boolean; detail: string };
-  figma: {
-    configured: boolean;
-    enabled: boolean;
-    authenticated?: boolean;
-    detail: string;
-    claudeConfigured: boolean;
-    claudeAuthenticated?: boolean;
-    claudeDetail: string;
-  };
+  mcp: Record<"figma", McpIntegrationStatus>;
 };
 
 export const systemApi = {

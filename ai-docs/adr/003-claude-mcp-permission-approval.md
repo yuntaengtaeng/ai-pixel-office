@@ -6,14 +6,14 @@ Proposed — 2026-09-04
 
 ## 맥락
 
-`ClaudeRuntimeAdapter`(`apps/server/src/claude-runtime.ts`)는 Claude CLI를 `-p`(print) 헤드리스
+`ClaudeRuntimeAdapter`(`apps/server/src/runtime/claude.ts`)는 Claude CLI를 `-p`(print) 헤드리스
 모드로 실행한다. 프롬프트를 stdin에 한 번 쓰고 즉시 닫는 구조(`child.stdin.end(input.prompt)`)라,
 실행 도중 도구 사용 승인을 사람에게 되물어볼 채널이 없다. 그래서 현재는 `--permission-mode
 dontAsk`로 모든 승인을 자동 통과시키고, 대신 `--allowedTools`로 도구 카테고리 단위(Read/Glob/Grep,
 쓰기 가능 시 Edit/Write/NotebookEdit, Bash, 옵션별 WebFetch/WebSearch/Figma MCP)만 굵게 제한한다.
 `resolveApproval()`도 항상 `false`를 반환하는 스텁이다.
 
-반면 Codex 어댑터(`apps/server/src/runtime.ts`)는 `codex app-server`의 지속 JSON-RPC 연결을 쓰기
+반면 Codex 어댑터(`apps/server/src/runtime/codex.ts`)는 `codex app-server`의 지속 JSON-RPC 연결을 쓰기
 때문에 `onApprovalRequest`로 실행 중간에 승인을 요청하고, UI 이벤트(`approval.requested`)와
 `orchestrator.resolveApproval()`을 거쳐 사람이 승인/거부하면 그 결과로 실행을 이어갈 수 있다. 두
 런타임의 승인 정밀도가 다르다.

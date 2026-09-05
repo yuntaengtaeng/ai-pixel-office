@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   createClaudeNormalizationState,
   normalizeClaudeMessage,
-} from "../apps/server/src/claude-runtime.ts";
+} from "../apps/server/src/runtime/claude.ts";
 import { quoteWindowsCmdArgument } from "../scripts/runtime-spike/process.ts";
 
 test("keeps Claude CLI option names unquoted on Windows", () => {

@@ -5,9 +5,9 @@ import { EventBus } from "../apps/server/src/events.ts";
 import { createHttpServer } from "../apps/server/src/http.ts";
 import { openDatabase } from "../apps/server/src/database.ts";
 import { Orchestrator } from "../apps/server/src/orchestrator.ts";
-import { Repository } from "../apps/server/src/repository.ts";
+import { Repository } from "../apps/server/src/repository/index.ts";
 import { resolveGeneralWorkingDirectory } from "../apps/server/src/index.ts";
-import type { RuntimeAdapter } from "../apps/server/src/runtime.ts";
+import type { RuntimeAdapter } from "../apps/server/src/runtime/index.ts";
 
 const inactiveRuntime: RuntimeAdapter = {
   async run() {

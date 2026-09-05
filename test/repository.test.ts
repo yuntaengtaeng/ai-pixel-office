@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { openDatabase } from "../apps/server/src/database.ts";
-import { Repository } from "../apps/server/src/repository.ts";
+import { Repository } from "../apps/server/src/repository/index.ts";
 
 test("persists the MVP domain and normalized activity", async () => {
   const repository = new Repository(openDatabase(":memory:"));

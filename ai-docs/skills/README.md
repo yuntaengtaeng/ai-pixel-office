@@ -6,6 +6,7 @@
 ## 사용 가능한 스킬
 
 - [`frontend-code-style`](./frontend-code-style/SKILL.md): TypeScript, JavaScript, React 코드 작성 및 리뷰
+- [`backend-server-code-style`](./backend-server-code-style/SKILL.md): apps/server(Fastify) 코드 작성 및 리뷰
 - [`pixel-office-comment-guidelines`](./pixel-office-comment-guidelines/SKILL.md): 주석, JSDoc, UI 노출 문자열 작성 및 리뷰
 
 작업에 해당하는 스킬만 읽는다. 요청 범위 밖의 기존 코드를 스킬 규칙에 맞추기 위해 일괄 수정하지 않는다.

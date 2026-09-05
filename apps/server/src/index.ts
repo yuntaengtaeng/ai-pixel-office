@@ -5,9 +5,10 @@ import { EventBus } from "./events.ts";
 import { createHttpServer } from "./http.ts";
 import { openDatabase } from "./database.ts";
 import { Orchestrator } from "./orchestrator.ts";
-import { Repository } from "./repository.ts";
-import { ClaudeRuntimeAdapter } from "./claude-runtime.ts";
-import { CodexRuntimeAdapter, RuntimeRouter } from "./runtime.ts";
+import { Repository } from "./repository/index.ts";
+import { ClaudeRuntimeAdapter } from "./runtime/claude.ts";
+import { CodexRuntimeAdapter } from "./runtime/codex.ts";
+import { RuntimeRouter } from "./runtime/index.ts";
 
 export async function startServer(
   options: {

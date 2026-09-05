@@ -4,15 +4,15 @@ import { DomainError } from "@ai-pixel-office/domain";
 import {
   BoundedJsonlWriter,
   pruneRuntimeLogs,
-} from "../../../scripts/runtime-spike/runtime-log.ts";
-import { spawnClaude } from "../../../scripts/runtime-spike/process.ts";
+} from "../../../../scripts/runtime-spike/runtime-log.ts";
+import { spawnClaude } from "../../../../scripts/runtime-spike/process.ts";
 import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import type {
   RuntimeAdapter,
   RuntimeCallbacks,
   RuntimeRunInput,
   RuntimeRunResult,
-} from "./runtime.ts";
+} from "./index.ts";
 
 type ClaudeMessage = Record<string, unknown>;
 

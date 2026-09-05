@@ -14,8 +14,8 @@ import {
 } from "@ai-pixel-office/domain";
 import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import { EventBus } from "./events.ts";
-import { Repository } from "./repository.ts";
-import type { RuntimeAdapter } from "./runtime.ts";
+import { Repository } from "./repository/index.ts";
+import type { RuntimeAdapter } from "./runtime/index.ts";
 import { selectModel } from "./model-routing.ts";
 import { inspectProjectRuntimeContext, type ProjectRuntimeContext } from "./project-context.ts";
 
@@ -471,7 +471,9 @@ export class Orchestrator {
       ...(sessionBudget ? { sessionBudget } : {}),
     });
     queueMicrotask(() => {
-      void this.executeRun(run, agent, prompt, resumeThreadId);
+      this.executeRun(run, agent, prompt, resumeThreadId).catch((error: unknown) => {
+        console.error(`Unhandled failure while executing run ${run.id}`, error);
+      });
     });
     return run;
   }
