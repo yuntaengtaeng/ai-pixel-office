@@ -17,16 +17,22 @@ const taskStatuses = [
 const listQuery = z.object({
   workspaceId: z.string().optional(),
   status: z.enum(taskStatuses).optional(),
+  origin: z.enum(["office", "chat"]).optional(),
 });
 const workflowBody = z.object({ agentIds: z.array(z.string()) });
 const feedbackBody = z.object({ feedback: z.string() });
+const messageBody = z.object({ message: z.string() });
 
 export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get("", { schema: { querystring: listQuery } }, async (request, reply) =>
     data(
       reply,
       200,
-      await app.repository.listTasks(request.query.workspaceId, request.query.status),
+      await app.repository.listTasks(
+        request.query.workspaceId,
+        request.query.status,
+        request.query.origin,
+      ),
     ),
   );
 
@@ -81,6 +87,17 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
       }),
     );
   });
+
+  app.post(
+    "/:id/messages",
+    { schema: { params: idParams, body: messageBody } },
+    async (request, reply) =>
+      data(
+        reply,
+        202,
+        await app.orchestrator.sendChatMessage(request.params.id, request.body.message),
+      ),
+  );
 
   app.post(
     "/:id/request-changes",

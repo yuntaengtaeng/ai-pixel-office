@@ -41,6 +41,7 @@ const task: Task = {
   description: "Check the mobile layout and report exact spacing issues.",
   status: "todo",
   assigneeAgentId: agent.id,
+  origin: "office",
   createdAt: timestamp,
   updatedAt: timestamp,
 };

@@ -27,6 +27,7 @@ function migrate(database: AppDatabase): void {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       working_directory TEXT,
+      default_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -110,6 +111,7 @@ function migrate(database: AppDatabase): void {
       project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
       working_directory TEXT,
       result_json TEXT,
+      origin TEXT NOT NULL DEFAULT 'office' CHECK(origin IN ('office', 'chat')),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       completed_at TEXT
@@ -272,6 +274,11 @@ function migrate(database: AppDatabase): void {
   const workspaceColumns = database.prepare("PRAGMA table_info(workspaces)").all() as Array<{
     name: string;
   }>;
+  if (!workspaceColumns.some((column) => column.name === "default_agent_id")) {
+    database.exec(
+      "ALTER TABLE workspaces ADD COLUMN default_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL",
+    );
+  }
   if (!workspaceColumns.some((column) => column.name === "working_directory")) {
     database.exec("ALTER TABLE workspaces ADD COLUMN working_directory TEXT");
   }
@@ -284,6 +291,12 @@ function migrate(database: AppDatabase): void {
       "ALTER TABLE tasks ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL",
     );
   }
+  if (!taskColumns.some((column) => column.name === "origin")) {
+    database.exec("ALTER TABLE tasks ADD COLUMN origin TEXT NOT NULL DEFAULT 'office'");
+  }
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS tasks_workspace_origin_idx ON tasks(workspace_id, origin, created_at DESC)",
+  );
   const runColumns = database.prepare("PRAGMA table_info(agent_runs)").all() as Array<{
     name: string;
   }>;

@@ -9,6 +9,7 @@ const task = (priority: Task["priority"]): Task => ({
   title: "작업",
   status: "todo",
   priority,
+  origin: "office",
   createdAt: "2026-09-04T00:00:00.000Z",
   updatedAt: "2026-09-04T00:00:00.000Z",
 });

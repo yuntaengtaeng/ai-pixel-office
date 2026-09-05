@@ -49,6 +49,9 @@ const PerformancePage = lazy(() =>
     default: module.PerformancePage,
   })),
 );
+const ChatPage = lazy(() =>
+  import("./features/chat/ChatPage.tsx").then((module) => ({ default: module.ChatPage })),
+);
 const TaskDetailPage = lazy(() =>
   import("./features/tasks/TaskDetailPage.tsx").then((module) => ({
     default: module.TaskDetailPage,
@@ -136,6 +139,8 @@ function AppShell({ workspace }: { workspace: Workspace }) {
             <Route path="/skills" element={<SkillsPage workspace={workspace} />} />
             <Route path="/records" element={<RecordsPage workspace={workspace} />} />
             <Route path="/performance" element={<PerformancePage workspace={workspace} />} />
+            <Route path="/chat" element={<ChatPage workspace={workspace} />} />
+            <Route path="/chat/:taskId" element={<ChatPage workspace={workspace} />} />
             <Route path="/settings" element={<SettingsPage workspace={workspace} />} />
             <Route path="/tasks/:id" element={<TaskDetailPage workspace={workspace} />} />
             <Route path="*" element={<Navigate to="/" replace />} />

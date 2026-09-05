@@ -3,6 +3,7 @@ import {
   assertTaskTransition,
   type CreateTaskInput,
   type Task,
+  type TaskOrigin,
   type TaskResult,
   type TaskStatus,
   type UpdateTaskInput,
@@ -23,19 +24,26 @@ export async function listTasks(
   database: AppDatabase,
   workspaceId?: string,
   status?: TaskStatus,
+  origin?: TaskOrigin,
 ): Promise<Task[]> {
-  let rows: Row[];
-  if (workspaceId && status) {
-    rows = database
-      .prepare("SELECT * FROM tasks WHERE workspace_id = ? AND status = ? ORDER BY created_at DESC")
-      .all(workspaceId, status) as Row[];
-  } else if (workspaceId) {
-    rows = database
-      .prepare("SELECT * FROM tasks WHERE workspace_id = ? ORDER BY created_at DESC")
-      .all(workspaceId) as Row[];
-  } else {
-    rows = database.prepare("SELECT * FROM tasks ORDER BY created_at DESC").all() as Row[];
+  const clauses: string[] = [];
+  const params: string[] = [];
+  if (workspaceId) {
+    clauses.push("workspace_id = ?");
+    params.push(workspaceId);
   }
+  if (status) {
+    clauses.push("status = ?");
+    params.push(status);
+  }
+  if (origin) {
+    clauses.push("origin = ?");
+    params.push(origin);
+  }
+  const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
+  const rows = database
+    .prepare(`SELECT * FROM tasks${where} ORDER BY created_at DESC`)
+    .all(...params) as Row[];
   return rows.map(taskFrom);
 }
 
@@ -55,6 +63,7 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
     id: randomUUID(),
     ...input,
     status: "todo",
+    origin: input.origin ?? "office",
     createdAt,
     updatedAt: createdAt,
   };
@@ -62,8 +71,8 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
     .prepare(
       `INSERT INTO tasks
       (id, workspace_id, title, description, status, assignee_agent_id, source_input_id,
-       due_date, priority, project_id, working_directory, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       due_date, priority, project_id, working_directory, origin, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       task.id,
@@ -77,6 +86,7 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
       task.priority ?? null,
       task.projectId ?? null,
       task.workingDirectory ?? null,
+      task.origin,
       task.createdAt,
       task.updatedAt,
     );

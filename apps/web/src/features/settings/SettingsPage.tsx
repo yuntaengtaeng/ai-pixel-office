@@ -2,8 +2,9 @@ import { mediaQuery } from "@ai-pixel-office/design-system";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, Field, HelperText, Input, Panel } from "@ai-pixel-office/design-system";
+import { Button, Field, HelperText, Input, Panel, Select } from "@ai-pixel-office/design-system";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
+import { agentApi } from "../agents/api.ts";
 import { projectApi } from "../projects/api.ts";
 import { systemApi } from "../system/api.ts";
 import { workspaceApi } from "../workspaces/api.ts";
@@ -228,16 +229,23 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["projects", workspace.id],
     queryFn: () => projectApi.list(workspace.id),
   });
+  const agents = useQuery({
+    queryKey: ["agents", workspace.id],
+    queryFn: () => agentApi.list(workspace.id),
+  });
   const [workspaceName, setWorkspaceName] = useState(workspace.name);
+  const [defaultAgentId, setDefaultAgentId] = useState(workspace.defaultAgentId ?? "");
   const [projectName, setProjectName] = useState("");
   const [projectPath, setProjectPath] = useState("");
   useEffect(() => {
     setWorkspaceName(workspace.name);
+    setDefaultAgentId(workspace.defaultAgentId ?? "");
   }, [workspace]);
   const save = useMutation({
     mutationFn: () =>
       workspaceApi.update(workspace.id, {
         name: workspaceName,
+        defaultAgentId: defaultAgentId || null,
       }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["workspace"] }),
   });
@@ -346,9 +354,24 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
               required
             />
           </Field>
+          <Field>
+            <label>기본 동료</label>
+            <Select
+              value={defaultAgentId}
+              onChange={(event) => setDefaultAgentId(event.target.value)}
+            >
+              <option value="">매번 선택</option>
+              {(agents.data ?? []).map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </Select>
+            <HelperText>설정하면 새 대화 시작 시 동료 선택 없이 바로 시작해요</HelperText>
+          </Field>
           <Styled.SettingsActions>
             <Button $variant="primary" disabled={save.isPending || !workspaceName.trim()}>
-              이름 저장
+              설정 저장
             </Button>
           </Styled.SettingsActions>
           {save.isError && <ErrorBanner>{messageOf(save.error)}</ErrorBanner>}

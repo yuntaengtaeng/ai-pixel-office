@@ -42,6 +42,7 @@ export function workspaceFrom(row: Row): Workspace {
     id: String(row.id),
     name: String(row.name),
     workingDirectory: optional(row.working_directory),
+    defaultAgentId: optional(row.default_agent_id),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -91,6 +92,7 @@ export function taskFrom(row: Row): Task {
     projectId: optional(row.project_id),
     workingDirectory: optional(row.working_directory),
     result: json<TaskResult | undefined>(row.result_json, undefined),
+    origin: (row.origin === "chat" ? "chat" : "office") as Task["origin"],
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     completedAt: optional(row.completed_at),

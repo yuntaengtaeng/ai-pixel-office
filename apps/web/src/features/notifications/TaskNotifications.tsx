@@ -10,6 +10,8 @@ type SnackbarItem = {
   title: string;
   message: string;
   taskId?: string;
+  actionLabel?: string;
+  actionHref?: string;
   tone: "info" | "warning" | "danger";
 };
 
@@ -39,6 +41,32 @@ const IMPORTANT_STATUS: Partial<
   failed: {
     title: "작업에 실패했습니다",
     message: "실행 기록에서 실패 원인을 확인해 주세요.",
+    tone: "danger",
+  },
+};
+
+/** 오피스의 격식 있는 검토/승인 언어 대신 대화체로, 채팅 화면(/chat/:id)으로 이동하도록 분리 */
+const CHAT_STATUS: Partial<
+  Record<TaskStatus, { title: string; message: string; tone: SnackbarItem["tone"] }>
+> = {
+  needs_review: {
+    title: "답장이 왔어요",
+    message: "동료가 메시지를 보냈어요",
+    tone: "info",
+  },
+  needs_input: {
+    title: "대화가 잠시 멈췄어요",
+    message: "세션 한도에 닿아서 이어가려면 확인이 필요해요",
+    tone: "warning",
+  },
+  blocked: {
+    title: "대화가 진행되지 않아요",
+    message: "동료가 막힌 이유를 확인해 주세요",
+    tone: "warning",
+  },
+  failed: {
+    title: "대화에 문제가 생겼어요",
+    message: "실행 기록에서 원인을 확인해 주세요",
     tone: "danger",
   },
 };
@@ -176,7 +204,9 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
   const show = useCallback(
     (notice: LiveNotice) => {
       const task = notice.task;
-      let copy: Omit<SnackbarItem, "id" | "taskId"> | undefined;
+      const isChat = task.origin === "chat";
+      const taskHref = isChat ? `/chat/${task.id}` : `/tasks/${task.id}`;
+      let copy: Omit<SnackbarItem, "id" | "taskId" | "actionLabel" | "actionHref"> | undefined;
       if (notice.kind === "session_warning") {
         copy = {
           title: "작업 세션 한도가 얼마 남지 않았습니다",
@@ -193,7 +223,7 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
           tone: "warning",
         };
       } else {
-        copy = IMPORTANT_STATUS[task.status];
+        copy = (isChat ? CHAT_STATUS : IMPORTANT_STATUS)[task.status];
       }
       if (!copy) return;
       const key = `${notice.kind}:${task.id}`;
@@ -215,7 +245,7 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
         });
         notification.onclick = () => {
           window.focus();
-          navigate(`/tasks/${task.id}`);
+          navigate(taskHref);
           notification.close();
         };
         return;
@@ -224,7 +254,13 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
       const id = `${Date.now()}-${Math.random()}`;
       setItems((current) => [
         ...current.filter((item) => item.taskId !== task.id).slice(-2),
-        { id, taskId: task.id, ...copy },
+        {
+          id,
+          taskId: task.id,
+          actionLabel: isChat ? "대화 보기" : "작업 보기",
+          actionHref: taskHref,
+          ...copy,
+        },
       ]);
       window.setTimeout(() => dismiss(id), 9_000);
     },
@@ -359,15 +395,15 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
             <strong>{item.title}</strong>
             <span>{item.message}</span>
           </div>
-          {item.taskId && (
+          {item.actionHref && (
             <Styled.ActionButton
               type="button"
               onClick={() => {
                 dismiss(item.id);
-                navigate(`/tasks/${item.taskId}`);
+                navigate(item.actionHref as string);
               }}
             >
-              작업 보기
+              {item.actionLabel ?? "작업 보기"}
             </Styled.ActionButton>
           )}
           <Styled.CloseButton type="button" onClick={() => dismiss(item.id)} aria-label="알림 닫기">
@@ -380,6 +416,6 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
 }
 
 function taskIdFromPath(pathname: string): string | undefined {
-  const match = pathname.match(/^\/tasks\/([^/]+)\/?$/);
+  const match = pathname.match(/^\/(?:tasks|chat)\/([^/]+)\/?$/);
   return match ? decodeURIComponent(match[1]) : undefined;
 }

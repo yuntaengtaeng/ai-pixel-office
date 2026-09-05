@@ -347,6 +347,37 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
     return run;
   }
 
+  /** 후속 메시지는 이전 run의 runtimeThreadId로 같은 런타임 세션을 이어가므로 Agent 지침을 다시 컴파일하지 않고 메시지만 전달 */
+  async sendChatMessage(taskId: string, message: string): Promise<AgentRun> {
+    const trimmed = message.trim();
+    if (!trimmed) throw new DomainError("INVALID_MESSAGE", "Message is required");
+    const task = await this.repository.getTask(taskId);
+    if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
+    if (task.status === "working") {
+      throw new DomainError("TASK_RUNNING", "이미 실행 중인 대화에는 메시지를 보낼 수 없어요", 409);
+    }
+    if (task.status === "needs_input") {
+      throw new DomainError(
+        "TASK_NEEDS_SESSION_ACTION",
+        "세션 한도로 멈춘 대화입니다, 이어서 실행하거나 세션을 연장해 주세요",
+        409,
+      );
+    }
+    if (task.status === "failed" || task.status === "todo" || task.status === "done") {
+      throw new DomainError(
+        "TASK_NOT_CONTINUABLE",
+        "이 대화는 지금 상태에서 메시지를 이어 보낼 수 없어요",
+        409,
+      );
+    }
+    const previousRun = await this.repository.latestRun(task.id);
+    if (!previousRun) {
+      throw new DomainError("TASK_NOT_STARTED", "대화를 먼저 시작해 주세요", 409);
+    }
+    const agent = await this.requireRuntimeAgent(task);
+    return this.queueRun(task, agent, trimmed, previousRun.runtimeThreadId, undefined, undefined, trimmed);
+  }
+
   async continueTask(taskId: string): Promise<AgentRun> {
     const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);

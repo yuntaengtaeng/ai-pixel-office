@@ -16,6 +16,7 @@ import type {
   Project,
   RunProgressEvent,
   Skill,
+  TaskOrigin,
   Task,
   TaskResult,
   TaskReview,
@@ -223,8 +224,12 @@ export class Repository {
     return deleteAgentTaskTemplate(this.database, agentId, id);
   }
 
-  async listTasks(workspaceId?: string, status?: TaskStatus): Promise<Task[]> {
-    return listTasks(this.database, workspaceId, status);
+  async listTasks(
+    workspaceId?: string,
+    status?: TaskStatus,
+    origin?: TaskOrigin,
+  ): Promise<Task[]> {
+    return listTasks(this.database, workspaceId, status, origin);
   }
 
   async getTask(id: string): Promise<Task | undefined> {

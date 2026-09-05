@@ -16,6 +16,8 @@ export type Workspace = {
   id: string;
   name: string;
   workingDirectory?: string;
+  /** 설정된 경우 대화 시작 시 코워커 선택을 건너뛰고 바로 이 Agent와 시작 */
+  defaultAgentId?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -84,6 +86,9 @@ export type TaskResult = {
   metadata?: Record<string, unknown>;
 };
 
+/** office는 칸반/할일 흐름에서, chat은 사이드바 대화 진입점에서 생성됨, 대화 목록 조회 구분에만 사용 */
+export type TaskOrigin = "office" | "chat";
+
 export type Task = {
   id: string;
   workspaceId: string;
@@ -97,6 +102,7 @@ export type Task = {
   projectId?: string;
   workingDirectory?: string;
   result?: TaskResult;
+  origin: TaskOrigin;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -265,7 +271,8 @@ export type RunLimits = {
 };
 
 export type CreateWorkspaceInput = Pick<Workspace, "name">;
-export type UpdateWorkspaceInput = Partial<CreateWorkspaceInput>;
+export type UpdateWorkspaceInput = Partial<CreateWorkspaceInput> &
+  Partial<Pick<Workspace, "defaultAgentId">>;
 
 export type CreateAgentInput = Pick<
   Agent,
@@ -296,7 +303,13 @@ export type CreateTaskInput = Pick<Task, "workspaceId" | "title"> &
   Partial<
     Pick<
       Task,
-      "description" | "assigneeAgentId" | "sourceInputId" | "dueDate" | "priority" | "projectId"
+      | "description"
+      | "assigneeAgentId"
+      | "sourceInputId"
+      | "dueDate"
+      | "priority"
+      | "projectId"
+      | "origin"
     >
   >;
 export type UpdateTaskInput = Partial<

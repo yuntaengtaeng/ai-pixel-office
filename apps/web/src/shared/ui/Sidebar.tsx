@@ -236,6 +236,9 @@ export function Sidebar({
         <NavLink to="/" end>
           <span>⌂</span> 사무실
         </NavLink>
+        <NavLink to="/chat">
+          <span>◈</span> 메신저
+        </NavLink>
         <NavLink to="/projects">
           <span>▦</span> 프로젝트
         </NavLink>

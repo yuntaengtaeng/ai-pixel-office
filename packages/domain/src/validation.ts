@@ -110,6 +110,9 @@ export function parseUpdateWorkspace(value: unknown): UpdateWorkspaceInput {
   const body = object(value);
   return {
     ...(body.name !== undefined ? { name: string(body.name, "name") } : {}),
+    ...(body.defaultAgentId !== undefined
+      ? { defaultAgentId: optionalString(body.defaultAgentId, "defaultAgentId") }
+      : {}),
   };
 }
 
@@ -221,6 +224,9 @@ export function parseCreateTask(value: unknown): CreateTaskInput {
   ) {
     throw new DomainError("INVALID_FIELD", "priority must be low, medium, or high");
   }
+  if (body.origin !== undefined && body.origin !== "office" && body.origin !== "chat") {
+    throw new DomainError("INVALID_FIELD", "origin must be office or chat");
+  }
   return {
     workspaceId: string(body.workspaceId, "workspaceId") as string,
     title: string(body.title, "title") as string,
@@ -230,6 +236,7 @@ export function parseCreateTask(value: unknown): CreateTaskInput {
     dueDate: optionalString(body.dueDate, "dueDate"),
     priority,
     projectId: optionalString(body.projectId, "projectId"),
+    origin: (body.origin as CreateTaskInput["origin"]) ?? "office",
   };
 }
 

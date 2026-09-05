@@ -28,8 +28,10 @@ export type TaskExecutionContext = {
 };
 
 export const taskApi = {
-  list: (workspaceId: string) =>
-    request<Task[]>(`/api/tasks?workspaceId=${encodeURIComponent(workspaceId)}`),
+  list: (workspaceId: string, origin?: Task["origin"]) =>
+    request<Task[]>(
+      `/api/tasks?workspaceId=${encodeURIComponent(workspaceId)}${origin ? `&origin=${origin}` : ""}`,
+    ),
   create: (input: {
     workspaceId: string;
     title: string;
@@ -37,6 +39,7 @@ export const taskApi = {
     assigneeAgentId?: string;
     priority?: "low" | "medium" | "high";
     projectId?: string;
+    origin?: Task["origin"];
   }) => post<Task>("/api/tasks", input),
   get: (id: string) => request<TaskDetail>(`/api/tasks/${id}`),
   executionContexts: (id: string) =>
@@ -56,6 +59,8 @@ export const taskApi = {
   approve: (id: string) => post<Task>(`/api/tasks/${id}/approve`, {}),
   requestChanges: (id: string, feedback: string) =>
     post<AgentRun>(`/api/tasks/${id}/request-changes`, { feedback }),
+  sendMessage: (id: string, message: string) =>
+    post<AgentRun>(`/api/tasks/${id}/messages`, { message }),
   cancelRun: (id: string) => post<AgentRun>(`/api/runs/${id}/cancel`, {}),
   resolveApproval: (runId: string, requestId: string, decision: "accept" | "cancel") =>
     post<AgentRun>(`/api/runs/${runId}/approvals/${requestId}`, { decision }),
