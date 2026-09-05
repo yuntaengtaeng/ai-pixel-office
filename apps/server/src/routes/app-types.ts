@@ -4,6 +4,7 @@ import type { EventBus } from "../events.ts";
 import type { Orchestrator } from "../orchestrator.ts";
 import type { Repository } from "../repository/index.ts";
 import type { SkillDraft } from "../skill-draft.ts";
+import type { KnowledgeDocumentStore } from "../knowledge-documents.ts";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -11,6 +12,7 @@ declare module "fastify" {
     orchestrator: Orchestrator;
     events: EventBus;
     generalWorkingDirectory: string;
+    knowledgeDocuments: KnowledgeDocumentStore;
     corsOrigin: string;
     skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
   }

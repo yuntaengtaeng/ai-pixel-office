@@ -8,6 +8,7 @@ import { DomainError } from "@ai-pixel-office/domain";
 import { EventBus } from "./events.ts";
 import { Orchestrator } from "./orchestrator.ts";
 import { Repository } from "./repository/index.ts";
+import { KnowledgeDocumentStore } from "./knowledge-documents.ts";
 import type { SkillDraft } from "./skill-draft.ts";
 import { activityRoutes } from "./routes/activities.ts";
 import { agentRoutes } from "./routes/agents.ts";
@@ -20,12 +21,14 @@ import { systemRoutes } from "./routes/system.ts";
 import { taskRoutes } from "./routes/tasks.ts";
 import { workflowPresetRoutes } from "./routes/workflow-presets.ts";
 import { workspaceRoutes } from "./routes/workspaces.ts";
+import { knowledgeDocumentRoutes } from "./routes/knowledge-documents.ts";
 
 export type AppDependencies = {
   repository: Repository;
   orchestrator: Orchestrator;
   events: EventBus;
   generalWorkingDirectory: string;
+  knowledgeDocuments?: KnowledgeDocumentStore;
   corsOrigin?: string;
   staticRoot?: string;
   skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
@@ -45,6 +48,11 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   app.decorate("orchestrator", dependencies.orchestrator);
   app.decorate("events", dependencies.events);
   app.decorate("generalWorkingDirectory", dependencies.generalWorkingDirectory);
+  app.decorate(
+    "knowledgeDocuments",
+    dependencies.knowledgeDocuments ??
+      new KnowledgeDocumentStore(dependencies.generalWorkingDirectory),
+  );
   app.decorate("corsOrigin", corsOrigin);
   if (dependencies.skillDraftGenerator) {
     app.decorate("skillDraftGenerator", dependencies.skillDraftGenerator);
@@ -101,6 +109,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   void app.register(workflowPresetRoutes, { prefix: "/api/workflow-presets" });
   void app.register(runRoutes, { prefix: "/api/runs" });
   void app.register(activityRoutes, { prefix: "/api/activities" });
+  void app.register(knowledgeDocumentRoutes, { prefix: "/api/knowledge-documents" });
 
   return app;
 }

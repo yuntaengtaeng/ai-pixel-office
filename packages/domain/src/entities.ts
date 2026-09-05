@@ -233,6 +233,29 @@ export type TaskReview = {
   createdAt: string;
 };
 
+export type KnowledgeDocument = {
+  id: string;
+  workspaceId: string;
+  title: string;
+  content: string;
+  fileName: string;
+  taskId?: string;
+  runId?: string;
+  referenceTaskIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateKnowledgeDocumentInput = Pick<
+  KnowledgeDocument,
+  "workspaceId" | "title" | "content"
+> &
+  Partial<Pick<KnowledgeDocument, "taskId" | "runId" | "referenceTaskIds">>;
+
+export type UpdateKnowledgeDocumentInput = Partial<
+  Pick<KnowledgeDocument, "title" | "content" | "taskId" | "runId" | "referenceTaskIds">
+>;
+
 export type RunLimits = {
   maxDurationMs: number;
   idleTimeoutMs?: number;

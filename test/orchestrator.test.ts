@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 import { EventBus } from "../apps/server/src/events.ts";
 import { openDatabase } from "../apps/server/src/database.ts";
@@ -12,6 +14,7 @@ import type {
 } from "../apps/server/src/runtime/index.ts";
 import type { CodexSpikeResult } from "../scripts/runtime-spike/codex.ts";
 import type { ApprovalDecision } from "../scripts/runtime-spike/types.ts";
+import { KnowledgeDocumentStore } from "../apps/server/src/knowledge-documents.ts";
 
 const generalWorkingDirectory = tmpdir();
 
@@ -66,6 +69,70 @@ class ApprovalRuntime implements RuntimeAdapter {
     return true;
   }
 }
+
+test("같은 담당 에이전트가 문서를 만들고 연결 문서를 다음 실행에서 참고한다", async () => {
+  const repository = new Repository(openDatabase(":memory:"));
+  const directory = await mkdtemp(join(tmpdir(), "pixel-office-document-run-"));
+  const prompts: string[] = [];
+  const runtime: RuntimeAdapter = {
+    async run(input) {
+      prompts.push(input.prompt);
+      const summary = input.runId.startsWith("documentation-")
+        ? "# 결제 개선 기록\n\n## 주요 결정\n\n간편 결제를 우선 적용한다."
+        : "업무 완료";
+      const completed = { type: "completed", result: { summary } } as const;
+      return {
+        runId: input.runId,
+        threadId: "thread-doc",
+        turnId: "turn-doc",
+        events: [completed],
+      };
+    },
+    cancel: () => false,
+    resolveApproval: () => false,
+  };
+  try {
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const agent = await repository.createAgent({
+      workspaceId: workspace.id,
+      name: "결제 담당자",
+      role: "결제 경험 개선",
+      model: "codex",
+      skillIds: [],
+      permissions: { fileRead: true, terminal: true },
+    });
+    const task = await repository.createTask({
+      workspaceId: workspace.id,
+      title: "결제 개선",
+      description: "이탈 원인을 줄인다.",
+      assigneeAgentId: agent.id,
+    });
+    const knowledgeDocuments = new KnowledgeDocumentStore(directory);
+    const orchestrator = new Orchestrator(repository, runtime, new EventBus(), {
+      generalWorkingDirectory,
+      knowledgeDocuments,
+    });
+
+    const generated = await orchestrator.generateTaskDocument(task.id);
+    assert.equal(generated.agentId, agent.id);
+    assert.match(generated.content, /간편 결제/);
+    assert.equal((await repository.getTask(task.id))?.status, "todo");
+    await knowledgeDocuments.create({
+      workspaceId: workspace.id,
+      title: generated.title,
+      content: generated.content,
+      taskId: task.id,
+    });
+
+    await orchestrator.startTask(task.id);
+    await waitFor(() => prompts.length === 2);
+    assert.match(prompts[1] ?? "", /REFERENCE DOCUMENTS/);
+    assert.match(prompts[1] ?? "", /간편 결제를 우선 적용한다/);
+  } finally {
+    repository.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 async function waitFor(check: () => Promise<boolean> | boolean, timeoutMs = 2_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -158,7 +225,12 @@ test("reserves exactly one run when the same task starts concurrently", async ()
       const completed = { type: "completed", result: { summary: "Done" } } as const;
       callbacks.onEvent({ type: "started", threadId: input.runId });
       callbacks.onEvent(completed);
-      return { runId: input.runId, threadId: input.runId, turnId: input.runId, events: [completed] };
+      return {
+        runId: input.runId,
+        threadId: input.runId,
+        turnId: input.runId,
+        events: [completed],
+      };
     },
     cancel: () => false,
     resolveApproval: () => false,
@@ -227,7 +299,12 @@ test("enforces the workspace run limit during concurrent reservations", async ()
     const activeRun = (await repository.listRuns())[0]!;
     await waitFor(async () => (await repository.getRun(activeRun.id))?.status === "waiting");
     await orchestrator.cancelRun(activeRun.id);
-    await waitFor(async () => !["queued", "running", "waiting"].includes((await repository.getRun(activeRun.id))?.status ?? ""));
+    await waitFor(
+      async () =>
+        !["queued", "running", "waiting"].includes(
+          (await repository.getRun(activeRun.id))?.status ?? "",
+        ),
+    );
   } finally {
     repository.close();
   }
@@ -357,9 +434,7 @@ test("rejects an assignee update that loses a race with run reservation", async 
     await orchestrator.cancelRun(run.id);
     await waitFor(
       async () =>
-        !["queued", "running", "waiting"].includes(
-          (await repository.getRun(run.id))?.status ?? "",
-        ),
+        !["queued", "running", "waiting"].includes((await repository.getRun(run.id))?.status ?? ""),
     );
   } finally {
     repository.close();
@@ -466,7 +541,10 @@ test("rejects a non-workflow reservation when workflow is configured concurrentl
 
     const start = orchestrator.startTask(task.id);
     await runCheckPaused;
-    await repository.setTaskWorkflow(task.id, agents.map((agent) => agent.id));
+    await repository.setTaskWorkflow(
+      task.id,
+      agents.map((agent) => agent.id),
+    );
     resumeReservation();
 
     await assert.rejects(start, /실행 예약 중 Task Workflow가 변경되었습니다/);

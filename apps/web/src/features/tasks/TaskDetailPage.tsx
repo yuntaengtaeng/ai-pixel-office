@@ -1,32 +1,13 @@
-import { colors, mediaQuery } from "@ai-pixel-office/design-system";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import styled, { keyframes } from "styled-components";
-import {
-  BackButton,
-  Button,
-  Input,
-  Kicker,
-  Panel,
-  Select,
-  TextArea,
-} from "@ai-pixel-office/design-system";
-import type {
-  Agent,
-  Skill,
-  TaskStatus,
-  TaskWorkflowStep,
-  WorkflowPreset,
-  Workspace,
-} from "@ai-pixel-office/domain/entities";
+import { BackButton, Button, Input, Select, TextArea } from "@ai-pixel-office/design-system";
+import type { KnowledgeDocument, Workspace } from "@ai-pixel-office/domain/entities";
 import { activityApi } from "../activity/api.ts";
 import { agentApi } from "../agents/api.ts";
 import { skillApi } from "../skills/api.ts";
 import { workflowApi } from "../workflows/api.ts";
-import { taskApi, type TaskDetail, type TaskExecutionContext } from "./api.ts";
+import { taskApi } from "./api.ts";
 import { PetPreview } from "../office/PetPreview.tsx";
 import { STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
@@ -39,6 +20,24 @@ import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
 import { ProjectSelect } from "../projects/ProjectSelect.tsx";
+import { recordApi } from "../records/api.ts";
+import { TaskResultView } from "./components/results/TaskResultView.tsx";
+import { WorkInProgress } from "./components/execution/WorkInProgress.tsx";
+import { RunProgress } from "./components/execution/RunProgress.tsx";
+import { FailureState as ExecutionFailureState } from "./components/execution/FailureState.tsx";
+import { SessionLimitState as ExecutionSessionLimitState } from "./components/execution/SessionLimitState.tsx";
+import { sessionLimitFrom as parseSessionLimit } from "./utils/sessionLimit.ts";
+import { RuntimeApproval as ExecutionRuntimeApproval } from "./components/execution/RuntimeApproval.tsx";
+import { WorkflowPanel } from "./components/assignment/WorkflowPanel.tsx";
+import { CurrentRunRequest } from "./components/execution/CurrentRunRequest.tsx";
+import { PreviousResult } from "./components/results/PreviousResult.tsx";
+import { ExecutionContextPanel } from "./components/context/ExecutionContextPanel.tsx";
+import { RunHistory } from "./components/results/RunHistory.tsx";
+import { WorkflowResults } from "./components/results/WorkflowResults.tsx";
+
+import * as DS from "@ai-pixel-office/design-system";
+import styled, { keyframes } from "styled-components";
+import type { TaskStatus } from "@ai-pixel-office/domain/entities";
 
 const pixelWork = keyframes`
   from {
@@ -48,83 +47,6 @@ const pixelWork = keyframes`
   to {
     height: 31px;
     opacity: 1;
-  }
-`;
-
-const RUN_DOT_COLOR: Record<TaskDetail["runs"][number]["status"], string> = {
-  queued: colors.runStatus.queued,
-  running: colors.runStatus.running,
-  completed: colors.runStatus.completed,
-  waiting: colors.runStatus.queued,
-  failed: colors.runStatus.failed,
-  cancelled: colors.runStatus.failed,
-};
-
-const RunRow = styled.summary`
-  display: grid;
-  grid-template-columns: 12px 90px 1fr auto;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.x2};
-  padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x1}`};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
-  font-size: ${({ theme }) => theme.typography.fontSize.compact};
-
-  time {
-    color: ${({ theme }) => theme.colors.text.muted};
-  }
-
-  @media ${mediaQuery.md} {
-    grid-template-columns: 12px 70px 1fr;
-
-    time {
-      display: none;
-    }
-  }
-`;
-
-const RunDot = styled.span<{ $status: TaskDetail["runs"][number]["status"] }>`
-  width: 8px;
-  height: 8px;
-  background: ${({ $status }) => RUN_DOT_COLOR[$status]};
-
-  ${({ $status, theme }) =>
-    $status === "running" &&
-    `
-      box-shadow: 0 0 0 3px ${theme.colors.border.positive};
-    `}
-`;
-
-const RunExpandIcon = styled.span`
-  position: absolute;
-  right: 6px;
-  color: ${({ theme }) => theme.colors.text.negative};
-  font-size: ${({ theme }) => theme.typography.fontSize.headingMd};
-  line-height: 1;
-  transition: transform 0.15s ease-out;
-`;
-
-const RunEntry = styled.details<{ $failed: boolean }>`
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
-
-  ${RunRow} {
-    position: relative;
-    padding-right: ${({ theme }) => theme.space.x6};
-    border-bottom: 0;
-    cursor: pointer;
-    list-style: none;
-
-    &::-webkit-details-marker {
-      display: none;
-    }
-  }
-
-  &[open] ${RunExpandIcon} {
-    transform: rotate(90deg);
-  }
-
-  &[open] ${RunRow} {
-    background: ${({ $failed, theme }) =>
-      $failed ? theme.colors.background.negativeSubtle : theme.colors.background.positiveSubtle};
   }
 `;
 
@@ -154,13 +76,44 @@ const Styled = {
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   `,
+  PrimaryActionBar: styled.div`
+    position: sticky;
+    top: ${({ theme }) => theme.space.x3};
+    z-index: ${({ theme }) => theme.zIndex.navigation};
+    margin: ${({ theme }) => `-${theme.space.x4} 0 ${theme.space.x5}`};
+    padding: ${({ theme }) => theme.space.x3};
+    border: 2px solid ${({ theme }) => theme.colors.border.strong};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.space.x3};
+
+    span {
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    }
+  `,
+  Organizing: styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x2};
+    color: ${({ theme }) => theme.colors.text.positive} !important;
+    font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+
+    b {
+      display: inline-block;
+      animation: ${pixelWork} 0.55s ease-in-out infinite alternate;
+    }
+  `,
   DetailLayout: styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.65fr);
     gap: ${({ theme }) => theme.space.x5};
     align-items: start;
 
-    @media ${mediaQuery.md} {
+    @media ${DS.mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -169,401 +122,9 @@ const Styled = {
     display: grid;
     gap: ${({ theme }) => theme.space.x5};
   `,
-  ResultPanel: styled(Panel).attrs({ as: "section" })`
+  ResultPanel: styled(DS.Panel).attrs({ as: "section" })`
     padding: ${({ theme }) => theme.space.x5};
     min-height: 340px;
-  `,
-  MarkdownResult: styled.div<{ $size?: "default" | "compact" | "small" }>`
-    font-size: ${({ $size }) => ($size === "compact" ? "12px" : $size === "small" ? "11px" : "14px")};
-    line-height: 1.75;
-
-    h1,
-    h2,
-    h3 {
-      margin: 1.25em 0 0.55em;
-      color: ${({ theme }) => theme.colors.text.primary};
-      line-height: 1.35;
-    }
-
-    h1 {
-      font-size: ${({ theme }) => theme.typography.fontSize.headingXl};
-      border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
-      padding-bottom: ${({ theme }) => theme.space.x2};
-    }
-
-    h2 {
-      font-size: ${({ theme }) => theme.typography.fontSize.xl};
-    }
-
-    h3 {
-      font-size: ${({ theme }) => theme.typography.fontSize.lead};
-    }
-
-    p {
-      margin: 0.7em 0;
-    }
-
-    ul,
-    ol {
-      padding-left: ${({ theme }) => theme.space.x6};
-    }
-
-    li {
-      margin: 0.32em 0;
-    }
-
-    code {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
-      background: ${({ theme }) => theme.colors.background.surfaceMuted};
-      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-    }
-
-    pre {
-      padding: ${({ theme }) => theme.space.x3};
-      overflow: auto;
-      background: ${({ theme }) => theme.colors.semantic.info};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      border: 2px solid ${({ theme }) => theme.colors.border.positive};
-    }
-
-    pre code {
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: inherit;
-    }
-
-    blockquote {
-      margin-left: 0;
-      padding-left: ${({ theme }) => theme.space.x3};
-      border-left: 4px solid ${({ theme }) => theme.colors.border.positive};
-      color: ${({ theme }) => theme.colors.text.secondary};
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: ${({ theme }) => theme.space.x2};
-      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-      text-align: left;
-    }
-  `,
-  CurrentRunRequest: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x1};
-    margin: ${({ theme }) => `${theme.space.x4} 0 ${theme.space.x1}`};
-    padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
-    border-left: 4px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-
-    span {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    }
-
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.55;
-      white-space: pre-wrap;
-    }
-  `,
-  PreviousResult: styled.details`
-    margin-top: ${({ theme }) => theme.space.x4};
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    > summary {
-      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      cursor: pointer;
-    }
-
-    > div {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x3} ${theme.space.x3}`};
-      border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    }
-  `,
-  TaskBriefEditor: styled.div`
-    margin-top: ${({ theme }) => theme.space.x5};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    label {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    }
-
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.55;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 180px;
-      resize: vertical;
-      line-height: 1.55;
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    }
-  `,
-  TaskBriefActions: styled.div`
-    margin-top: ${({ theme }) => theme.space.x1};
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${({ theme }) => theme.space.x3};
-
-    small {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.55;
-    }
-
-    @media ${mediaQuery.md} {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-  `,
-  WorkProgress: styled.div<{ $waiting: boolean }>`
-    min-height: 230px;
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: ${({ theme }) => theme.space.x3};
-    text-align: center;
-
-    strong {
-      font-size: ${({ theme }) => theme.typography.fontSize.title};
-      color: ${({ theme }) => theme.colors.text.positive};
-    }
-
-    p {
-      max-width: 420px;
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.6;
-    }
-
-    ${({ $waiting, theme }) =>
-      $waiting &&
-      `
-        .progress-pixels span {
-          background: ${theme.colors.brand.primaryDark};
-        }
-      `}
-  `,
-  ProgressPixels: styled.div`
-    display: flex;
-    align-items: end;
-    gap: ${({ theme }) => theme.space.x1};
-    height: 34px;
-
-    span {
-      width: 10px;
-      height: 10px;
-      background: ${({ theme }) => theme.colors.brand.primary};
-      animation: ${pixelWork} 0.9s infinite alternate;
-
-      &:nth-child(2) {
-        animation-delay: 0.15s;
-      }
-
-      &:nth-child(3) {
-        animation-delay: 0.3s;
-      }
-
-      &:nth-child(4) {
-        animation-delay: 0.45s;
-      }
-    }
-  `,
-  FailureState: styled.div`
-    min-height: 230px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: ${({ theme }) => theme.space.x4};
-    padding: ${({ theme }) => theme.space.x6};
-
-    > span {
-      flex: 0 0 auto;
-      display: grid;
-      place-items: center;
-      width: 44px;
-      height: 44px;
-      background: ${({ theme }) => theme.colors.semantic.negative};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      border: 3px solid ${({ theme }) => theme.colors.border.negative};
-      box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.negative};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    }
-
-    div {
-      max-width: 560px;
-    }
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.negative};
-    }
-
-    p {
-      margin: ${({ theme }) => `${theme.space.x2} 0 0`};
-      color: ${({ theme }) => theme.colors.text.negative};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-  `,
-  SessionLimitState: styled.div`
-    display: grid;
-    grid-template-columns: 42px 1fr;
-    gap: ${({ theme }) => theme.space.x3};
-    margin-top: ${({ theme }) => theme.space.x5};
-    padding: ${({ theme }) => theme.space.x5};
-    border: 2px solid ${({ theme }) => theme.colors.border.default};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    > span {
-      width: 38px;
-      height: 38px;
-      display: grid;
-      place-items: center;
-      border-radius: ${({ theme }) => theme.radius.circle};
-      background: ${({ theme }) => theme.colors.semantic.warning};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      font-size: ${({ theme }) => theme.typography.fontSize.headingLg};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    }
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.primary};
-    }
-
-    p {
-      margin: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x3}`};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-      line-height: 1.6;
-    }
-  `,
-  SessionLimitActions: styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: ${({ theme }) => theme.space.x2};
-  `,
-  RunProgress: styled.div`
-    margin-top: ${({ theme }) => theme.space.x1};
-    padding-top: ${({ theme }) => theme.space.x4};
-    border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
-  `,
-  RunProgressHeading: styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: ${({ theme }) => theme.space.x2};
-    color: ${({ theme }) => theme.colors.text.positive};
-    font-size: ${({ theme }) => theme.typography.fontSize.compact};
-
-    span {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-      background: ${({ theme }) => theme.colors.background.positiveSubtle};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-  `,
-  RunProgressList: styled.div`
-    max-height: 230px;
-    overflow: auto;
-    display: grid;
-  `,
-  ProgressEvent: styled.div<{ $type: string }>`
-    display: grid;
-    grid-template-columns: 18px 1fr;
-    gap: ${({ theme }) => theme.space.x2};
-    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
-    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
-
-    > span {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-
-      color: ${({ $type, theme }) =>
-        $type === "permission_requested"
-          ? theme.colors.text.negative
-          : theme.colors.text.secondary};
-    }
-
-    div {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-    }
-
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.45;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    code {
-      grid-column: 1 / -1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-
-    time {
-      grid-column: 2;
-      grid-row: 1;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-    }
-  `,
-  Artifact: styled.div`
-    margin-top: ${({ theme }) => theme.space.x3};
-    padding: ${({ theme }) => theme.space.x3};
-    display: flex;
-    gap: ${({ theme }) => theme.space.x3};
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    div {
-      display: grid;
-      gap: ${({ theme }) => theme.space.x1};
-    }
-
-    small {
-      color: ${({ theme }) => theme.colors.text.muted};
-    }
   `,
   ReviewBox: styled.div`
     display: grid;
@@ -599,7 +160,7 @@ const Styled = {
       min-width: 0;
     }
 
-    @media ${mediaQuery.md} {
+    @media ${DS.mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
@@ -616,506 +177,9 @@ const Styled = {
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
 
-    @media ${mediaQuery.md} {
+    @media ${DS.mediaQuery.md} {
       align-items: flex-start;
     }
-  `,
-  WorkflowPanel: styled.section`
-    margin-bottom: ${({ theme }) => theme.space.x5};
-    padding-bottom: ${({ theme }) => theme.space.x4};
-    border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
-  `,
-  AssignmentModeSwitch: styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: ${({ theme }) => theme.space.x1};
-    margin-bottom: ${({ theme }) => theme.space.x3};
-    padding: ${({ theme }) => theme.space.x1};
-    border: 1px solid ${({ theme }) => theme.colors.shadow.default};
-    background: ${({ theme }) => theme.colors.background.surfaceMuted};
-
-    button {
-      min-width: 0;
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
-      border: 1px solid transparent;
-      background: transparent;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      cursor: pointer;
-
-      &.selected {
-        border-color: ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.background.surfaceRaised};
-        color: ${({ theme }) => theme.colors.text.positive};
-        box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.border.positive};
-      }
-
-      &:disabled {
-        cursor: not-allowed;
-        opacity: 0.48;
-      }
-    }
-  `,
-  WorkflowEditor: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    margin: 0;
-    padding: 0;
-  `,
-  WorkflowEditorStep: styled.div`
-    min-width: 0;
-    padding: ${({ theme }) => theme.space.x2};
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-  `,
-  WorkflowStepMain: styled.div`
-    min-width: 0;
-    display: grid;
-    grid-template-columns: 25px minmax(0, 1fr);
-    gap: ${({ theme }) => theme.space.x2};
-    align-items: center;
-
-    > span {
-      width: 23px;
-      height: 23px;
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceMuted};
-      display: grid;
-      place-items: center;
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-
-    select {
-      width: 100%;
-      min-width: 0;
-      height: 34px;
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-  `,
-  WorkflowStepControls: styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: ${({ theme }) => theme.space.x1};
-
-    > span {
-      min-width: 0;
-      margin-right: auto;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      line-height: 1.3;
-      overflow-wrap: anywhere;
-    }
-
-    button {
-      flex: 0 0 27px;
-      width: 27px;
-      height: 26px;
-      padding: 0;
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      cursor: pointer;
-
-      &:disabled {
-        cursor: not-allowed;
-        opacity: 0.35;
-      }
-    }
-  `,
-  WorkflowPresetPicker: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x1};
-    padding: ${({ theme }) => theme.space.x2};
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-
-    label {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-
-    > div {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: ${({ theme }) => theme.space.x1};
-    }
-
-    select {
-      min-width: 0;
-      height: 32px;
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-      border-width: 1px;
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-  `,
-  WorkflowPresetDelete: styled.button`
-    padding: ${({ theme }) => `0 ${theme.space.x2}`};
-    border: 1px solid ${({ theme }) => theme.colors.border.negative};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    color: ${({ theme }) => theme.colors.text.negative};
-    font-size: ${({ theme }) => theme.typography.fontSize.xs};
-    cursor: pointer;
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.4;
-    }
-  `,
-  WorkflowAddStep: styled.button`
-    width: 100%;
-    padding: ${({ theme }) => theme.space.x2};
-    border: 1px dashed ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-    color: ${({ theme }) => theme.colors.text.positive};
-    font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    cursor: pointer;
-  `,
-  WorkflowPresetSave: styled.form`
-    min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: ${({ theme }) => theme.space.x1};
-
-    input {
-      min-width: 0;
-      padding: ${({ theme }) => theme.space.x2};
-      border-width: 1px;
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-
-    button {
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      white-space: nowrap;
-    }
-  `,
-  WorkflowEditorActions: styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: ${({ theme }) => theme.space.x2};
-    margin-top: ${({ theme }) => theme.space.x1};
-
-    button {
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-  `,
-  WorkflowMessage: styled.small`
-    display: block;
-    margin: ${({ theme }) => `${theme.space.x2} 0 0`};
-    color: ${({ theme }) => theme.colors.text.negative};
-    font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    line-height: 1.5;
-  `,
-  WorkflowEmpty: styled.p`
-    margin: ${({ theme }) => `${theme.space.x2} 0 0`};
-    color: ${({ theme }) => theme.colors.text.negative};
-    font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    line-height: 1.5;
-  `,
-  WorkflowSummary: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    ol {
-      display: grid;
-      gap: ${({ theme }) => theme.space.x1};
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    li {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: 22px minmax(0, 1fr);
-      align-items: center;
-      gap: ${({ theme }) => theme.space.x2};
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-      span {
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.micro};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
-
-      strong {
-        overflow: hidden;
-        font-size: ${({ theme }) => theme.typography.fontSize.micro};
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-  `,
-  WorkflowProgressList: styled.ol`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    margin: 0;
-    padding: 0;
-    list-style: none;
-
-    li {
-      display: grid;
-      grid-template-columns: 24px minmax(0, 1fr);
-      gap: ${({ theme }) => theme.space.x2};
-      align-items: start;
-      position: relative;
-
-      > span {
-        width: 23px;
-        height: 23px;
-        border: 1px solid ${({ theme }) => theme.colors.border.default};
-        background: ${({ theme }) => theme.colors.background.surfaceMuted};
-        display: grid;
-        place-items: center;
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.micro};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
-
-      > div {
-        min-width: 0;
-        display: grid;
-        gap: ${({ theme }) => theme.space.x1};
-        padding-bottom: ${({ theme }) => theme.space.x2};
-      }
-
-      strong {
-        font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      }
-
-      small {
-        color: ${({ theme }) => theme.colors.text.muted};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      }
-
-      p {
-        max-height: 34px;
-        margin: ${({ theme }) => `${theme.space.x1} 0 0`};
-        overflow: hidden;
-        color: ${({ theme }) => theme.colors.text.secondary};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-        line-height: 1.4;
-      }
-
-      &.has-result {
-        cursor: pointer;
-
-        &:hover > div strong {
-          color: ${({ theme }) => theme.colors.text.positive};
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-      }
-
-      &:not(:last-child)::after {
-        content: "";
-        position: absolute;
-        left: 11px;
-        top: 24px;
-        width: 2px;
-        height: calc(100% - 14px);
-        background: ${({ theme }) => theme.colors.shadow.default};
-      }
-
-      &[data-status="working"] > span {
-        border-color: ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.background.surfaceMuted};
-      }
-
-      &[data-status="completed"] > span {
-        border-color: ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.brand.primary};
-        color: white;
-      }
-
-      &[data-status="failed"] > span {
-        border-color: ${({ theme }) => theme.colors.border.negative};
-        background: ${({ theme }) => theme.colors.semantic.negative};
-        color: white;
-      }
-    }
-  `,
-  WorkflowStepJump: styled.button`
-    position: absolute;
-    z-index: ${({ theme }) => theme.zIndex.raised};
-    inset: 0;
-    width: 100%;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-
-    &:focus-visible {
-      outline: 2px dashed ${({ theme }) => theme.colors.border.positive};
-      outline-offset: 3px;
-    }
-  `,
-  WorkflowResults: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x5};
-  `,
-  WorkflowFinalResult: styled.section`
-    padding: ${({ theme }) => theme.space.x4};
-    border: 2px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-  `,
-  WorkflowResultLabel: styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${({ theme }) => theme.space.x3};
-    padding-bottom: ${({ theme }) => theme.space.x3};
-    border-bottom: 1px solid ${({ theme }) => theme.colors.border.positive};
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-    }
-
-    span {
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-  `,
-  WorkflowStepResults: styled.section`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    padding-top: ${({ theme }) => theme.space.x4};
-    border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
-  `,
-  WorkflowStepResultsHeading: styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${({ theme }) => theme.space.x3};
-    margin-bottom: ${({ theme }) => theme.space.x1};
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-    }
-
-    span {
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-  `,
-  WorkflowResultStep: styled.details`
-    scroll-margin-top: ${({ theme }) => theme.space.x6};
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    summary {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: 28px minmax(0, 1fr) auto;
-      align-items: center;
-      gap: ${({ theme }) => theme.space.x2};
-      padding: ${({ theme }) => theme.space.x3};
-      cursor: pointer;
-      list-style: none;
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-
-      > span {
-        width: 25px;
-        height: 25px;
-        display: grid;
-        place-items: center;
-        background: ${({ theme }) => theme.colors.brand.primary};
-        color: white;
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.micro};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
-
-      > div {
-        min-width: 0;
-        display: grid;
-        gap: ${({ theme }) => theme.space.x1};
-      }
-
-      strong,
-      small {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      strong {
-        color: ${({ theme }) => theme.colors.text.primary};
-        font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      }
-
-      small {
-        color: ${({ theme }) => theme.colors.text.muted};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      }
-
-      b {
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-size: 0;
-
-        &::after {
-          content: "결과 보기";
-          font-size: ${({ theme }) => theme.typography.fontSize.micro};
-        }
-      }
-    }
-
-    &[open] summary {
-      border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-      b::after {
-        content: "결과 닫기";
-      }
-    }
-  `,
-  WorkflowResultBody: styled.div`
-    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x3} ${theme.space.x3}`};
-  `,
-  AssignmentPanel: styled.div`
-    margin-bottom: ${({ theme }) => theme.space.x4};
-    padding: ${({ theme }) => theme.space.x3};
-    border: 2px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-    }
-
-    span {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      line-height: 1.5;
-    }
-  `,
-  AssignmentLink: styled(Button).attrs({ $variant: "secondary" as const })`
-    display: inline-block;
-    width: fit-content;
-    font-size: ${({ theme }) => theme.typography.fontSize.sm};
   `,
   DetailAgent: styled.div`
     display: flex;
@@ -1156,131 +220,44 @@ const Styled = {
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
   `,
-  ExecutionContext: styled.section`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
+  ReferenceDocuments: styled.div`
     margin: ${({ theme }) => `${theme.space.x4} 0`};
     padding: ${({ theme }) => theme.space.x3};
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-
-    > small,
-    > p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      line-height: 1.5;
-    }
-  `,
-  ExecutionContextHeading: styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-    }
-
-    span {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-  `,
-  ExecutionContextError: styled.small`
-    color: ${({ theme }) => theme.colors.text.negative};
-  `,
-  ExecutionContextItem: styled.details`
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    > summary {
-      display: grid;
-      grid-template-columns: 22px minmax(0, 1fr);
-      gap: ${({ theme }) => theme.space.x2};
-      align-items: center;
-      padding: ${({ theme }) => theme.space.x2};
-      cursor: pointer;
-      list-style: none;
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-
-      > span {
-        width: 20px;
-        height: 20px;
-        display: grid;
-        place-items: center;
-        background: ${({ theme }) => theme.colors.background.surfaceMuted};
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
-
-      > div {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: ${({ theme }) => theme.space.x2};
-      }
-
-      strong {
-        font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      }
-
-      small {
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
-    }
-  `,
-  ExecutionContextBody: styled.div`
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
     display: grid;
     gap: ${({ theme }) => theme.space.x2};
-    padding: ${({ theme }) => theme.space.x2};
-    border-top: 1px solid ${({ theme }) => theme.colors.border.positive};
-
-    > code {
-      overflow: hidden;
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  `,
-  ExecutionContextGroup: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x1};
-
-    > b {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-    }
 
     > div {
       display: flex;
-      flex-wrap: wrap;
-      gap: ${({ theme }) => theme.space.x1};
-    }
-
-    span {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
-      border: 1px solid ${({ theme }) => theme.colors.border.positive};
-      background: ${({ theme }) => theme.colors.background.positiveSubtle};
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+      justify-content: space-between;
+      gap: ${({ theme }) => theme.space.x2};
     }
 
     small {
+      color: ${({ theme }) => theme.colors.text.muted};
+    }
+    a {
       color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+    }
+    > details > summary {
+      cursor: pointer;
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    }
+    > details > div {
+      display: grid;
+      gap: ${({ theme }) => theme.space.x1};
+      margin-top: ${({ theme }) => theme.space.x2};
+    }
+    > details button {
+      display: flex;
+      justify-content: space-between;
+      padding: ${({ theme }) => theme.space.x2};
+      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+      cursor: pointer;
     }
   `,
   PermissionWarning: styled.div`
@@ -1302,48 +279,7 @@ const Styled = {
       line-height: 1.5;
     }
   `,
-  RuntimeApproval: styled.div`
-    margin: ${({ theme }) => `${theme.space.x4} 0`};
-    padding: ${({ theme }) => theme.space.x3};
-    border: 3px solid ${({ theme }) => theme.colors.border.default};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.default};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    > strong {
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.base};
-    }
-
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.5;
-    }
-
-    pre {
-      max-height: 150px;
-      margin: 0;
-      padding: ${({ theme }) => theme.space.x2};
-      overflow: auto;
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.brand.primaryDark};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-
-    > div {
-      display: flex;
-      gap: ${({ theme }) => theme.space.x2};
-    }
-  `,
-  TaskMeta: styled(Panel).attrs({ as: "aside" })`
+  TaskMeta: styled(DS.Panel).attrs({ as: "aside" })`
     padding: ${({ theme }) => theme.space.x5};
 
     > h2 {
@@ -1399,133 +335,86 @@ const Styled = {
       line-height: 1.4;
     }
 
-    @media ${mediaQuery.md} {
+    @media ${DS.mediaQuery.md} {
       grid-template-columns: 1fr;
     }
   `,
-  TaskRemoveButton: styled(Button).attrs({ $variant: "danger" as const })`
+  TaskRemoveButton: styled(DS.Button).attrs({ $variant: "danger" as const })`
     padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
     white-space: nowrap;
 
-    @media ${mediaQuery.md} {
+    @media ${DS.mediaQuery.md} {
       width: 100%;
     }
   `,
-  RunHistory: styled(Panel).attrs({ as: "section" })`
-    padding: ${({ theme }) => theme.space.x5};
-    margin-top: 0;
-  `,
-  RunRow,
-  RunDot,
-  RunExpandIcon,
-  RunEntry,
-  RunEntryBody: styled.div<{ $failed: boolean }>`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x3};
-    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x3} ${theme.space.x3} ${theme.space.x5}`};
-    background: ${({ $failed, theme }) =>
-      $failed ? theme.colors.background.negativeSubtle : theme.colors.background.positiveSubtle};
-
-    section {
-      display: grid;
-      gap: ${({ theme }) => theme.space.x2};
-
-      > strong {
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      }
-    }
-
-    dl {
-      display: grid;
-      gap: ${({ theme }) => theme.space.x1};
-      margin: 0;
-
-      div {
-        min-width: 0;
-        display: grid;
-        grid-template-columns: 65px minmax(0, 1fr);
-        gap: ${({ theme }) => theme.space.x2};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      }
-
-      dt {
-        color: ${({ theme }) => theme.colors.text.muted};
-      }
-
-      dd {
-        margin: 0;
-        overflow-wrap: anywhere;
-        font-family: monospace;
-      }
-    }
-
-    > small {
-      color: ${({ theme }) => theme.colors.text.secondary};
-    }
-  `,
-  RunRequestSnapshot: styled.section`
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.55;
-      white-space: pre-wrap;
-    }
-  `,
-  RunResultSnapshot: styled.section`
+  AssignmentPanel: styled.div`
+    margin-bottom: ${({ theme }) => theme.space.x4};
     padding: ${({ theme }) => theme.space.x3};
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-  `,
-  RunErrorSnapshot: styled.section`
-    > strong {
-      color: ${({ theme }) => theme.colors.text.negative};
-    }
+    border: 2px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
+    display: grid;
+    gap: ${({ theme }) => theme.space.x2};
 
-    pre {
-      max-height: 220px;
-      margin: 0;
-      padding: ${({ theme }) => theme.space.x3};
-      overflow: auto;
-      border: 1px solid ${({ theme }) => theme.colors.border.negative};
-      background: ${({ theme }) => theme.colors.semantic.negative};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.55;
-    }
-  `,
-  RunEntryEvents: styled.div`
-    max-height: 180px;
-    overflow: auto;
-    border: 1px solid ${({ theme }) => theme.colors.border.negative};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    > div {
-      display: grid;
-      grid-template-columns: 70px minmax(0, 1fr);
-      gap: ${({ theme }) => theme.space.x2};
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
-      border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      line-height: 1.45;
-
-      &:last-child {
-        border-bottom: 0;
-      }
-    }
-
-    time {
-      color: ${({ theme }) => theme.colors.text.muted};
+    strong {
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
-      overflow-wrap: anywhere;
-      color: ${({ theme }) => theme.colors.text.secondary};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      line-height: 1.5;
+    }
+  `,
+  AssignmentLink: styled(DS.Button).attrs({ $variant: "secondary" as const })`
+    display: inline-block;
+    width: fit-content;
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  `,
+  TaskBriefEditor: styled.div`
+    margin-top: ${({ theme }) => theme.space.x5};
+    display: grid;
+    gap: ${({ theme }) => theme.space.x2};
+
+    label {
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
+    }
+
+    p {
+      margin: 0;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      line-height: 1.55;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      resize: vertical;
+      line-height: 1.55;
+      background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    }
+  `,
+  TaskBriefActions: styled.div`
+    margin-top: ${({ theme }) => theme.space.x1};
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.space.x3};
+
+    small {
+      margin: 0;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      line-height: 1.55;
+    }
+
+    @media ${DS.mediaQuery.md} {
+      align-items: flex-start;
+      flex-direction: column;
     }
   `,
 };
@@ -1560,6 +449,10 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   const workflowPresets = useQuery({
     queryKey: ["workflow-presets", workspace.id],
     queryFn: () => workflowApi.listPresets(workspace.id),
+  });
+  const knowledgeDocuments = useQuery({
+    queryKey: ["knowledge-documents", workspace.id],
+    queryFn: () => recordApi.list(workspace.id),
   });
   const [feedback, setFeedback] = useState("");
   const [taskBrief, setTaskBrief] = useState("");
@@ -1657,6 +550,27 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       agent.permissions.terminal !== true),
   );
   const agentSkills = (skills.data ?? []).filter((skill) => agent?.skillIds.includes(skill.id));
+  const referenceDocuments = (knowledgeDocuments.data ?? []).filter(
+    (document) => document.taskId === item?.id,
+  );
+  const createRecord = useMutation({
+    mutationFn: () => taskApi.createDocument(item!.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["knowledge-documents", workspace.id] });
+      navigate("/records");
+    },
+  });
+  const toggleReferenceDocument = useMutation({
+    mutationFn: (document: KnowledgeDocument) => {
+      const isReferenced = document.referenceTaskIds.includes(item!.id);
+      const referenceTaskIds = isReferenced
+        ? document.referenceTaskIds.filter((taskId) => taskId !== item!.id)
+        : [...document.referenceTaskIds, item!.id];
+      return recordApi.update(workspace.id, document.id, { referenceTaskIds });
+    },
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["knowledge-documents", workspace.id] }),
+  });
   const repairPermissions = useMutation({
     mutationFn: () =>
       agentApi.update(agent!.id, {
@@ -1691,6 +605,8 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
         })
       : undefined;
   const actionError =
+    createRecord.error ??
+    toggleReferenceDocument.error ??
     run.error ??
     retry.error ??
     extendSession.error ??
@@ -1710,7 +626,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   if (task.isPending) return <FullScreenMessage>작업을 불러오는 중...</FullScreenMessage>;
   if (!item || task.isError)
     return <FullScreenMessage error>{messageOf(task.error)}</FullScreenMessage>;
-  const sessionLimitReason = sessionLimitFrom(latestRun?.error);
+  const sessionLimitReason = parseSessionLimit(latestRun?.error);
   const active = ["working", "needs_input"].includes(item.status);
   return (
     <BaseLayout>
@@ -1724,6 +640,40 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
             : item.description || "추가 설명이 없습니다."}
         </p>
       </Styled.Heading>
+      <Styled.PrimaryActionBar>
+        {createRecord.isPending ? (
+          <Styled.Organizing>
+            <b aria-hidden="true">▦</b> {agent?.name ?? "AI"}가 기록을 주섬주섬 정리하고 있어요.
+          </Styled.Organizing>
+        ) : (
+          <span>
+            {item.status === "todo"
+              ? agent
+                ? "요청을 확인했다면 바로 시작할 수 있어요."
+                : "담당자를 선택하면 작업을 시작할 수 있어요."
+              : "현재 작업의 요청과 결과를 Markdown 문서로 남길 수 있어요."}
+          </span>
+        )}
+        {item.status === "todo" ? (
+          <Button
+            $variant="primary"
+            disabled={!agent || missingRuntimePermissions || run.isPending}
+            onClick={() => run.mutate()}
+          >
+            {run.isPending ? "시작하는 중…" : "▶ 작업 시작"}
+          </Button>
+        ) : (
+          <Button
+            $variant="secondary"
+            disabled={createRecord.isPending}
+            onClick={() => createRecord.mutate()}
+          >
+            {createRecord.isPending
+              ? `${agent?.name ?? "AI"}가 문서 작성 중…`
+              : "▤ AI로 문서 만들기"}
+          </Button>
+        )}
+      </Styled.PrimaryActionBar>
       <Styled.DetailLayout>
         <Styled.DetailMain>
           <Styled.ResultPanel>
@@ -1759,25 +709,22 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                   onChange={(event) => setTaskBrief(event.target.value)}
                   onKeyDown={(event) => {
                     if (
-                      (event.ctrlKey || event.metaKey) &&
                       event.key === "Enter" &&
+                      !event.shiftKey &&
                       !event.nativeEvent.isComposing &&
-                      !updateBrief.isPending &&
-                      taskBrief.trim() !== (item.description ?? "").trim()
+                      agent &&
+                      !missingRuntimePermissions &&
+                      !run.isPending
                     ) {
                       event.preventDefault();
-                      updateBrief.mutate();
+                      run.mutate();
                     }
                   }}
                   placeholder="예: 현재 UI 구조를 먼저 확인하고, 기존 컴포넌트 스타일을 유지하면서 개선해 주세요."
                   rows={8}
                 />
                 <Styled.TaskBriefActions>
-                  <small>
-                    {taskBrief.trim() === (item.description ?? "").trim()
-                      ? "저장된 내용입니다."
-                      : "작업 시작 시 변경 내용도 함께 저장됩니다."}
-                  </small>
+                  <small>Enter로 바로 시작 · Shift+Enter로 줄바꿈</small>
                   <Button
                     type="button"
                     $variant="secondary"
@@ -1791,7 +738,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                 </Styled.TaskBriefActions>
               </Styled.TaskBriefEditor>
             ) : sessionLimitReason ? (
-              <SessionLimitState
+              <ExecutionSessionLimitState
                 reason={sessionLimitReason}
                 canExtend={Boolean(latestRun?.runtimeThreadId)}
                 extendPending={extendSession.isPending}
@@ -1810,7 +757,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
             ) : item.result ? (
               <TaskResultView result={item.result} />
             ) : item.status === "failed" ? (
-              <FailureState error={latestRun?.error} />
+              <ExecutionFailureState error={latestRun?.error} />
             ) : (
               <Empty>작업을 시작하면 여기에 결과가 나타납니다.</Empty>
             )}
@@ -1936,6 +883,46 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
             skills={skills.data ?? []}
             loading={executionContexts.isPending}
             error={executionContexts.isError ? messageOf(executionContexts.error) : undefined}
+            referenceDocuments={
+              <Styled.ReferenceDocuments>
+                <div>
+                  <strong>참고 문서</strong>
+                  <small>{referenceDocuments.length}개 자동 전달</small>
+                </div>
+                {referenceDocuments.map((document) => (
+                  <Link to={`/records?document=${document.id}`} key={document.id}>
+                    {document.title}
+                  </Link>
+                ))}
+                {!knowledgeDocuments.isPending && referenceDocuments.length === 0 && (
+                  <small>이 작업에 연결된 문서가 없습니다.</small>
+                )}
+                {(knowledgeDocuments.data?.length ?? 0) > 0 && (
+                  <details>
+                    <summary>기록실에서 참고 문서 선택</summary>
+                    <div>
+                      {(knowledgeDocuments.data ?? []).map((document) => {
+                        const isSource = document.taskId === item.id;
+                        const isReferenced = document.referenceTaskIds.includes(item.id);
+                        return (
+                          <button
+                            type="button"
+                            key={document.id}
+                            disabled={isSource || toggleReferenceDocument.isPending}
+                            onClick={() => toggleReferenceDocument.mutate(document)}
+                          >
+                            <span>{document.title}</span>
+                            <strong>
+                              {isSource ? "이 작업에서 생성" : isReferenced ? "제외" : "추가"}
+                            </strong>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
+              </Styled.ReferenceDocuments>
+            }
           />
           {missingRuntimePermissions && (
             <Styled.PermissionWarning>
@@ -1952,7 +939,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
             </Styled.PermissionWarning>
           )}
           {pendingApproval && (
-            <RuntimeApproval
+            <ExecutionRuntimeApproval
               activity={pendingApproval}
               pending={resolveApproval.isPending}
               onDecision={(decision) =>
@@ -2000,16 +987,6 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
               </dl>
             )}
           </TechnicalDetails>
-          {item.status === "todo" && (
-            <Button
-              $variant="primary"
-              $fullWidth
-              disabled={!agent || missingRuntimePermissions || run.isPending}
-              onClick={() => run.mutate()}
-            >
-              ▶ 작업 시작
-            </Button>
-          )}
           {item.status === "failed" && (
             <Button
               $variant="primary"
@@ -2055,773 +1032,5 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       </Styled.DetailLayout>
       <ConfirmDialog {...dialogProps} />
     </BaseLayout>
-  );
-}
-
-function WorkflowPanel({
-  task,
-  agents,
-  saving,
-  onSave,
-  presets,
-  presetSaving,
-  onCreatePreset,
-  onDeletePreset,
-  singleAssignment,
-}: {
-  task: TaskDetail;
-  agents: Agent[];
-  saving: boolean;
-  onSave: (agentIds: string[]) => void;
-  presets: WorkflowPreset[];
-  presetSaving: boolean;
-  onCreatePreset: (name: string, agentIds: string[]) => void;
-  onDeletePreset: (preset: WorkflowPreset) => void;
-  singleAssignment: ReactNode;
-}) {
-  const [agentIds, setAgentIds] = useState(() => task.workflow.map((step) => step.agentId));
-  const [editing, setEditing] = useState(false);
-  const [presetName, setPresetName] = useState("");
-  const [selectedPresetId, setSelectedPresetId] = useState("");
-  const editable = task.status === "todo" && task.runs.length === 0;
-  useEffect(() => {
-    setAgentIds(task.workflow.map((step) => step.agentId));
-    setEditing(false);
-  }, [task.workflow]);
-  const startConfiguring = () => {
-    const first = task.assigneeAgentId ?? agents[0]?.id;
-    const second = agents.find((agent) => agent.id !== first)?.id;
-    setAgentIds([first, second].filter((id): id is string => Boolean(id)));
-    setEditing(true);
-  };
-  const updateAgent = (position: number, agentId: string) => {
-    setSelectedPresetId("");
-    setAgentIds((current) => current.map((id, index) => (index === position ? agentId : id)));
-  };
-  const move = (position: number, direction: -1 | 1) => {
-    setSelectedPresetId("");
-    setAgentIds((current) => {
-      const target = position + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[position], next[target]] = [next[target]!, next[position]!];
-      return next;
-    });
-  };
-  const hasDuplicates = new Set(agentIds).size !== agentIds.length;
-  const sequential = task.workflow.length > 0 || editing;
-  const selectedPreset = presets.find((preset) => preset.id === selectedPresetId);
-  const cancelEditing = () => {
-    setAgentIds(task.workflow.map((step) => step.agentId));
-    setEditing(false);
-  };
-  const chooseSingle = () => {
-    if (task.workflow.length > 0) onSave([]);
-    else cancelEditing();
-  };
-
-  return (
-    <Styled.WorkflowPanel>
-      <SectionHeading $compact>
-        <h2>담당 방식</h2>
-      </SectionHeading>
-      {editable && (
-        <Styled.AssignmentModeSwitch aria-label="담당 방식 선택">
-          <button
-            type="button"
-            className={!sequential ? "selected" : ""}
-            onClick={chooseSingle}
-            disabled={saving}
-          >
-            한 명에게 맡기기
-          </button>
-          <button
-            type="button"
-            className={sequential ? "selected" : ""}
-            onClick={() => {
-              if (!sequential) startConfiguring();
-              else if (task.workflow.length > 0) setEditing(true);
-            }}
-            disabled={agents.length < 2 || saving}
-          >
-            순차 협업
-          </button>
-        </Styled.AssignmentModeSwitch>
-      )}
-      {!sequential ? (
-        (singleAssignment ?? (
-          <Styled.WorkflowEmpty>한 명이 이 작업을 담당합니다.</Styled.WorkflowEmpty>
-        ))
-      ) : task.workflow.length > 0 && !editable ? (
-        <Styled.WorkflowProgressList>
-          {task.workflow.map((step) => (
-            <WorkflowProgressStep
-              key={step.id}
-              step={step}
-              agent={agents.find((a) => a.id === step.agentId)}
-            />
-          ))}
-        </Styled.WorkflowProgressList>
-      ) : editing ? (
-        <Styled.WorkflowEditor>
-          <Styled.WorkflowPresetPicker>
-            <label htmlFor="workflow-preset">저장된 협업 그룹</label>
-            <div>
-              <Select
-                id="workflow-preset"
-                value={selectedPresetId}
-                onChange={(event) => {
-                  const preset = presets.find((entry) => entry.id === event.target.value);
-                  setSelectedPresetId(event.target.value);
-                  if (preset) setAgentIds(preset.agentIds);
-                }}
-              >
-                <option value="">직접 순서 구성</option>
-                {presets.map((preset) => (
-                  <option
-                    key={preset.id}
-                    value={preset.id}
-                    disabled={preset.agentIds.some(
-                      (id) => !agents.some((agent) => agent.id === id),
-                    )}
-                  >
-                    {preset.name} · {preset.agentIds.length}명
-                  </option>
-                ))}
-              </Select>
-              <Styled.WorkflowPresetDelete
-                type="button"
-                disabled={!selectedPreset || presetSaving}
-                onClick={() => selectedPreset && onDeletePreset(selectedPreset)}
-                aria-label="선택한 협업 그룹 삭제"
-              >
-                삭제
-              </Styled.WorkflowPresetDelete>
-            </div>
-          </Styled.WorkflowPresetPicker>
-          {agentIds.map((agentId, position) => (
-            <Styled.WorkflowEditorStep key={`${position}-${agentId}`}>
-              <Styled.WorkflowStepMain>
-                <span>{position + 1}</span>
-                <Select
-                  value={agentId}
-                  onChange={(event) => updateAgent(position, event.target.value)}
-                >
-                  {agents.map((agent) => (
-                    <option value={agent.id} key={agent.id}>
-                      {agent.name} · {agent.role}
-                    </option>
-                  ))}
-                </Select>
-              </Styled.WorkflowStepMain>
-              <Styled.WorkflowStepControls>
-                <span>
-                  {position === agentIds.length - 1 ? "최종 단계" : "완료 후 다음 단계로 전달"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => move(position, -1)}
-                  disabled={position === 0}
-                  aria-label="앞 단계로 이동"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => move(position, 1)}
-                  disabled={position === agentIds.length - 1}
-                  aria-label="뒤 단계로 이동"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPresetId("");
-                    setAgentIds((current) => current.filter((_, index) => index !== position));
-                  }}
-                  disabled={agentIds.length <= 2}
-                  title={agentIds.length <= 2 ? "순차 협업에는 최소 2명이 필요합니다." : undefined}
-                  aria-label="단계 삭제"
-                >
-                  ×
-                </button>
-              </Styled.WorkflowStepControls>
-            </Styled.WorkflowEditorStep>
-          ))}
-          <Styled.WorkflowAddStep
-            type="button"
-            disabled={agentIds.length >= Math.min(8, agents.length)}
-            onClick={() => {
-              const next = agents.find((agent) => !agentIds.includes(agent.id));
-              if (next) {
-                setSelectedPresetId("");
-                setAgentIds((current) => [...current, next.id]);
-              }
-            }}
-          >
-            + 다음 단계 추가
-          </Styled.WorkflowAddStep>
-          <Styled.WorkflowPresetSave
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (presetName.trim() && agentIds.length >= 2 && !hasDuplicates && !presetSaving) {
-                onCreatePreset(presetName, agentIds);
-                setPresetName("");
-              }
-            }}
-          >
-            <Input
-              value={presetName}
-              onChange={(event) => setPresetName(event.target.value)}
-              placeholder="이 순서의 그룹 이름"
-              aria-label="협업 그룹 이름"
-            />
-            <Button
-              type="submit"
-              $variant="secondary"
-              disabled={!presetName.trim() || agentIds.length < 2 || hasDuplicates || presetSaving}
-            >
-              그룹 저장
-            </Button>
-          </Styled.WorkflowPresetSave>
-          <Styled.WorkflowEditorActions>
-            <Button type="button" $variant="secondary" onClick={cancelEditing}>
-              편집 취소
-            </Button>
-            <Button
-              type="button"
-              $variant="primary"
-              disabled={saving || agentIds.length < 2 || hasDuplicates}
-              onClick={() => onSave(agentIds)}
-            >
-              순서 저장
-            </Button>
-          </Styled.WorkflowEditorActions>
-          {hasDuplicates && (
-            <Styled.WorkflowMessage>
-              같은 에이전트를 중복 배치할 수 없습니다.
-            </Styled.WorkflowMessage>
-          )}
-        </Styled.WorkflowEditor>
-      ) : task.workflow.length > 0 ? (
-        <Styled.WorkflowSummary>
-          <ol>
-            {task.workflow.map((step) => (
-              <li key={step.id}>
-                <span>{step.position + 1}</span>
-                <strong>
-                  {agents.find((agent) => agent.id === step.agentId)?.name ?? "삭제된 에이전트"}
-                </strong>
-              </li>
-            ))}
-          </ol>
-          <Button type="button" $variant="secondary" $fullWidth onClick={() => setEditing(true)}>
-            협업 순서 편집
-          </Button>
-        </Styled.WorkflowSummary>
-      ) : (
-        <Styled.WorkflowEmpty>
-          {agents.length < 2
-            ? "순차 협업에는 에이전트가 2명 이상 필요합니다."
-            : "이 작업은 단일 에이전트로 진행됩니다."}
-        </Styled.WorkflowEmpty>
-      )}
-    </Styled.WorkflowPanel>
-  );
-}
-
-function CurrentRunRequest({ request }: { request: string }) {
-  return (
-    <Styled.CurrentRunRequest>
-      <span>현재 요청</span>
-      <p>{request}</p>
-    </Styled.CurrentRunRequest>
-  );
-}
-
-function PreviousResult({ result }: { result: NonNullable<TaskDetail["result"]> }) {
-  return (
-    <Styled.PreviousResult>
-      <summary>이전 결과 보기</summary>
-      <div>
-        <TaskResultView result={result} />
-      </div>
-    </Styled.PreviousResult>
-  );
-}
-
-function ExecutionContextPanel({
-  contexts,
-  agents,
-  skills,
-  loading,
-  error,
-}: {
-  contexts: TaskExecutionContext[];
-  agents: Agent[];
-  skills: Skill[];
-  loading: boolean;
-  error?: string;
-}) {
-  return (
-    <Styled.ExecutionContext>
-      <Styled.ExecutionContextHeading>
-        <strong>실행 컨텍스트</strong>
-        <span>PROJECT</span>
-      </Styled.ExecutionContextHeading>
-      {loading ? (
-        <small>프로젝트 지침을 확인하는 중입니다.</small>
-      ) : error ? (
-        <Styled.ExecutionContextError>{error}</Styled.ExecutionContextError>
-      ) : contexts.length === 0 ? (
-        <small>담당자를 정하면 실행 컨텍스트를 확인할 수 있습니다.</small>
-      ) : (
-        contexts.map((context) => {
-          const contextAgent = agents.find((candidate) => candidate.id === context.agentId);
-          const mappedSkills = skills.filter((skill) => contextAgent?.skillIds.includes(skill.id));
-          return (
-            <Styled.ExecutionContextItem
-              key={context.workflowStepId ?? context.agentId}
-              open={contexts.length === 1}
-            >
-              <summary>
-                <span>{context.position === undefined ? "1" : context.position + 1}</span>
-                <div>
-                  <strong>{context.agentName}</strong>
-                  <small>{context.runtime.toUpperCase()}</small>
-                </div>
-              </summary>
-              <Styled.ExecutionContextBody>
-                <code title={context.workingDirectory}>{context.workingDirectory}</code>
-                <ContextGroup label={`${context.runtime.toUpperCase()} 프로젝트 지침`}>
-                  {context.instructionFiles.length > 0 ? (
-                    context.instructionFiles.map((path) => (
-                      <span title={path} key={path}>
-                        {fileName(path)} 감지됨
-                      </span>
-                    ))
-                  ) : (
-                    <small>설정된 프로젝트 지침이 없습니다.</small>
-                  )}
-                </ContextGroup>
-                <ContextGroup label="프로젝트 스킬">
-                  {context.projectSkills.length > 0 ? (
-                    context.projectSkills.map((skill) => (
-                      <span title={skill.path} key={skill.path}>
-                        {skill.name}
-                      </span>
-                    ))
-                  ) : (
-                    <small>감지된 프로젝트 스킬이 없습니다.</small>
-                  )}
-                </ContextGroup>
-                <ContextGroup label="동료에게 매핑된 스킬">
-                  {mappedSkills.length > 0 ? (
-                    mappedSkills.map((skill) => <span key={skill.id}>{skill.name}</span>)
-                  ) : (
-                    <small>기본 업무 능력으로 실행합니다.</small>
-                  )}
-                </ContextGroup>
-              </Styled.ExecutionContextBody>
-            </Styled.ExecutionContextItem>
-          );
-        })
-      )}
-      <p>파일 존재 여부만 표시하며, 실제 해석과 적용은 각 런타임이 담당합니다.</p>
-    </Styled.ExecutionContext>
-  );
-}
-
-function ContextGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Styled.ExecutionContextGroup>
-      <b>{label}</b>
-      <div>{children}</div>
-    </Styled.ExecutionContextGroup>
-  );
-}
-
-function fileName(path: string): string {
-  return path.split(/[\\/]/).at(-1) ?? path;
-}
-
-function RunHistory({
-  runs,
-  progressByRun,
-}: {
-  runs: TaskDetail["runs"];
-  progressByRun: TaskDetail["progressByRun"];
-}) {
-  const statusLabel: Record<TaskDetail["runs"][number]["status"], string> = {
-    queued: "대기",
-    running: "실행 중",
-    waiting: "입력 대기",
-    completed: "완료",
-    failed: "실패",
-    cancelled: "취소",
-  };
-  return (
-    <Styled.RunHistory>
-      <SectionHeading $compact>
-        <h2>실행 기록</h2>
-        <span>{runs.length}</span>
-      </SectionHeading>
-      {runs.map((entry) => {
-        const progress = progressByRun[entry.id] ?? [];
-        return (
-          <Styled.RunEntry $failed={entry.status === "failed"} key={entry.id}>
-            <Styled.RunRow>
-              <Styled.RunDot $status={entry.status} />
-              <strong>{entry.runtime.toUpperCase()}</strong>
-              <span>{statusLabel[entry.status]}</span>
-              <time>{new Date(entry.createdAt).toLocaleString("ko-KR")}</time>
-              <Styled.RunExpandIcon aria-hidden="true">›</Styled.RunExpandIcon>
-            </Styled.RunRow>
-            <Styled.RunEntryBody $failed={entry.status === "failed"}>
-              {entry.request && (
-                <Styled.RunRequestSnapshot>
-                  <strong>요청</strong>
-                  <p>{entry.request}</p>
-                </Styled.RunRequestSnapshot>
-              )}
-              {entry.result && (
-                <Styled.RunResultSnapshot>
-                  <strong>이 실행의 결과</strong>
-                  <TaskResultView result={entry.result} size="small" />
-                </Styled.RunResultSnapshot>
-              )}
-              {entry.status === "failed" && (
-                <Styled.RunErrorSnapshot>
-                  <strong>실패 로그</strong>
-                  <pre>{entry.error || "기록된 오류 메시지가 없습니다."}</pre>
-                </Styled.RunErrorSnapshot>
-              )}
-              {progress.length > 0 && (
-                <Styled.RunEntryEvents>
-                  {progress.slice(-12).map((event) => (
-                    <div key={event.id}>
-                      <time>{new Date(event.createdAt).toLocaleTimeString("ko-KR")}</time>
-                      <span>{event.message}</span>
-                    </div>
-                  ))}
-                </Styled.RunEntryEvents>
-              )}
-              <dl>
-                {entry.workingDirectory && (
-                  <div>
-                    <dt>작업 폴더</dt>
-                    <dd>{entry.workingDirectory}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>실행 ID</dt>
-                  <dd>{entry.id}</dd>
-                </div>
-                {entry.runtimeThreadId && (
-                  <div>
-                    <dt>세션 ID</dt>
-                    <dd>{entry.runtimeThreadId}</dd>
-                  </div>
-                )}
-                {entry.eventLogRef && (
-                  <div>
-                    <dt>상세 로그</dt>
-                    <dd>{entry.eventLogRef}</dd>
-                  </div>
-                )}
-              </dl>
-              {!entry.request &&
-                !entry.result &&
-                entry.status !== "failed" &&
-                progress.length === 0 && (
-                  <small>이전 버전에서 생성되어 상세 스냅샷이 없는 실행입니다.</small>
-                )}
-            </Styled.RunEntryBody>
-          </Styled.RunEntry>
-        );
-      })}
-      {runs.length === 0 && <Empty>실행 기록이 없습니다.</Empty>}
-    </Styled.RunHistory>
-  );
-}
-
-function WorkflowResults({
-  task,
-  agents,
-  error,
-}: {
-  task: TaskDetail;
-  agents: Agent[];
-  error?: string;
-}) {
-  const completedSteps = task.workflow.filter((step) => step.result);
-  const finalReady = ["needs_review", "done"].includes(task.status) && task.result;
-  return (
-    <Styled.WorkflowResults>
-      {finalReady ? (
-        <Styled.WorkflowFinalResult>
-          <Styled.WorkflowResultLabel>
-            <strong>최종 결과</strong>
-            <span>{agents.find((agent) => agent.id === task.workflow.at(-1)?.agentId)?.name}</span>
-          </Styled.WorkflowResultLabel>
-          <TaskResultView result={task.result!} />
-        </Styled.WorkflowFinalResult>
-      ) : task.status === "failed" ? (
-        <FailureState error={error} />
-      ) : (
-        <>
-          <WorkInProgress waiting={task.status === "needs_input"} />
-          <RunProgress events={task.progress} />
-        </>
-      )}
-      <Styled.WorkflowStepResults>
-        <Styled.WorkflowStepResultsHeading>
-          <strong>단계별 결과</strong>
-          <span>
-            {completedSteps.length}/{task.workflow.length}
-          </span>
-        </Styled.WorkflowStepResultsHeading>
-        {completedSteps.map((step) => {
-          const stepAgent = agents.find((agent) => agent.id === step.agentId);
-          return (
-            <Styled.WorkflowResultStep key={step.id} id={`workflow-result-${step.id}`}>
-              <summary>
-                <span>{step.position + 1}</span>
-                <div>
-                  <strong>{stepAgent?.name ?? "삭제된 에이전트"}</strong>
-                  <small>{stepAgent?.role ?? "역할 정보 없음"}</small>
-                </div>
-                <b>결과 보기</b>
-              </summary>
-              <Styled.WorkflowResultBody>
-                <TaskResultView result={step.result!} size="compact" />
-              </Styled.WorkflowResultBody>
-            </Styled.WorkflowResultStep>
-          );
-        })}
-        {completedSteps.length === 0 && <Empty>첫 번째 단계 결과를 기다리는 중입니다.</Empty>}
-      </Styled.WorkflowStepResults>
-    </Styled.WorkflowResults>
-  );
-}
-
-function TaskResultView({
-  result,
-  size = "default",
-}: {
-  result: NonNullable<TaskDetail["result"]>;
-  size?: "default" | "compact" | "small";
-}) {
-  return (
-    <>
-      <Styled.MarkdownResult $size={size}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.summary}</ReactMarkdown>
-      </Styled.MarkdownResult>
-      {result.artifacts?.map((artifact) => (
-        <Styled.Artifact key={artifact.name}>
-          <span>▤</span>
-          <div>
-            <strong>{artifact.name}</strong>
-            <small>{artifact.path ?? artifact.url ?? artifact.type}</small>
-          </div>
-        </Styled.Artifact>
-      ))}
-    </>
-  );
-}
-
-function WorkflowProgressStep({ step, agent }: { step: TaskWorkflowStep; agent?: Agent }) {
-  const labels: Record<TaskWorkflowStep["status"], string> = {
-    pending: "대기",
-    working: "작업 중",
-    completed: "완료",
-    failed: "실패",
-  };
-  return (
-    <li data-status={step.status} className={step.result ? "has-result" : undefined}>
-      <span>{step.position + 1}</span>
-      <div>
-        <strong>{agent?.name ?? "삭제된 에이전트"}</strong>
-        <small>{labels[step.status]}</small>
-        {step.result && <p>{step.result.summary}</p>}
-      </div>
-      {step.result && (
-        <Styled.WorkflowStepJump
-          type="button"
-          aria-label={`${step.position + 1}단계 ${agent?.name ?? "에이전트"} 결과로 이동`}
-          title="단계 결과 펼쳐보기"
-          onClick={() => revealWorkflowResult(step.id)}
-        />
-      )}
-    </li>
-  );
-}
-
-function revealWorkflowResult(stepId: string): void {
-  const result = document.getElementById(`workflow-result-${stepId}`);
-  if (!(result instanceof HTMLDetailsElement)) return;
-  result.open = true;
-  result.scrollIntoView({ behavior: "smooth", block: "start" });
-  window.requestAnimationFrame(() => {
-    result.querySelector("summary")?.focus({ preventScroll: true });
-  });
-}
-
-function WorkInProgress({ waiting }: { waiting: boolean }) {
-  return (
-    <Styled.WorkProgress $waiting={waiting}>
-      <Styled.ProgressPixels className="progress-pixels">
-        <span />
-        <span />
-        <span />
-        <span />
-      </Styled.ProgressPixels>
-      <strong>
-        {waiting ? "에이전트가 승인을 기다리고 있어요" : "에이전트가 작업하고 있어요"}
-      </strong>
-      <p>
-        {waiting
-          ? "오른쪽의 승인 요청을 확인하면 작업이 계속됩니다."
-          : "파일을 살펴보고 결과를 정리하는 중입니다. 이 화면은 자동으로 갱신됩니다."}
-      </p>
-    </Styled.WorkProgress>
-  );
-}
-function RunProgress({ events }: { events: Awaited<ReturnType<typeof taskApi.get>>["progress"] }) {
-  const listRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
-  }, [events.length]);
-  return (
-    <Styled.RunProgress>
-      <Styled.RunProgressHeading>
-        <strong>실시간 진행</strong>
-        <span>{events.length}</span>
-      </Styled.RunProgressHeading>
-      <Styled.RunProgressList ref={listRef}>
-        {events.slice(-30).map((event) => (
-          <Styled.ProgressEvent $type={event.type} key={event.id}>
-            <span>
-              {event.type === "tool_started"
-                ? "▶"
-                : event.type === "tool_completed"
-                  ? "✓"
-                  : event.type === "permission_requested"
-                    ? "!"
-                    : "·"}
-            </span>
-            <div>
-              <p>{event.message}</p>
-              {typeof event.metadata?.detail === "string" && <code>{event.metadata.detail}</code>}
-              <time>{new Date(event.createdAt).toLocaleTimeString("ko-KR")}</time>
-            </div>
-          </Styled.ProgressEvent>
-        ))}
-        {events.length === 0 && <Empty>첫 번째 실행 이벤트를 기다리는 중...</Empty>}
-      </Styled.RunProgressList>
-    </Styled.RunProgress>
-  );
-}
-function SessionLimitState({
-  reason,
-  canExtend,
-  extendPending,
-  newSessionPending,
-  onExtend,
-  onNewSession,
-}: {
-  reason: "capacity" | "inactivity" | "duration";
-  canExtend: boolean;
-  extendPending: boolean;
-  newSessionPending: boolean;
-  onExtend: () => void;
-  onNewSession: () => void;
-}) {
-  const descriptions = {
-    capacity:
-      "현재 진행 내용과 변경된 파일을 보존했습니다. 기존 대화를 유지한 채 세션 한도를 늘려 계속할 수 있습니다.",
-    inactivity:
-      "5분 동안 새로운 진행이 없어 안전하게 중단했습니다. 기존 대화와 작업 폴더를 그대로 유지해 다시 시작할 수 있습니다.",
-    duration:
-      "20분 실행 한도에 도달했습니다. 기존 대화와 현재까지의 변경 내용을 유지한 채 계속할 수 있습니다.",
-  } as const;
-  return (
-    <Styled.SessionLimitState>
-      <span>↻</span>
-      <div>
-        <strong>작업 세션이 일시 중단되었습니다.</strong>
-        <p>{descriptions[reason]}</p>
-        <Styled.SessionLimitActions>
-          {canExtend && (
-            <Button
-              $variant="primary"
-              disabled={extendPending || newSessionPending}
-              onClick={onExtend}
-            >
-              {extendPending ? "기존 세션 다시 여는 중…" : "같은 세션 한도 늘려 계속"}
-            </Button>
-          )}
-          <Button
-            $variant="secondary"
-            disabled={extendPending || newSessionPending}
-            onClick={onNewSession}
-          >
-            {newSessionPending ? "새 세션 준비 중…" : "새 세션에서 이어가기"}
-          </Button>
-        </Styled.SessionLimitActions>
-      </div>
-    </Styled.SessionLimitState>
-  );
-}
-function sessionLimitFrom(error?: string): "capacity" | "inactivity" | "duration" | undefined {
-  const match = error?.match(/^SESSION_LIMIT:(capacity|inactivity|duration):/);
-  return match?.[1] as "capacity" | "inactivity" | "duration" | undefined;
-}
-function FailureState({ error }: { error?: string }) {
-  return (
-    <Styled.FailureState>
-      <span>!</span>
-      <div>
-        <strong>작업을 완료하지 못했습니다.</strong>
-        <p>
-          {error || "실행이 예기치 않게 종료되었습니다. 실행 기록을 확인한 뒤 다시 시도해 주세요."}
-        </p>
-      </div>
-    </Styled.FailureState>
-  );
-}
-function RuntimeApproval({
-  activity,
-  pending,
-  onDecision,
-}: {
-  activity: Awaited<ReturnType<typeof activityApi.list>>[number];
-  pending: boolean;
-  onDecision: (decision: "accept" | "cancel") => void;
-}) {
-  const details = (activity.metadata?.details ?? {}) as Record<string, unknown>;
-  const reason =
-    typeof details.reason === "string"
-      ? details.reason
-      : "에이전트가 명령 실행 권한을 요청했습니다.";
-  const command = typeof details.command === "string" ? details.command : undefined;
-  return (
-    <Styled.RuntimeApproval>
-      <Kicker>APPROVAL REQUIRED</Kicker>
-      <strong>작업을 계속하려면 승인이 필요합니다.</strong>
-      <p>{reason}</p>
-      {command && <pre>{command}</pre>}
-      <div>
-        <Button $variant="primary" disabled={pending} onClick={() => onDecision("accept")}>
-          이번만 승인
-        </Button>
-        <Button $variant="danger" disabled={pending} onClick={() => onDecision("cancel")}>
-          거절
-        </Button>
-      </div>
-    </Styled.RuntimeApproval>
   );
 }

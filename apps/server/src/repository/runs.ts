@@ -11,7 +11,7 @@ import {
 } from "@ai-pixel-office/domain";
 import { requireEntity } from "../database.ts";
 import type { AppDatabase } from "../database.ts";
-import { json, now, optional, type Row, runFrom, workflowStepFrom } from "./rows.ts";
+import { json, now, type Row, runFrom, workflowStepFrom } from "./rows.ts";
 import { withTransaction } from "./shared.ts";
 import { createActivitySync, type CreateActivityInput } from "./activities.ts";
 import { getProjectSync } from "./projects.ts";

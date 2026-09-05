@@ -37,32 +37,10 @@ const Styled = {
     display: grid;
     gap: ${({ theme }) => theme.space.x4};
   `,
-  AdvancedSettings: styled(Panel).attrs({ as: "details" })`
+  WorkDirectorySettings: styled(Panel).attrs({ as: "section" })`
     grid-column: 1 / -1;
-
-    > summary {
-      padding: ${({ theme }) => `${theme.space.x4} ${theme.space.x5}`};
-      display: flex;
-      align-items: center;
-      gap: ${({ theme }) => theme.space.x3};
-      cursor: pointer;
-      list-style-position: inside;
-
-      strong {
-        font-size: ${({ theme }) => theme.typography.fontSize.lg};
-      }
-
-      span {
-        color: ${({ theme }) => theme.colors.text.muted};
-        font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      }
-    }
-
-    &[open] > summary {
-      border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
-    }
   `,
-  AdvancedSettingsBody: styled.div`
+  WorkDirectoryBody: styled.div`
     padding: ${({ theme }) => theme.space.x5};
     display: grid;
     gap: ${({ theme }) => theme.space.x4};
@@ -375,18 +353,15 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
           </Styled.SettingsActions>
           {save.isError && <ErrorBanner>{messageOf(save.error)}</ErrorBanner>}
         </Styled.WorkspaceForm>
-        <Styled.AdvancedSettings>
-          <summary>
-            <strong>개발자 옵션</strong>
-            <span>로컬 프로젝트 폴더와 실행 위치를 관리합니다.</span>
-          </summary>
-          <Styled.AdvancedSettingsBody>
+        <Styled.WorkDirectorySettings>
+          <Styled.WorkDirectoryBody>
             <SectionHeading $compact>
-              <h2>로컬 프로젝트 폴더</h2>
+              <h2>연결된 작업 폴더</h2>
               <span>{projects.data?.length ?? 0}</span>
             </SectionHeading>
             <HelperText>
-              코드 작업이 필요한 경우에만 설정하세요. PM·디자인 대화에는 필요하지 않습니다.
+              AI 동료가 참고하거나 결과를 저장할 코드·기획·디자인 폴더를 연결하세요. 폴더를 연결하지
+              않아도 일반 작업은 시작할 수 있습니다.
             </HelperText>
             <Styled.ProjectAddForm
               onSubmit={(event) => {
@@ -469,8 +444,8 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                 )}
               </ErrorBanner>
             )}
-          </Styled.AdvancedSettingsBody>
-        </Styled.AdvancedSettings>
+          </Styled.WorkDirectoryBody>
+        </Styled.WorkDirectorySettings>
       </Styled.Grid>
       <ConfirmDialog {...dialogProps} />
     </BaseLayout>

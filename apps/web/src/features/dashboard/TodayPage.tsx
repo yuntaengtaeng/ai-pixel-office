@@ -39,6 +39,7 @@ import { PromptSuggestions } from "../../shared/ui/PromptSuggestions.tsx";
 import { SectionHeading, SectionHeadingCount } from "../../shared/ui/SectionHeading.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
 import { InboxPanel } from "../inbox/InboxPanel.tsx";
+import { inputApi } from "../inbox/api.ts";
 import { LiveBadge, OfficeCard, OfficeLoading } from "../office/OfficeCard.tsx";
 
 const PixelOffice = lazy(async () => {
@@ -678,6 +679,19 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
       navigate(`/tasks/${task.id}`);
     },
   });
+  const storeForLater = useMutation({
+    mutationFn: () =>
+      inputApi.create({
+        workspaceId: workspace.id,
+        title: title.trim(),
+        content: description.trim() || title.trim(),
+        type: "request",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["inputs", workspace.id] });
+      onDone();
+    },
+  });
   return (
     <Styled.Composer
       onSubmit={(event) => {
@@ -729,14 +743,21 @@ function TaskComposer({ workspace, onDone }: { workspace: Workspace; onDone: () 
         </PromptSuggestions>
       </Styled.ResultField>
       <Styled.DialogActions>
-        <Button $variant="secondary" type="button" onClick={onDone}>
-          취소
+        <Button
+          $variant="secondary"
+          type="button"
+          disabled={!title.trim() || storeForLater.isPending}
+          onClick={() => storeForLater.mutate()}
+        >
+          {storeForLater.isPending ? "보관 중..." : "나중에 할 일로 보관"}
         </Button>
         <Button $variant="primary" disabled={mutation.isPending || !title.trim()}>
-          {mutation.isPending ? "만드는 중..." : "작업 만들기"}
+          {mutation.isPending ? "만드는 중..." : "지금 작업 만들기"}
         </Button>
       </Styled.DialogActions>
-      {mutation.isError && <ErrorBanner>{messageOf(mutation.error)}</ErrorBanner>}
+      {(mutation.isError || storeForLater.isError) && (
+        <ErrorBanner>{messageOf(mutation.error ?? storeForLater.error)}</ErrorBanner>
+      )}
     </Styled.Composer>
   );
 }

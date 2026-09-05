@@ -1,5 +1,6 @@
 import type {
   AgentRun,
+  KnowledgeDocument,
   RunProgressEvent,
   Task,
   TaskReview,
@@ -48,6 +49,7 @@ export const taskApi = {
   ) => request<Task>(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   remove: (id: string) => request<void>(`/api/tasks/${id}`, { method: "DELETE" }),
   run: (id: string) => post<AgentRun>(`/api/tasks/${id}/run`, {}),
+  createDocument: (id: string) => post<KnowledgeDocument>(`/api/tasks/${id}/document`, {}),
   retry: (id: string) => post<AgentRun>(`/api/tasks/${id}/retry`, {}),
   continue: (id: string) => post<AgentRun>(`/api/tasks/${id}/continue`, {}),
   extendSession: (id: string) => post<AgentRun>(`/api/tasks/${id}/extend-session`, {}),

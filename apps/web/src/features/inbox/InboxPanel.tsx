@@ -264,10 +264,10 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
       <Styled.Intro>
         <div>
           <Kicker>CAPTURE FIRST</Kicker>
-          <h2>요청 보관함</h2>
+          <h2>나중에 할 일</h2>
           <p>
-            여기에 적은 내용은 바로 AI 동료에게 전달되지 않습니다. 먼저 보관한 뒤 “작업으로
-            만들기”를 눌러 담당 에이전트와 실행 범위를 확인해 주세요.
+            새 작업에서 보관해 둔 요청과 아이디어입니다. 준비가 되면 작업으로 바꿔 담당자를 정할 수
+            있어요.
           </p>
         </div>
         <Styled.Count>{inputs.data?.length ?? 0}개 대기</Styled.Count>

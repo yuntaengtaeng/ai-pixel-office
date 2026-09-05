@@ -57,15 +57,30 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
     data(reply, 202, await app.orchestrator.continueTask(request.params.id)),
   );
 
-  app.post(
-    "/:id/extend-session",
-    { schema: { params: idParams } },
-    async (request, reply) => data(reply, 202, await app.orchestrator.extendTaskSession(request.params.id)),
+  app.post("/:id/extend-session", { schema: { params: idParams } }, async (request, reply) =>
+    data(reply, 202, await app.orchestrator.extendTaskSession(request.params.id)),
   );
 
   app.post("/:id/approve", { schema: { params: idParams } }, async (request, reply) =>
     data(reply, 200, await app.orchestrator.approveTask(request.params.id)),
   );
+
+  app.post("/:id/document", { schema: { params: idParams } }, async (request, reply) => {
+    const task =
+      (await app.repository.getTask(request.params.id)) ?? notFound("Task", request.params.id);
+    const generated = await app.orchestrator.generateTaskDocument(task.id);
+    return data(
+      reply,
+      201,
+      await app.knowledgeDocuments.create({
+        workspaceId: task.workspaceId,
+        title: generated.title,
+        content: generated.content,
+        taskId: task.id,
+        runId: generated.runId,
+      }),
+    );
+  });
 
   app.post(
     "/:id/request-changes",
@@ -78,15 +93,13 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
       ),
   );
 
-  app.get(
-    "/:id/execution-context",
-    { schema: { params: idParams } },
-    async (request, reply) =>
-      data(reply, 200, await app.orchestrator.getTaskExecutionContexts(request.params.id)),
+  app.get("/:id/execution-context", { schema: { params: idParams } }, async (request, reply) =>
+    data(reply, 200, await app.orchestrator.getTaskExecutionContexts(request.params.id)),
   );
 
   app.get("/:id", { schema: { params: idParams } }, async (request, reply) => {
-    const task = (await app.repository.getTask(request.params.id)) ?? notFound("Task", request.params.id);
+    const task =
+      (await app.repository.getTask(request.params.id)) ?? notFound("Task", request.params.id);
     const runs = await app.repository.listRuns(request.params.id);
     const progressByRun: Record<string, Awaited<ReturnType<Repository["listRunProgress"]>>> = {};
     for (const run of runs) {
