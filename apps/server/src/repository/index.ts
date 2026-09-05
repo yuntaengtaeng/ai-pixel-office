@@ -11,6 +11,8 @@ import type {
   CreateWorkspaceInput,
   Input,
   InputStatus,
+  PerformanceReviewPeriod,
+  PerformanceReviewSummary,
   Project,
   RunProgressEvent,
   Skill,
@@ -60,6 +62,7 @@ import {
   updateProject,
   type ProjectLookup,
 } from "./projects.ts";
+import { getPerformanceSummary } from "./performance.ts";
 import { createReview, listReviews } from "./reviews.ts";
 import {
   createRun,
@@ -390,6 +393,13 @@ export class Repository {
 
   async listReviews(taskId: string): Promise<TaskReview[]> {
     return listReviews(this.database, taskId);
+  }
+
+  async getPerformanceSummary(
+    workspaceId: string,
+    period: PerformanceReviewPeriod,
+  ): Promise<PerformanceReviewSummary> {
+    return getPerformanceSummary(this.database, workspaceId, period);
   }
 
   async createActivity(input: CreateActivityInput): Promise<ActivityLog> {

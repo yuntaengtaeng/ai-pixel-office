@@ -14,6 +14,7 @@ import { activityRoutes } from "./routes/activities.ts";
 import { agentRoutes } from "./routes/agents.ts";
 import "./routes/app-types.ts";
 import { inputRoutes } from "./routes/inputs.ts";
+import { performanceRoutes } from "./routes/performance.ts";
 import { projectRoutes } from "./routes/projects.ts";
 import { runRoutes } from "./routes/runs.ts";
 import { skillRoutes } from "./routes/skills.ts";
@@ -109,6 +110,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   void app.register(workflowPresetRoutes, { prefix: "/api/workflow-presets" });
   void app.register(runRoutes, { prefix: "/api/runs" });
   void app.register(activityRoutes, { prefix: "/api/activities" });
+  void app.register(performanceRoutes, { prefix: "/api/performance" });
   void app.register(knowledgeDocumentRoutes, { prefix: "/api/knowledge-documents" });
 
   return app;

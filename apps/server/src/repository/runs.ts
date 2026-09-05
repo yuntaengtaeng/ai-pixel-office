@@ -47,6 +47,23 @@ type CreateRunInput = Pick<
   | "workingDirectory"
 >;
 
+/** Agent의 skillIds는 이후 자유롭게 바뀌므로, 실행 당시 구성을 스냅샷해야 과거 통계가 설정 변경에 흔들리지 않음 */
+function snapshotRunSkills(database: AppDatabase, runId: string, agentId: string): void {
+  const skillRows = database
+    .prepare(
+      `SELECT skills.id AS skill_id, skills.name AS skill_name
+       FROM agent_skills
+       JOIN skills ON skills.id = agent_skills.skill_id
+       WHERE agent_skills.agent_id = ?
+       ORDER BY agent_skills.skill_id`,
+    )
+    .all(agentId) as Array<{ skill_id: string; skill_name: string }>;
+  const insert = database.prepare(
+    `INSERT INTO run_skills (run_id, skill_id, skill_name_snapshot, position) VALUES (?, ?, ?, ?)`,
+  );
+  skillRows.forEach((row, position) => insert.run(runId, row.skill_id, row.skill_name, position));
+}
+
 function createRunSync(database: AppDatabase, input: CreateRunInput): AgentRun {
   const run: AgentRun = { ...input, status: "queued", createdAt: now() };
   database
@@ -72,6 +89,7 @@ function createRunSync(database: AppDatabase, input: CreateRunInput): AgentRun {
       run.cleanupPolicy,
       run.createdAt,
     );
+  snapshotRunSkills(database, run.id, run.agentId);
   return run;
 }
 

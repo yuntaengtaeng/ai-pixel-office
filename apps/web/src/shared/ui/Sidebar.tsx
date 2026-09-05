@@ -248,6 +248,9 @@ export function Sidebar({
         <NavLink to="/records">
           <span>▤</span> 기록실
         </NavLink>
+        <NavLink to="/performance">
+          <span>★</span> 인사평가
+        </NavLink>
         <NavLink to="/settings">
           <span>⚙</span> 설정
         </NavLink>

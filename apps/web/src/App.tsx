@@ -44,6 +44,11 @@ const SettingsPage = lazy(() =>
 const RecordsPage = lazy(() =>
   import("./features/records/RecordsPage.tsx").then((module) => ({ default: module.RecordsPage })),
 );
+const PerformancePage = lazy(() =>
+  import("./features/performance/PerformancePage.tsx").then((module) => ({
+    default: module.PerformancePage,
+  })),
+);
 const TaskDetailPage = lazy(() =>
   import("./features/tasks/TaskDetailPage.tsx").then((module) => ({
     default: module.TaskDetailPage,
@@ -130,6 +135,7 @@ function AppShell({ workspace }: { workspace: Workspace }) {
             <Route path="/agents/:id" element={<AgentDetailPage workspace={workspace} />} />
             <Route path="/skills" element={<SkillsPage workspace={workspace} />} />
             <Route path="/records" element={<RecordsPage workspace={workspace} />} />
+            <Route path="/performance" element={<PerformancePage workspace={workspace} />} />
             <Route path="/settings" element={<SettingsPage workspace={workspace} />} />
             <Route path="/tasks/:id" element={<TaskDetailPage workspace={workspace} />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -165,6 +165,17 @@ function migrate(database: AppDatabase): void {
     );
     CREATE INDEX IF NOT EXISTS runs_task_created_idx ON agent_runs(task_id, created_at DESC);
 
+    -- skill_id는 FK 미설정, Skill이 삭제되어도 skill_name_snapshot으로 과거 표시를 유지
+    CREATE TABLE IF NOT EXISTS run_skills (
+      run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+      skill_id TEXT NOT NULL,
+      skill_name_snapshot TEXT NOT NULL,
+      skill_version TEXT,
+      position INTEGER NOT NULL,
+      PRIMARY KEY(run_id, skill_id)
+    );
+    CREATE INDEX IF NOT EXISTS run_skills_skill_idx ON run_skills(skill_id);
+
     CREATE TABLE IF NOT EXISTS task_workflow_steps (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
