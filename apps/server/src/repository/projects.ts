@@ -5,6 +5,7 @@ import type { AppDatabase } from "../database.ts";
 import { now, projectFrom, type Row } from "./rows.ts";
 import { requireChanged, withTransaction } from "./shared.ts";
 import { getWorkspace } from "./workspaces.ts";
+import { evaluatePetUnlocks } from "./pet-unlocks.ts";
 
 export async function listProjectDirectories(
   database: AppDatabase,
@@ -16,10 +17,7 @@ export async function listProjectDirectories(
     .map((row) => projectFrom(row as Row));
 }
 
-export async function getProject(
-  database: AppDatabase,
-  id: string,
-): Promise<Project | undefined> {
+export async function getProject(database: AppDatabase, id: string): Promise<Project | undefined> {
   const row = database.prepare("SELECT * FROM projects WHERE id = ?").get(id);
   return row ? projectFrom(row as Row) : undefined;
 }
@@ -43,23 +41,26 @@ export async function createProjectDirectory(
     createdAt,
     updatedAt: createdAt,
   };
-  database
-    .prepare(
-      `INSERT INTO projects
+  withTransaction(database, () => {
+    database
+      .prepare(
+        `INSERT INTO projects
     (id, workspace_id, name, description, status, figma_url, working_directory, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      project.id,
-      project.workspaceId,
-      project.name,
-      project.description ?? null,
-      project.status,
-      project.figmaUrl ?? null,
-      project.path ?? null,
-      project.createdAt,
-      project.updatedAt,
-    );
+      )
+      .run(
+        project.id,
+        project.workspaceId,
+        project.name,
+        project.description ?? null,
+        project.status,
+        project.figmaUrl ?? null,
+        project.path ?? null,
+        project.createdAt,
+        project.updatedAt,
+      );
+    if (project.path) evaluatePetUnlocks(database, project.workspaceId);
+  });
   return project;
 }
 
@@ -84,7 +85,7 @@ export async function updateProject(
   id: string,
   input: Partial<Pick<Project, "name" | "description" | "status" | "figmaUrl" | "path">>,
 ): Promise<Project> {
-  return withTransaction(database, () => {
+  const updated = withTransaction(database, () => {
     const current = requireEntity(getProjectSync(database, id), "Project", id);
     if ("path" in input && input.path !== current.path) {
       const runs = database
@@ -104,8 +105,10 @@ export async function updateProject(
     }
     const updated: Project = { ...current, ...input, updatedAt: now() };
     writeProject(database, updated);
+    if (updated.path) evaluatePetUnlocks(database, updated.workspaceId);
     return updated;
   });
+  return updated;
 }
 
 export async function deleteProjectDirectory(database: AppDatabase, id: string): Promise<void> {

@@ -1,4 +1,4 @@
-export type PetSpecies = "dog" | "cat";
+export type PetSpecies = "dog" | "cat" | "rabbit" | "capybara" | "quokka";
 export type EarShape = "point" | "floppy" | "round";
 export type Pattern =
   "solid" | "spots" | "stripes" | "mask" | "tuxedo" | "patches" | "points" | "blaze";
@@ -16,6 +16,7 @@ export type PetDesign = {
   ear: EarShape;
   pattern: Pattern;
   accessories: Accessory[];
+  unlock?: { mission: string; hint: string };
 };
 
 export const PETS: readonly PetDesign[] = [
@@ -259,6 +260,54 @@ export const PETS: readonly PetDesign[] = [
     pattern: "tuxedo",
     accessories: ["bandana", "collar", "tag"],
   },
+  {
+    id: "rabbit-yuzu",
+    species: "rabbit",
+    breed: "노란 토끼",
+    name: "유자",
+    body: "#f3d99b",
+    secondary: "#fff1c7",
+    accent: "#e86a47",
+    ear: "point",
+    pattern: "solid",
+    accessories: [],
+    unlock: {
+      mission: "하루에 업무 10개 완료",
+      hint: "아주 바쁜 하루를 보내면 만날지도?",
+    },
+  },
+  {
+    id: "capybara-gamja",
+    species: "capybara",
+    breed: "카피바라",
+    name: "감자",
+    body: "#a8784f",
+    secondary: "#d9b184",
+    accent: "#e7a43b",
+    ear: "round",
+    pattern: "solid",
+    accessories: [],
+    unlock: {
+      mission: "프로젝트 루트 1개 등록",
+      hint: "새로운 작업 공간을 열면 찾아올지도?",
+    },
+  },
+  {
+    id: "quokka-bangul",
+    species: "quokka",
+    breed: "쿼카",
+    name: "방울",
+    body: "#8f6b50",
+    secondary: "#d9b895",
+    accent: "#62a36b",
+    ear: "round",
+    pattern: "solid",
+    accessories: ["bandana"],
+    unlock: {
+      mission: "2명 이상의 동료가 참여한 워크플로 완료",
+      hint: "여럿이 힘을 합치면 웃음소리가 들릴지도?",
+    },
+  },
 ];
 
 export type PixelPlotter = (
@@ -270,7 +319,16 @@ export type PixelPlotter = (
 ) => void;
 
 export function getPet(id?: string, fallbackIndex = 0): PetDesign {
-  return PETS.find((pet) => pet.id === id) ?? PETS[Math.abs(fallbackIndex) % PETS.length]!;
+  const defaultPets = PETS.filter((pet) => !pet.unlock);
+  return (
+    PETS.find((pet) => pet.id === id) ?? defaultPets[Math.abs(fallbackIndex) % defaultPets.length]!
+  );
+}
+
+export const UNLOCKABLE_PETS = PETS.filter((pet) => pet.unlock !== undefined);
+
+export function isPetId(id: string): boolean {
+  return PETS.some((pet) => pet.id === id);
 }
 
 export function plotPet(pet: PetDesign, plot: PixelPlotter): void {
@@ -278,12 +336,21 @@ export function plotPet(pet: PetDesign, plot: PixelPlotter): void {
   const light = pet.secondary;
   const isCat = pet.species === "cat";
 
+  if (pet.species === "rabbit") {
+    plot(5, 0, 2, 6, pet.body);
+    plot(10, 0, 2, 6, pet.body);
+    plot(6, 1, 1, 4, pet.secondary);
+    plot(10, 1, 1, 4, pet.secondary);
+  }
+
   plot(5, 4, 7, 6, pet.body);
   plot(4, 9, 9, 6, pet.body);
   plot(5, 14, 3, 2, pet.body);
   plot(10, 14, 3, 2, pet.body);
 
-  if (pet.ear === "point") {
+  if (pet.species === "rabbit") {
+    // 긴 귀는 몸통보다 먼저 그려 위쪽 실루엣을 유지
+  } else if (pet.ear === "point") {
     plot(5, 2, 2, 3, pet.body);
     plot(10, 2, 2, 3, pet.body);
     plot(5, 2, 1, 1, light);
@@ -296,7 +363,18 @@ export function plotPet(pet: PetDesign, plot: PixelPlotter): void {
     plot(10, 3, 3, 3, pet.body);
   }
 
-  if (isCat) {
+  if (pet.species === "rabbit") {
+    plot(12, 11, 3, 3, pet.secondary);
+  } else if (pet.species === "capybara") {
+    plot(12, 10, 4, 3, pet.body);
+    plot(13, 9, 3, 2, pet.body);
+    plot(14, 11, 1, 1, dark);
+    plot(7, 1, 3, 2, pet.accent);
+    plot(8, 0, 2, 1, pet.accent);
+  } else if (pet.species === "quokka") {
+    plot(12, 10, 3, 3, pet.body);
+    plot(13, 9, 2, 2, pet.body);
+  } else if (isCat) {
     plot(13, 10, 2, 2, pet.body);
     plot(14, 8, 2, 3, pet.body);
   } else {
@@ -339,6 +417,17 @@ export function plotPet(pet: PetDesign, plot: PixelPlotter): void {
   plot(8, 8, 2, 1, dark);
   plot(6, 9, 1, 1, isCat ? dark : pet.body);
   plot(10, 9, 1, 1, isCat ? dark : pet.body);
+
+  if (pet.species === "rabbit") {
+    plot(4, 8, 2, 1, "#ef8f9d");
+    plot(11, 8, 2, 1, "#ef8f9d");
+  }
+
+  if (pet.species === "quokka") {
+    plot(7, 9, 1, 1, dark);
+    plot(9, 9, 1, 1, dark);
+    plot(8, 10, 1, 1, dark);
+  }
 
   for (const accessory of pet.accessories) {
     if (accessory === "collar") plot(5, 9, 7, 1, pet.accent);

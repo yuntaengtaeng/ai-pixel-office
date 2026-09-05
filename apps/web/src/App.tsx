@@ -93,6 +93,7 @@ function useLiveUpdates(workspaceId: string) {
       void queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] });
       void queryClient.invalidateQueries({ queryKey: ["activities", workspaceId] });
       void queryClient.invalidateQueries({ queryKey: ["task"] });
+      void queryClient.invalidateQueries({ queryKey: ["pet-unlocks", workspaceId] });
     };
     for (const event of [
       "task.status_changed",

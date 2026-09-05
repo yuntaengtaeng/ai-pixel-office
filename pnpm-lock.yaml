@@ -101,6 +101,9 @@ importers:
       '@ai-pixel-office/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@ai-pixel-office/pet':
+        specifier: workspace:*
+        version: link:../../packages/pet
       '@ai-pixel-office/runtime-protocol':
         specifier: workspace:*
         version: link:../../packages/runtime-protocol

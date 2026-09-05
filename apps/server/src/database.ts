@@ -92,6 +92,13 @@ function migrate(database: AppDatabase): void {
     );
     CREATE INDEX IF NOT EXISTS agents_workspace_idx ON agents(workspace_id);
 
+    CREATE TABLE IF NOT EXISTS pet_unlocks (
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      pet_id TEXT NOT NULL,
+      unlocked_at TEXT NOT NULL,
+      PRIMARY KEY(workspace_id, pet_id)
+    );
+
     CREATE TABLE IF NOT EXISTS agent_skills (
       agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
       skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE RESTRICT,
@@ -117,6 +124,8 @@ function migrate(database: AppDatabase): void {
       completed_at TEXT
     );
     CREATE INDEX IF NOT EXISTS tasks_workspace_status_idx ON tasks(workspace_id, status);
+    CREATE INDEX IF NOT EXISTS tasks_workspace_completion_idx
+      ON tasks(workspace_id, status, completed_at);
 
     CREATE TABLE IF NOT EXISTS inputs (
       id TEXT PRIMARY KEY,

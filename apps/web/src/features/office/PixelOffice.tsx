@@ -7,6 +7,8 @@ import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { RUNTIME } from "../../shared/config/presentation.ts";
 import { getPet, plotPet } from "@ai-pixel-office/pet";
 import { OfficeCanvasStyles } from "./officeCanvasStyles.ts";
+import { OFFICE_STATUS_LABEL, petMessage } from "./pet-personality.ts";
+import { animatePet, type AnimatedPet } from "./pet-animation.ts";
 
 const OFFICE_WIDTH = 760;
 const COLUMN_X = [68, 244, 420, 596] as const;
@@ -22,25 +24,6 @@ function officeLayout(agentCount: number): { positions: Array<[number, number]>;
   const rows = slotCount / COLUMN_X.length;
   return { positions, height: Math.max(420, 278 + rows * ROW_GAP) };
 }
-
-const STATUS_LABEL: Record<TaskStatus | "idle", string> = {
-  idle: "쉬는 중",
-  todo: "준비 중",
-  working: "작업 중",
-  needs_review: "검토 부탁해요",
-  needs_input: "질문 있어요",
-  blocked: "막혔어요",
-  done: "작업 마쳤어요",
-  failed: "문제가 생겼어요",
-};
-
-const IDLE_MESSAGES = [
-  "커피 한 모금 마시는 중",
-  "기지개를 쭉 켜는 중",
-  "창밖을 잠깐 보는 중",
-  "새 작업을 기다리는 중",
-  "동료에게 인사하는 중",
-];
 
 function hash(value: string): number {
   return [...value].reduce((sum, character) => (sum * 31 + character.charCodeAt(0)) | 0, 0);
@@ -533,6 +516,19 @@ export function PixelOffice({
     () => officeLayout(agents.length),
     [agents.length],
   );
+  const sceneCharacters = agents.map((agent) => {
+    const { latestTask, status } = agentOfficeState(agent, tasks);
+    const recentlyDone =
+      latestTask?.status === "done" && now - new Date(latestTask.updatedAt).getTime() < 15_000;
+    return { agent, status: recentlyDone ? ("done" as const) : status };
+  });
+  const sceneCharactersRef = useRef(sceneCharacters);
+  const sceneSignature = sceneCharacters
+    .map(({ agent, status }) => `${agent.id}:${agent.avatarId}:${agent.model}:${status}`)
+    .join("|");
+  useEffect(() => {
+    sceneCharactersRef.current = sceneCharacters;
+  }, [sceneCharacters]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -545,6 +541,9 @@ export function PixelOffice({
     let disposed = false;
     let application: Application | undefined;
     let animation: ((ticker: Ticker) => void) | undefined;
+    let motionPreference: MediaQueryList | undefined;
+    let updateMotionPreference: ((event: MediaQueryListEvent) => void) | undefined;
+    const characters = sceneCharactersRef.current;
 
     void (async () => {
       const app = new Application();
@@ -572,54 +571,39 @@ export function PixelOffice({
       app.canvas.className = "office-canvas";
       app.stage.addChild(roomBackground(roomHeight));
 
-      positions.forEach(([x, y], index) => app.stage.addChild(desk(x, y, agents[index]?.model)));
+      positions.forEach(([x, y], index) =>
+        app.stage.addChild(desk(x, y, characters[index]?.agent.model)),
+      );
 
-      const animated: Array<{
-        item: Container;
-        baseX: number;
-        baseY: number;
-        status: TaskStatus | "idle";
-        phase: number;
-      }> = [];
-      agents.forEach((agent, index) => {
+      const animated: AnimatedPet[] = [];
+      characters.forEach(({ agent, status }, index) => {
         const [deskX, deskY] = positions[index]!;
-        const { status } = agentOfficeState(agent, tasks);
         const item = new Container();
         const pet = petGraphic(agent);
         pet.position.set(37, -4);
         item.addChild(pet);
         item.position.set(deskX!, deskY! - 70);
         app.stage.addChild(item);
-        animated.push({ item, baseX: item.x, baseY: item.y, status, phase: index * 0.7 });
+        animated.push({
+          item,
+          baseX: item.x,
+          baseY: item.y,
+          status,
+          phase: index * 0.7,
+          petId: agent.avatarId,
+        });
       });
 
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+      let reduceMotion = motionPreference.matches;
+      updateMotionPreference = (event: MediaQueryListEvent) => {
+        reduceMotion = event.matches;
+      };
+      motionPreference.addEventListener("change", updateMotionPreference);
       animation = (ticker) => {
         if (reduceMotion) return;
         const time = performance.now() / 350;
-        for (const character of animated) {
-          const wave = Math.sin(time + character.phase);
-          character.item.x = character.baseX;
-          character.item.rotation = 0;
-          if (character.status === "working") {
-            character.item.x += Math.round(Math.sin(time * 3 + character.phase));
-            character.item.y = character.baseY + Math.round(wave * 1.4);
-          } else if (character.status === "done") {
-            character.item.y = character.baseY + Math.round(Math.abs(wave) * -5);
-            character.item.rotation =
-              Math.sin(time * 1.8 + character.phase) * 0.02 * ticker.deltaTime;
-          } else if (character.status === "blocked" || character.status === "failed") {
-            character.item.y = character.baseY + 3 + Math.round(wave * 0.5);
-            character.item.rotation = -0.025;
-          } else if (character.status === "needs_review" || character.status === "needs_input") {
-            character.item.y = character.baseY + Math.round(Math.abs(wave) * -3);
-          } else if (character.status === "idle") {
-            character.item.x += Math.round(Math.sin(time * 0.24 + character.phase) * 7);
-            character.item.y = character.baseY + Math.round(Math.abs(wave) * -1.5);
-          } else {
-            character.item.y = character.baseY + Math.round(wave);
-          }
-        }
+        for (const character of animated) animatePet(character, time, ticker.deltaTime);
       };
       app.ticker.add(animation);
       app.render();
@@ -634,9 +618,11 @@ export function PixelOffice({
         application.stop();
         application.destroy(true, { children: true });
       }
+      if (motionPreference && updateMotionPreference)
+        motionPreference.removeEventListener("change", updateMotionPreference);
       element.replaceChildren();
     };
-  }, [agents, positions, roomHeight, tasks]);
+  }, [positions, roomHeight, sceneSignature]);
 
   const labels = agents.map((agent, index) => {
     const { latestTask, status } = agentOfficeState(agent, tasks);
@@ -646,21 +632,7 @@ export function PixelOffice({
     const recentlyDone =
       latestTask?.status === "done" && now - new Date(latestTask.updatedAt).getTime() < 15_000;
     const cycleSecond = Math.floor(now / 1_000) + (Math.abs(hash(agent.id)) % 13);
-    const idleMessageVisible = cycleSecond % 18 < 5;
-    const workingMessageVisible = cycleSecond % 13 < 3;
-    const message = recentlyDone
-      ? "방금 작업을 마쳤어요!"
-      : status === "idle" && idleMessageVisible
-        ? IDLE_MESSAGES[Math.floor(cycleSecond / 18) % IDLE_MESSAGES.length]!
-        : status === "done" && idleMessageVisible
-          ? "다음 일을 기다리는 중"
-          : status === "working" && !workingMessageVisible
-            ? undefined
-            : status === "todo"
-              ? "시작을 기다리고 있어요."
-              : status === "idle"
-                ? undefined
-                : STATUS_LABEL[status];
+    const message = petMessage({ petId: agent.avatarId, status, recentlyDone, cycleSecond });
     const [x, y] = positions[index]!;
     return {
       agent,
@@ -773,14 +745,10 @@ function AgentQuickAssign({
         aria-expanded={open}
         aria-controls={popoverId}
         title={
-          tasks.length > 0
-            ? `${agent.name}의 작업 목록 열기`
-            : `${agent.name}에게 바로 작업 맡기기`
+          tasks.length > 0 ? `${agent.name}의 작업 목록 열기` : `${agent.name}에게 바로 작업 맡기기`
         }
         aria-label={
-          tasks.length > 0
-            ? `${agent.name}의 작업 목록 열기`
-            : `${agent.name}에게 바로 작업 맡기기`
+          tasks.length > 0 ? `${agent.name}의 작업 목록 열기` : `${agent.name}에게 바로 작업 맡기기`
         }
         onClick={() => setOpen(true)}
       >
@@ -789,14 +757,10 @@ function AgentQuickAssign({
       <Styled.AgentHitbox
         type="button"
         title={
-          tasks.length > 0
-            ? `${agent.name}의 작업 목록 열기`
-            : `${agent.name}에게 바로 작업 맡기기`
+          tasks.length > 0 ? `${agent.name}의 작업 목록 열기` : `${agent.name}에게 바로 작업 맡기기`
         }
         aria-label={
-          tasks.length > 0
-            ? `${agent.name}의 작업 목록 열기`
-            : `${agent.name}에게 바로 작업 맡기기`
+          tasks.length > 0 ? `${agent.name}의 작업 목록 열기` : `${agent.name}에게 바로 작업 맡기기`
         }
         onClick={() => setOpen(true)}
       />
@@ -824,7 +788,7 @@ function AgentQuickAssign({
                   onOpenTask?.(task.id);
                 }}
               >
-                <span>{STATUS_LABEL[task.status]}</span>
+                <span>{OFFICE_STATUS_LABEL[task.status]}</span>
                 <strong>{task.title}</strong>
                 <small>열기 →</small>
               </button>

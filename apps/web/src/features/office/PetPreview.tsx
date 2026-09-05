@@ -11,7 +11,15 @@ const Styled = {
   `,
 };
 
-export function PetPreview({ petId, size = 56 }: { petId: string; size?: number }) {
+export function PetPreview({
+  petId,
+  size = 56,
+  silhouette = false,
+}: {
+  petId: string;
+  size?: number;
+  silhouette?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -24,10 +32,10 @@ export function PetPreview({ petId, size = 56 }: { petId: string; size?: number 
     context.fillStyle = colors.background.surfaceMuted;
     context.fillRect(0, 0, canvas.width, canvas.height);
     plotPet(getPet(petId), (x, y, width, height, color) => {
-      context.fillStyle = color;
+      context.fillStyle = silhouette ? colors.text.muted : color;
       context.fillRect((x + 1) * scale, (y + 1) * scale, width * scale, height * scale);
     });
-  }, [petId]);
+  }, [petId, silhouette]);
 
   return (
     <Styled.Canvas

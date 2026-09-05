@@ -31,11 +31,7 @@ import type {
   Workspace,
 } from "@ai-pixel-office/domain";
 import type { AppDatabase } from "../database.ts";
-import {
-  createActivity,
-  listActivities,
-  type CreateActivityInput,
-} from "./activities.ts";
+import { createActivity, listActivities, type CreateActivityInput } from "./activities.ts";
 import {
   createAgent,
   createAgentTaskTemplate,
@@ -64,6 +60,11 @@ import {
   type ProjectLookup,
 } from "./projects.ts";
 import { getPerformanceSummary } from "./performance.ts";
+import {
+  evaluatePetUnlocks,
+  readPetUnlockProgress,
+  type PetUnlockProgress,
+} from "./pet-unlocks.ts";
 import { createReview, listReviews } from "./reviews.ts";
 import {
   createRun,
@@ -78,14 +79,7 @@ import {
   type RunReservation,
 } from "./runs.ts";
 import { createSkill, deleteSkill, getSkill, listSkills, updateSkill } from "./skills.ts";
-import {
-  createTask,
-  deleteTask,
-  getTask,
-  listTasks,
-  transitionTask,
-  updateTask,
-} from "./tasks.ts";
+import { createTask, deleteTask, getTask, listTasks, transitionTask, updateTask } from "./tasks.ts";
 import {
   createWorkflowPreset,
   deleteWorkflowPreset,
@@ -196,6 +190,14 @@ export class Repository {
     return listAgents(this.database, workspaceId);
   }
 
+  async getPetUnlockProgress(workspaceId: string): Promise<PetUnlockProgress[]> {
+    return readPetUnlockProgress(this.database, workspaceId);
+  }
+
+  async evaluatePetUnlocks(workspaceId: string): Promise<PetUnlockProgress[]> {
+    return evaluatePetUnlocks(this.database, workspaceId);
+  }
+
   async getAgent(id: string): Promise<Agent | undefined> {
     return getAgent(this.database, id);
   }
@@ -224,11 +226,7 @@ export class Repository {
     return deleteAgentTaskTemplate(this.database, agentId, id);
   }
 
-  async listTasks(
-    workspaceId?: string,
-    status?: TaskStatus,
-    origin?: TaskOrigin,
-  ): Promise<Task[]> {
+  async listTasks(workspaceId?: string, status?: TaskStatus, origin?: TaskOrigin): Promise<Task[]> {
     return listTasks(this.database, workspaceId, status, origin);
   }
 

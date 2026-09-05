@@ -1,4 +1,4 @@
-export { PETS, getPet, plotPet } from "./catalog.ts";
+export { PETS, UNLOCKABLE_PETS, getPet, isPetId, plotPet } from "./catalog.ts";
 export type {
   Accessory,
   EarShape,

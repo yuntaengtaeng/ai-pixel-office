@@ -43,6 +43,7 @@ import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { ModelPolicyFields } from "./ModelPolicyFields.tsx";
 import { defaultManualModel } from "./model-options.ts";
+import { petUnlockApi, type PetUnlockProgress } from "./pet-unlocks-api.ts";
 
 const Styled = {
   StatusPill: styled.span<{ $status: TaskStatus }>`
@@ -542,7 +543,7 @@ const Styled = {
       grid-template-columns: repeat(3, 1fr);
     }
   `,
-  PetChoice: styled.button<{ $selected: boolean }>`
+  PetChoice: styled.button<{ $selected: boolean; $locked: boolean }>`
     min-width: 0;
     padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
     border: 2px solid ${({ theme }) => theme.colors.border.subtle};
@@ -551,6 +552,12 @@ const Styled = {
     flex-direction: column;
     align-items: center;
     cursor: pointer;
+
+    ${({ $locked }) =>
+      $locked &&
+      `
+        cursor: not-allowed;
+      `}
 
     &:hover {
       border-color: ${({ theme }) => theme.colors.border.default};
@@ -577,6 +584,29 @@ const Styled = {
       white-space: nowrap;
       width: 100%;
     }
+
+    small {
+      min-height: 28px;
+      margin-top: ${({ theme }) => theme.space.x1};
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.micro};
+      line-height: 1.3;
+    }
+  `,
+  PetPortrait: styled.div`
+    position: relative;
+
+    > strong {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: ${({ theme }) => theme.colors.text.primary};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-size: ${({ theme }) => theme.typography.fontSize.xl};
+      margin: 0;
+      text-shadow: 1px 1px 0 ${({ theme }) => theme.colors.background.surface};
+    }
   `,
 };
 
@@ -595,6 +625,10 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
   const tasks = useQuery({
     queryKey: ["tasks", workspace.id],
     queryFn: () => taskApi.list(workspace.id),
+  });
+  const petUnlocks = useQuery({
+    queryKey: ["pet-unlocks", workspace.id],
+    queryFn: () => petUnlockApi.progress(workspace.id),
   });
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
@@ -720,7 +754,7 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
           <Styled.SelectedPet>
             <PetPreview petId={avatarId} size={92} />
             <div>
-              <span>{selectedPet.species === "dog" ? "DOG" : "CAT"}</span>
+              <span>{selectedPet.species.toUpperCase()}</span>
               <strong>{selectedPet.name}</strong>
               <small>{selectedPet.breed}</small>
             </div>
@@ -887,6 +921,22 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               />
             ))}
           </Styled.PetGrid>
+          <h3>미션 해금</h3>
+          <Styled.PetGrid>
+            {PETS.filter((pet) => pet.unlock).map((pet) => {
+              const unlock = petUnlocks.data?.find((item) => item.petId === pet.id);
+              return (
+                <PetChoice
+                  key={pet.id}
+                  pet={pet}
+                  selected={avatarId === pet.id}
+                  onSelect={setAvatarId}
+                  unlock={unlock}
+                />
+              );
+            })}
+          </Styled.PetGrid>
+          {petUnlocks.isError && <ErrorBanner>{messageOf(petUnlocks.error)}</ErrorBanner>}
         </Styled.AvatarLibrary>
       </Styled.BuilderLayout>
       <Styled.Roster>
@@ -1029,21 +1079,39 @@ function PetChoice({
   pet,
   selected,
   onSelect,
+  unlock,
 }: {
   pet: (typeof PETS)[number];
   selected: boolean;
   onSelect: (id: string) => void;
+  unlock?: PetUnlockProgress;
 }) {
+  const isMissionPet = pet.unlock !== undefined;
+  const locked = isMissionPet && unlock?.unlocked !== true;
+  let unlockLabel: string | undefined;
+  if (isMissionPet) {
+    unlockLabel = "해금 조건 확인 중";
+    if (unlock) unlockLabel = unlock.hint;
+    if (unlock?.unlocked) unlockLabel = "해금 완료";
+  }
   return (
     <Styled.PetChoice
       type="button"
       $selected={selected}
-      onClick={() => onSelect(pet.id)}
-      title={`${pet.breed} · ${pet.accessories.join(", ")}`}
+      $locked={locked}
+      aria-disabled={locked}
+      onClick={() => {
+        if (!locked) onSelect(pet.id);
+      }}
+      title={locked ? unlock?.hint : `${pet.breed}, ${pet.accessories.join(", ")}`}
     >
-      <PetPreview petId={pet.id} size={54} />
+      <Styled.PetPortrait>
+        <PetPreview petId={pet.id} size={54} silhouette={locked} />
+        {locked && <strong aria-hidden="true">?</strong>}
+      </Styled.PetPortrait>
       <strong>{pet.name}</strong>
-      <span>{pet.breed}</span>
+      <span>{locked ? "미지의 동료" : pet.breed}</span>
+      {unlockLabel && <small>{unlockLabel}</small>}
     </Styled.PetChoice>
   );
 }
@@ -1061,6 +1129,10 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
   const tasks = useQuery({
     queryKey: ["tasks", workspace.id],
     queryFn: () => taskApi.list(workspace.id),
+  });
+  const petUnlocks = useQuery({
+    queryKey: ["pet-unlocks", workspace.id],
+    queryFn: () => petUnlockApi.progress(workspace.id),
   });
   const templates = useQuery({
     queryKey: ["agent-task-templates", id],
@@ -1190,8 +1262,18 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
             <label>캐릭터</label>
             <Select value={avatarId} onChange={(event) => setAvatarId(event.target.value)}>
               {PETS.map((pet) => (
-                <option value={pet.id} key={pet.id}>
-                  {pet.name} · {pet.breed}
+                <option
+                  value={pet.id}
+                  key={pet.id}
+                  disabled={
+                    pet.id !== avatarId &&
+                    pet.unlock !== undefined &&
+                    petUnlocks.data?.some(
+                      (unlock) => unlock.petId === pet.id && unlock.unlocked,
+                    ) !== true
+                  }
+                >
+                  {pet.name} · {pet.unlock && pet.id !== avatarId ? "미지의 동료" : pet.breed}
                 </option>
               ))}
             </Select>

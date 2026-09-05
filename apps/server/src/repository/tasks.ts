@@ -17,6 +17,7 @@ import { createActivity } from "./activities.ts";
 import { assertAgentWorkspace, type AgentLookup } from "./agents.ts";
 import { assertProjectWorkspace, type ProjectLookup } from "./projects.ts";
 import { getWorkspace } from "./workspaces.ts";
+import { evaluatePetUnlocks } from "./pet-unlocks.ts";
 
 export type TaskScopeLookups = { lookupAgent?: AgentLookup; lookupProject?: ProjectLookup };
 
@@ -131,7 +132,12 @@ export async function createTask(
       lookups?.lookupAgent,
     );
   if (input.projectId)
-    await assertProjectWorkspace(database, input.projectId, input.workspaceId, lookups?.lookupProject);
+    await assertProjectWorkspace(
+      database,
+      input.projectId,
+      input.workspaceId,
+      lookups?.lookupProject,
+    );
   const task = insertTask(database, input);
   await createActivity(database, {
     workspaceId: task.workspaceId,
@@ -152,7 +158,12 @@ export async function updateTask(
   const assigneeAgentId = input.assigneeAgentId ?? captured.assigneeAgentId;
   const projectId = "projectId" in input ? input.projectId : captured.projectId;
   if (assigneeAgentId)
-    await assertAgentWorkspace(database, assigneeAgentId, captured.workspaceId, lookups?.lookupAgent);
+    await assertAgentWorkspace(
+      database,
+      assigneeAgentId,
+      captured.workspaceId,
+      lookups?.lookupAgent,
+    );
   if (projectId)
     await assertProjectWorkspace(database, projectId, captured.workspaceId, lookups?.lookupProject);
 
@@ -215,7 +226,11 @@ export async function transitionTask(
   status: TaskStatus,
   result?: TaskResult,
 ): Promise<Task> {
-  return transitionTaskSync(database, id, status, result);
+  return withTransaction(database, () => {
+    const task = transitionTaskSync(database, id, status, result);
+    if (status === "done") evaluatePetUnlocks(database, task.workspaceId);
+    return task;
+  });
 }
 
 export async function deleteTask(database: AppDatabase, id: string): Promise<void> {

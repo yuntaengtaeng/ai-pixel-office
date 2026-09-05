@@ -7,6 +7,7 @@ import {
   type CreateAgentTaskTemplateInput,
   type UpdateAgentInput,
 } from "@ai-pixel-office/domain";
+import { UNLOCKABLE_PETS, isPetId } from "@ai-pixel-office/pet";
 import { requireEntity } from "../database.ts";
 import type { AppDatabase } from "../database.ts";
 import { agentFrom, now, type Row, taskTemplateFrom } from "./rows.ts";
@@ -17,7 +18,9 @@ import { getWorkspace } from "./workspaces.ts";
 
 export async function listAgents(database: AppDatabase, workspaceId?: string): Promise<Agent[]> {
   const rows = workspaceId
-    ? database.prepare("SELECT * FROM agents WHERE workspace_id = ? ORDER BY created_at").all(workspaceId)
+    ? database
+        .prepare("SELECT * FROM agents WHERE workspace_id = ? ORDER BY created_at")
+        .all(workspaceId)
     : database.prepare("SELECT * FROM agents ORDER BY created_at").all();
   return rows.map((row) => agentFrom(database, row as Row));
 }
@@ -50,6 +53,21 @@ function replaceAgentSkills(database: AppDatabase, agentId: string, skillIds: st
   for (const skillId of skillIds) insert.run(agentId, skillId);
 }
 
+function assertAvatarAvailable(
+  database: AppDatabase,
+  workspaceId: string,
+  avatarId?: string,
+): void {
+  if (!avatarId) return;
+  if (!isPetId(avatarId))
+    throw new DomainError("INVALID_AVATAR", "존재하지 않는 캐릭터입니다", 422);
+  if (!UNLOCKABLE_PETS.some((pet) => pet.id === avatarId)) return;
+  const unlocked = database
+    .prepare("SELECT 1 FROM pet_unlocks WHERE workspace_id = ? AND pet_id = ?")
+    .get(workspaceId, avatarId);
+  if (!unlocked) throw new DomainError("PET_LOCKED", "아직 해금되지 않은 캐릭터입니다", 409);
+}
+
 export async function createAgent(database: AppDatabase, input: CreateAgentInput): Promise<Agent> {
   requireEntity(await getWorkspace(database, input.workspaceId), "Workspace", input.workspaceId);
   await assertSkillScope(database, input.workspaceId, input.skillIds);
@@ -63,6 +81,7 @@ export async function createAgent(database: AppDatabase, input: CreateAgentInput
     updatedAt: createdAt,
   };
   withTransaction(database, () => {
+    assertAvatarAvailable(database, agent.workspaceId, agent.avatarId);
     database
       .prepare(
         `INSERT INTO agents
@@ -107,6 +126,8 @@ export async function updateAgent(
   const updated: Agent = { ...current, ...input, updatedAt: now() };
   await assertSkillScope(database, updated.workspaceId, updated.skillIds);
   withTransaction(database, () => {
+    if ("avatarId" in input && input.avatarId !== current.avatarId)
+      assertAvatarAvailable(database, updated.workspaceId, updated.avatarId);
     database
       .prepare(
         `UPDATE agents SET name = ?, role = ?, description = ?, model = ?, model_policy = ?, model_name = ?, reasoning_effort = ?, mode = ?, avatar_id = ?,
@@ -138,7 +159,11 @@ export async function deleteAgent(database: AppDatabase, id: string): Promise<vo
     requireChanged(database.prepare("DELETE FROM agents WHERE id = ?").run(id), "Agent", id);
   } catch (error) {
     if (error instanceof Error && error.message.includes("FOREIGN KEY")) {
-      throw new DomainError("AGENT_HAS_RUNS", "실행 기록이 있는 에이전트는 삭제할 수 없습니다.", 409);
+      throw new DomainError(
+        "AGENT_HAS_RUNS",
+        "실행 기록이 있는 에이전트는 삭제할 수 없습니다.",
+        409,
+      );
     }
     throw error;
   }

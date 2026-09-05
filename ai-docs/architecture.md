@@ -78,6 +78,7 @@ design-system -> design-token
 desktop - - > server executable (process lifecycle contract)
 server -----> domain
 server -----> runtime-protocol
+server -----> pet
 runtime spike -> runtime-protocol
 ```
 
