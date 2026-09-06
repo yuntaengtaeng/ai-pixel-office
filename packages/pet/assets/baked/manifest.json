@@ -1,0 +1,33 @@
+{
+  "format": "ai-pixel-office-procedural-baked-v1",
+  "source": "packages/pet/src/catalog.ts via plotPet()",
+  "frameWidth": 54,
+  "frameHeight": 54,
+  "scale": 1,
+  "anchor": { "x": 27, "y": 51 },
+  "pets": [
+    { "id": "dog-shiba", "sprite": "dog-shiba.png", "animations": { "idle": [0] } },
+    { "id": "dog-dalmatian", "sprite": "dog-dalmatian.png", "animations": { "idle": [0] } },
+    { "id": "dog-beagle", "sprite": "dog-beagle.png", "animations": { "idle": [0] } },
+    { "id": "dog-poodle", "sprite": "dog-poodle.png", "animations": { "idle": [0] } },
+    { "id": "dog-corgi", "sprite": "dog-corgi.png", "animations": { "idle": [0] } },
+    { "id": "dog-schnauzer", "sprite": "dog-schnauzer.png", "animations": { "idle": [0] } },
+    { "id": "dog-retriever", "sprite": "dog-retriever.png", "animations": { "idle": [0] } },
+    { "id": "dog-husky", "sprite": "dog-husky.png", "animations": { "idle": [0] } },
+    { "id": "dog-collie", "sprite": "dog-collie.png", "animations": { "idle": [0] } },
+    { "id": "dog-maltese", "sprite": "dog-maltese.png", "animations": { "idle": [0] } },
+    { "id": "cat-orange-tabby", "sprite": "cat-orange-tabby.png", "animations": { "idle": [0] } },
+    { "id": "cat-tuxedo", "sprite": "cat-tuxedo.png", "animations": { "idle": [0] } },
+    { "id": "cat-siamese", "sprite": "cat-siamese.png", "animations": { "idle": [0] } },
+    { "id": "cat-russian-blue", "sprite": "cat-russian-blue.png", "animations": { "idle": [0] } },
+    { "id": "cat-calico", "sprite": "cat-calico.png", "animations": { "idle": [0] } },
+    { "id": "cat-black", "sprite": "cat-black.png", "animations": { "idle": [0] } },
+    { "id": "cat-white", "sprite": "cat-white.png", "animations": { "idle": [0] } },
+    { "id": "cat-brown-tabby", "sprite": "cat-brown-tabby.png", "animations": { "idle": [0] } },
+    { "id": "cat-ragdoll", "sprite": "cat-ragdoll.png", "animations": { "idle": [0] } },
+    { "id": "cat-bicolor", "sprite": "cat-bicolor.png", "animations": { "idle": [0] } },
+    { "id": "rabbit-yuzu", "sprite": "rabbit-yuzu.png", "animations": { "idle": [0] } },
+    { "id": "capybara-gamja", "sprite": "capybara-gamja.png", "animations": { "idle": [0] } },
+    { "id": "quokka-bangul", "sprite": "quokka-bangul.png", "animations": { "idle": [0] } }
+  ]
+}

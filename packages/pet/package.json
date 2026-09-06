@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
+    "build:browser": "tsc -p tsconfig.browser.json",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

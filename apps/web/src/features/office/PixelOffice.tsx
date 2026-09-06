@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Application, Container, type Ticker } from "pixi.js";
+import { Application, Assets, Container, type Texture, type Ticker } from "pixi.js";
 import styled from "styled-components";
 import type { Agent, Task } from "@ai-pixel-office/domain/entities";
+import { getPet, getPetSpriteUrl } from "@ai-pixel-office/pet";
 import { OfficeCanvasStyles } from "./components/OfficeCanvasStyles.ts";
 import { AgentQuickAssign } from "./components/AgentQuickAssign.tsx";
 import { petMessage } from "./utils/pet-personality.ts";
 import { animatePet, type AnimatedPet } from "./utils/pet-animation.ts";
 import { agentOfficeState } from "./utils/agentOfficeState.ts";
-import { OFFICE_WIDTH, desk, hash, officeLayout, petGraphic, roomBackground } from "./utils/canvasScene.ts";
+import {
+  OFFICE_WIDTH,
+  desk,
+  hash,
+  officeLayout,
+  petGraphic,
+  roomBackground,
+} from "./utils/canvasScene.ts";
 
 const Office = styled.div`
   position: relative;
@@ -154,6 +162,25 @@ export function PixelOffice({
       app.canvas.className = "office-canvas";
       app.stage.addChild(roomBackground(roomHeight));
 
+      const textures = new Map<string, Texture>();
+      await Promise.all(
+        characters.map(async ({ agent }) => {
+          const petId = getPet(agent.avatarId, hash(agent.id)).id;
+          try {
+            textures.set(
+              petId,
+              await Assets.load(getPetSpriteUrl(agent.avatarId ?? "", hash(agent.id))),
+            );
+          } catch {
+            // 이미지 에셋이 없는 펫은 기존 절차적 렌더러로 표시
+          }
+        }),
+      );
+      if (disposed) {
+        app.destroy(true, { children: true });
+        return;
+      }
+
       positions.forEach(([x, y], index) =>
         app.stage.addChild(desk(x, y, characters[index]?.agent.model)),
       );
@@ -162,7 +189,7 @@ export function PixelOffice({
       characters.forEach(({ agent, status }, index) => {
         const [deskX, deskY] = positions[index]!;
         const item = new Container();
-        const pet = petGraphic(agent);
+        const pet = petGraphic(agent, textures.get(getPet(agent.avatarId, hash(agent.id)).id));
         pet.position.set(37, -4);
         item.addChild(pet);
         item.position.set(deskX!, deskY! - 70);

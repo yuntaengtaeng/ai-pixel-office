@@ -2,6 +2,14 @@ export { PETS, UNLOCKABLE_PETS, getPet, isPetId } from "./catalog.ts";
 export type { Accessory, EarShape, Pattern, PetDesign, PetSpecies } from "./catalog.ts";
 export { plotPet } from "./procedural-renderer.ts";
 export type { PixelPlotter } from "./procedural-renderer.ts";
+export { getPetSpriteUrl } from "./assets.ts";
+export { getPetAnimation } from "./animation.ts";
+export type {
+  PetAnimation,
+  PetAnimationFrame,
+  PetAnimationInput,
+  PetAnimationStatus,
+} from "./animation.ts";
 export { createPet, PetActor } from "./actor.ts";
 export type {
   CreatePetOptions,

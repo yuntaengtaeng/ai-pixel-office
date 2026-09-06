@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "allowImportingTsExtensions": false,
+    "module": "NodeNext",
+    "noEmit": false,
+    "outDir": "./browser",
+    "rootDir": "./src",
+    "sourceMap": false
+  },
+  "include": ["src/animation.ts"]
+}

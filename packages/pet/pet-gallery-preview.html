@@ -166,6 +166,36 @@
     border: 1px solid var(--lock);
     padding: 2px 6px;
   }
+  .asset-preview {
+    max-width: 1180px;
+    margin: 36px auto 0;
+  }
+  .asset-preview .portrait {
+    overflow: hidden;
+  }
+  .asset-preview .portrait img {
+    width: 92px;
+    height: 92px;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+  .animation-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 14px;
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+  .animation-toolbar select,
+  .animation-toolbar button {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+  }
+  .animation-toolbar button { cursor: pointer; }
 
   footer {
     max-width: 1180px;
@@ -193,11 +223,37 @@
 
 <main id="main"></main>
 
+<section class="asset-preview" aria-labelledby="asset-title">
+  <div class="species-head">
+    <h2 id="asset-title">현재 UI와 동일한 PNG 에셋</h2>
+    <span class="count">23종</span>
+  </div>
+  <div class="animation-toolbar">
+    <label for="animation-status">상태 애니메이션</label>
+    <select id="animation-status">
+      <option value="idle">대기</option>
+      <option value="working">작업 중</option>
+      <option value="needs_review">검토 필요</option>
+      <option value="done">완료</option>
+      <option value="failed">실패</option>
+    </select>
+    <button id="animation-toggle" type="button">재생</button>
+  </div>
+  <div id="generated-grid" class="grid"></div>
+</section>
+
 <footer>
-  plotPet() 절차적 렌더러로 그려낸 결과 — 실제 앱 코드의 좌표/색상을 그대로 사용한 미리보기입니다.
+  현재 카드는 실제 앱 코드의 `plotPet()` 절차적 렌더러 결과를 54×54 투명 PNG로 구운 미리보기입니다.
+  채팅 목록, 에이전트 카드, Pixi 오피스에서 같은 자산을 사용해 캐릭터 핏을 유지합니다.
 </footer>
 
-<script>
+<!-- legacy concept footer removed
+  위 콘셉트 시트는 신규 이미지 에셋 초안이며, 아래 카드는 실제 앱 코드의 `plotPet()` 절차적 렌더러로
+  그려낸 결과입니다.
+-->
+<script type="module">
+  import { getPetAnimation } from "./browser/animation.js";
+
   const PETS = [
     {
       id: "dog-shiba",
@@ -619,10 +675,15 @@
     }
   }
 
+  // Expose the catalog and renderer for deterministic sprite baking scripts.
+  window.PET_CATALOG = PETS;
+  window.plotPet = plotPet;
+
   function renderCard(pet) {
     const isMissionPet = !!pet.unlock;
     const card = document.createElement("div");
     card.className = "card";
+    card.dataset.petId = pet.id;
 
     const portrait = document.createElement("div");
     portrait.className = "portrait";
@@ -707,4 +768,53 @@
 
   document.getElementById("summary").textContent =
     PETS.length + "종 (해금형 " + PETS.filter((p) => p.unlock).length + "종 포함)";
+
+  const generatedGrid = document.getElementById("generated-grid");
+  const assetPreview = document.querySelector(".asset-preview");
+  const animationStatus = document.getElementById("animation-status");
+  const animationToggle = document.getElementById("animation-toggle");
+  let animationFrame;
+  assetPreview.dataset.status = animationStatus.value;
+  assetPreview.dataset.playing = "false";
+  animationStatus.addEventListener("change", () => {
+    assetPreview.dataset.status = animationStatus.value;
+  });
+  animationToggle.addEventListener("click", () => {
+    const playing = assetPreview.dataset.playing !== "true";
+    assetPreview.dataset.playing = String(playing);
+    animationToggle.textContent = playing ? "정지" : "재생";
+    if (playing) {
+      const tick = (now) => {
+        const status = animationStatus.value;
+        generatedGrid.querySelectorAll(".card").forEach((card, index) => {
+          const pet = getPetAnimation(card.dataset.petId).frame({ status, time: now / 350, phase: index * 0.7 });
+          const image = card.querySelector("img");
+          image.style.transform = `translate(${pet.x}px, ${pet.y}px) rotate(${pet.rotation}rad) scale(${pet.scaleX}, ${pet.scaleY})`;
+        });
+        animationFrame = requestAnimationFrame(tick);
+      };
+      animationFrame = requestAnimationFrame(tick);
+    } else {
+      cancelAnimationFrame(animationFrame);
+      generatedGrid.querySelectorAll("img").forEach((image) => { image.style.transform = ""; });
+    }
+  });
+  for (const pet of PETS) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.petId = pet.id;
+    const portrait = document.createElement("div");
+    portrait.className = "portrait";
+    const image = document.createElement("img");
+    image.src = "assets/baked/" + pet.id + ".png";
+    image.alt = pet.name + " 생성 픽셀 에셋";
+    portrait.appendChild(image);
+    const name = document.createElement("strong");
+    name.textContent = pet.name;
+    const breed = document.createElement("div");
+    breed.className = "breed";
+    breed.textContent = pet.breed;
+    card.append(portrait, name, breed);
+    generatedGrid.appendChild(card);
+  }
 </script>

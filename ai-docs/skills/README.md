@@ -8,5 +8,6 @@
 - [`frontend-code-style`](./frontend-code-style/SKILL.md): TypeScript, JavaScript, React 코드 작성 및 리뷰
 - [`backend-server-code-style`](./backend-server-code-style/SKILL.md): apps/server(Fastify) 코드 작성 및 리뷰
 - [`pixel-office-comment-guidelines`](./pixel-office-comment-guidelines/SKILL.md): 주석, JSDoc, UI 노출 문자열 작성 및 리뷰
+- [`codex-pixel-pet-assets`](./codex-pixel-pet-assets/SKILL.md): 픽셀 펫 에셋 생성, 스프라이트 시트, 매니페스트, 렌더러 연결
 
 작업에 해당하는 스킬만 읽는다. 요청 범위 밖의 기존 코드를 스킬 규칙에 맞추기 위해 일괄 수정하지 않는다.

@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import type { Agent } from "@ai-pixel-office/domain/entities";
 import { getPet, plotPet } from "@ai-pixel-office/pet";
 import { RUNTIME } from "../../../shared/config/presentation.ts";
@@ -25,9 +25,16 @@ export function hash(value: string): number {
   return [...value].reduce((sum, character) => (sum * 31 + character.charCodeAt(0)) | 0, 0);
 }
 
-export function petGraphic(agent: Agent): Container {
+export function petGraphic(agent: Agent, texture?: Texture): Container {
   const pet = getPet(agent.avatarId, hash(agent.id));
   const character = new Container();
+  if (texture) {
+    const sprite = new Sprite(texture);
+    sprite.width = 54;
+    sprite.height = 54;
+    character.addChild(sprite);
+    return character;
+  }
   const pixels = new Graphics();
   const scale = 3;
   plotPet(pet, (x, y, width, height, color) => {
