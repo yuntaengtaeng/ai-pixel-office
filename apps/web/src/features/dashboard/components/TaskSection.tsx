@@ -8,7 +8,7 @@ import { TaskCard } from "../../tasks/TaskCard.tsx";
 
 const Styled = {
   Section: styled(Panel).attrs({ as: "section" })<{ $status: TaskStatus }>`
-    min-height: 185px;
+    min-height: 96px;
     padding: ${({ theme }) => theme.space.x4};
     border-top-color: ${({ $status }) => STATUS[$status].color};
   `,

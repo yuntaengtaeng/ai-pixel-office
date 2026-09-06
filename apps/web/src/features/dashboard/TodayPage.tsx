@@ -38,6 +38,23 @@ const PixelOffice = lazy(async () => {
 });
 
 const Styled = {
+  Onboarding: styled(Panel).attrs({ as: "section" })`
+    padding: ${({ theme }) => theme.space.x6};
+    text-align: center;
+    display: grid;
+    gap: ${({ theme }) => theme.space.x2};
+    justify-items: center;
+
+    h2 {
+      margin: 0;
+    }
+
+    p {
+      margin: 0;
+      max-width: 420px;
+      color: ${({ theme }) => theme.colors.text.muted};
+    }
+  `,
   DialogContent: styled(Dialog)`
     .dialog-content {
       width: min(680px, calc(100vw - 28px));
@@ -475,53 +492,68 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           )}
         </OfficeCard>
         <InboxPanel workspace={workspace} />
-        <Styled.Toolbar aria-label="작업 검색과 상태 필터">
-          <Styled.Search>
-            <span>⌕</span>
-            <Input
-              value={taskSearch}
-              onChange={(event) => setTaskSearch(event.target.value)}
-              placeholder="작업 제목이나 설명 검색"
-            />
-            {taskSearch && (
-              <button type="button" onClick={() => setTaskSearch("")} aria-label="검색어 지우기">
-                ×
-              </button>
-            )}
-          </Styled.Search>
-          <Styled.StatusFilterList>
-            <button
-              className={statusFilter === "all" ? "selected" : ""}
-              onClick={() => setStatusFilter("all")}
-            >
-              전체 <b>{taskList.length}</b>
-            </button>
-            {(Object.keys(STATUS) as TaskStatus[]).map((status) => (
-              <button
-                key={status}
-                className={statusFilter === status ? "selected" : ""}
-                onClick={() => setStatusFilter(status)}
-              >
-                {STATUS[status].label}{" "}
-                <b>{taskList.filter((task) => task.status === status).length}</b>
-              </button>
-            ))}
-          </Styled.StatusFilterList>
-        </Styled.Toolbar>
-        <Styled.TodayGrid>
-          {(["todo", "working", "needs_review", "needs_input", "blocked", "failed"] as TaskStatus[])
-            .filter((status) => statusFilter === "all" || statusFilter === status)
-            .map((status) => (
-              <TaskSection
-                key={status}
-                status={status}
-                tasks={visibleTasks.filter((task) => task.status === status)}
-                agents={agentList}
-                onDelete={deleteTask}
-                deletingId={removeTask.isPending ? removeTask.variables : undefined}
-              />
-            ))}
-        </Styled.TodayGrid>
+        {taskList.length === 0 ? (
+          <Styled.Onboarding>
+            <h2>아직 작업이 없어요</h2>
+            <p>위쪽 "+ 새 작업" 버튼으로 첫 작업을 만들면, 여기서 진행 상황을 확인할 수 있어요.</p>
+          </Styled.Onboarding>
+        ) : (
+          <>
+            <Styled.Toolbar aria-label="작업 검색과 상태 필터">
+              <Styled.Search>
+                <span>⌕</span>
+                <Input
+                  value={taskSearch}
+                  onChange={(event) => setTaskSearch(event.target.value)}
+                  placeholder="작업 제목이나 설명 검색"
+                />
+                {taskSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setTaskSearch("")}
+                    aria-label="검색어 지우기"
+                  >
+                    ×
+                  </button>
+                )}
+              </Styled.Search>
+              <Styled.StatusFilterList>
+                <button
+                  className={statusFilter === "all" ? "selected" : ""}
+                  onClick={() => setStatusFilter("all")}
+                >
+                  전체 <b>{taskList.length}</b>
+                </button>
+                {(Object.keys(STATUS) as TaskStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    className={statusFilter === status ? "selected" : ""}
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {STATUS[status].label}{" "}
+                    <b>{taskList.filter((task) => task.status === status).length}</b>
+                  </button>
+                ))}
+              </Styled.StatusFilterList>
+            </Styled.Toolbar>
+            <Styled.TodayGrid>
+              {(
+                ["todo", "working", "needs_review", "needs_input", "blocked", "failed"] as TaskStatus[]
+              )
+                .filter((status) => statusFilter === "all" || statusFilter === status)
+                .map((status) => (
+                  <TaskSection
+                    key={status}
+                    status={status}
+                    tasks={visibleTasks.filter((task) => task.status === status)}
+                    agents={agentList}
+                    onDelete={deleteTask}
+                    deletingId={removeTask.isPending ? removeTask.variables : undefined}
+                  />
+                ))}
+            </Styled.TodayGrid>
+          </>
+        )}
         <Styled.LowerGrid>
           {(statusFilter === "all" || statusFilter === "done") && (
             <TaskSection

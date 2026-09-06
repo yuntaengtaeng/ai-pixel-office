@@ -1,5 +1,5 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
@@ -7,23 +7,20 @@ import {
   BackButton,
   Button,
   Field,
-  Fieldset,
   HelperText,
   Input,
   Kicker,
-  Legend,
   Panel,
   Select,
   TextArea,
   TrashIcon,
 } from "@ai-pixel-office/design-system";
-import type { Workspace } from "@ai-pixel-office/domain/entities";
+import type { Task, Workspace } from "@ai-pixel-office/domain/entities";
 import { taskApi } from "../tasks/api.ts";
 import { skillApi } from "../skills/api.ts";
 import { agentApi } from "./api.ts";
 import { PETS } from "@ai-pixel-office/pet";
 import { PetPreview } from "../office/PetPreview.tsx";
-import { PERMISSIONS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
@@ -34,13 +31,16 @@ import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { StatusPill } from "../../shared/ui/StatusPill.tsx";
-import { ModelPolicyFields } from "./ModelPolicyFields.tsx";
-import { defaultManualModel } from "./model-options.ts";
 import { petUnlockApi } from "./pet-unlocks-api.ts";
 import { useAgentForm } from "./hooks/useAgentForm.ts";
 import { PetChoice } from "./components/PetChoice.tsx";
+import { AgentSkillsField } from "./components/AgentSkillsField.tsx";
+import { AgentAdvancedOptions } from "./components/AgentAdvancedOptions.tsx";
 
 const Styled = {
+  SubmitButton: styled(Button)`
+    margin-top: auto;
+  `,
   Roster: styled(Panel).attrs({ as: "section" })`
     margin-top: ${({ theme }) => theme.space.x6};
     padding: ${({ theme }) => theme.space.x5};
@@ -58,7 +58,7 @@ const Styled = {
       grid-template-columns: 1fr;
     }
   `,
-  AgentCard: styled.article<{ $selected: boolean }>`
+  AgentCard: styled.article`
     position: relative;
     width: 100%;
     padding: 0;
@@ -66,14 +66,6 @@ const Styled = {
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
     text-align: left;
-
-    ${({ $selected, theme }) =>
-      $selected &&
-      `
-        border-color: ${theme.colors.border.positive};
-        background: ${theme.colors.background.positiveSubtle};
-        box-shadow: 3px 3px 0 ${theme.colors.shadow.positive};
-      `}
 
     &:hover {
       border-color: ${({ theme }) => theme.colors.border.positive};
@@ -143,72 +135,6 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.negative};
     }
   `,
-  QuickJobs: styled(Panel).attrs({ as: "section" })`
-    margin-top: ${({ theme }) => theme.space.x5};
-    padding: ${({ theme }) => theme.space.x5};
-  `,
-  QuickJobList: styled.div`
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: ${({ theme }) => theme.space.x2};
-
-    @media ${mediaQuery.xl} {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    @media ${mediaQuery.md} {
-      grid-template-columns: 1fr;
-    }
-  `,
-  QuickJob: styled.div`
-    display: grid;
-    grid-template-columns: 1fr 30px;
-    border: 1px solid ${({ theme }) => theme.colors.border.default};
-    background: ${({ theme }) => theme.colors.background.surface};
-
-    > button:first-child {
-      min-width: 0;
-      padding: ${({ theme }) => theme.space.x3};
-      border: 0;
-      background: transparent;
-      text-align: left;
-      cursor: pointer;
-      display: grid;
-      gap: ${({ theme }) => theme.space.x1};
-    }
-
-    strong {
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-    }
-
-    span {
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-  `,
-  RemoveQuickJobButton: styled.button`
-    border: 0;
-    border-left: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    color: ${({ theme }) => theme.colors.text.negative};
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-
-    svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
-    }
-
-    &:hover {
-      background: ${({ theme }) => theme.colors.background.negativeSubtle};
-      color: ${({ theme }) => theme.colors.text.negative};
-    }
-  `,
   RecentJobs: styled.div`
     display: flex;
     align-items: center;
@@ -223,18 +149,6 @@ const Styled = {
       border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       cursor: pointer;
-    }
-  `,
-  QuickJobForm: styled.form`
-    display: flex;
-    align-items: end;
-    gap: ${({ theme }) => theme.space.x2};
-    margin-top: ${({ theme }) => theme.space.x4};
-    padding-top: ${({ theme }) => theme.space.x4};
-    border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
-
-    @media ${mediaQuery.md} {
-      display: grid;
     }
   `,
   DetailGrid: styled.div`
@@ -287,12 +201,41 @@ const Styled = {
       grid-template-columns: 1fr 30px;
       border: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
-      > div {
+      > button:first-child {
         min-width: 0;
         padding: ${({ theme }) => theme.space.x2};
+        border: 0;
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
         display: grid;
         gap: ${({ theme }) => theme.space.x1};
       }
+
+      > button:last-child {
+        border: 0;
+        border-left: 1px solid ${({ theme }) => theme.colors.border.subtle};
+        background: ${({ theme }) => theme.colors.background.surfaceRaised};
+        color: ${({ theme }) => theme.colors.text.negative};
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+
+        svg {
+          width: 14px;
+          height: 14px;
+          fill: currentColor;
+        }
+
+        &:hover {
+          background: ${({ theme }) => theme.colors.background.negativeSubtle};
+          color: ${({ theme }) => theme.colors.text.negative};
+        }
+      }
+    }
+
+    strong {
+      font-size: ${({ theme }) => theme.typography.fontSize.md};
     }
 
     span {
@@ -302,32 +245,11 @@ const Styled = {
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-
-    button {
-      width: 34px;
-      border: 0;
-      border-left: 1px solid ${({ theme }) => theme.colors.border.subtle};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      color: ${({ theme }) => theme.colors.text.negative};
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-
-      svg {
-        width: 14px;
-        height: 14px;
-        fill: currentColor;
-      }
-
-      &:hover {
-        background: ${({ theme }) => theme.colors.background.negativeSubtle};
-        color: ${({ theme }) => theme.colors.text.negative};
-      }
-    }
   `,
   TemplateForm: styled.form`
     display: grid;
     grid-template-columns: 0.7fr 1fr auto;
+    align-items: end;
     gap: ${({ theme }) => theme.space.x2};
     margin-top: ${({ theme }) => theme.space.x3};
 
@@ -361,9 +283,9 @@ const Styled = {
   `,
   BuilderLayout: styled.div`
     display: grid;
-    grid-template-columns: minmax(280px, 0.75fr) minmax(520px, 1.45fr);
+    grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 0.9fr);
     gap: ${({ theme }) => theme.space.x5};
-    align-items: start;
+    align-items: stretch;
 
     @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
@@ -371,7 +293,8 @@ const Styled = {
   `,
   BuilderForm: styled(Panel).attrs({ as: "form" })`
     padding: ${({ theme }) => theme.space.x6};
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: ${({ theme }) => theme.space.x5};
 
     h2 {
@@ -409,107 +332,6 @@ const Styled = {
   IntroText: styled(HelperText)`
     margin-bottom: ${({ theme }) => theme.space.x2};
   `,
-  CheckGrid: styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: ${({ theme }) => theme.space.x2};
-  `,
-  CheckChip: styled.label`
-    position: relative;
-
-    input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    span {
-      display: block;
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
-      border: 1px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      cursor: pointer;
-    }
-
-    input:checked + span {
-      color: ${({ theme }) => theme.colors.text.positive};
-      border-color: ${({ theme }) => theme.colors.border.positive};
-      background: ${({ theme }) => theme.colors.background.surfaceMuted};
-      box-shadow: inset 3px 0 ${({ theme }) => theme.colors.brand.primary};
-    }
-  `,
-  EnginePicker: styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: ${({ theme }) => theme.space.x2};
-
-    button {
-      padding: ${({ theme }) => theme.space.x3};
-      display: grid;
-      gap: ${({ theme }) => theme.space.x1};
-      border: 2px solid ${({ theme }) => theme.colors.border.default};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-
-      &.selected {
-        border-color: ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.background.surfaceMuted};
-        color: ${({ theme }) => theme.colors.text.positive};
-      }
-    }
-
-    small {
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-    }
-  `,
-  AdvancedOptions: styled.details`
-    border: 1px solid ${({ theme }) => theme.colors.border.default};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    > summary {
-      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      cursor: pointer;
-    }
-
-    > div {
-      padding: ${({ theme }) => theme.space.x3};
-      border-top: 1px dashed ${({ theme }) => theme.colors.border.default};
-      display: grid;
-      gap: ${({ theme }) => theme.space.x4};
-    }
-  `,
-  MappedPermissions: styled.div`
-    margin-top: ${({ theme }) => theme.space.x2};
-    padding: ${({ theme }) => theme.space.x2};
-    border-left: 3px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-
-    > div {
-      display: flex;
-      flex-wrap: wrap;
-      gap: ${({ theme }) => theme.space.x1};
-    }
-
-    span {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
-      border: 1px solid ${({ theme }) => theme.colors.border.positive};
-      background: ${({ theme }) => theme.colors.background.positiveSubtle};
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-    }
-  `,
   AvatarLibrary: styled(Panel).attrs({ as: "section" })`
     padding: ${({ theme }) => theme.space.x6};
 
@@ -521,7 +343,7 @@ const Styled = {
   `,
   PetGrid: styled.div`
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
@@ -541,10 +363,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
   const skills = useQuery({
     queryKey: ["skills", workspace.id],
     queryFn: () => skillApi.list(workspace.id),
-  });
-  const tasks = useQuery({
-    queryKey: ["tasks", workspace.id],
-    queryFn: () => taskApi.list(workspace.id),
   });
   const petUnlocks = useQuery({
     queryKey: ["pet-unlocks", workspace.id],
@@ -571,17 +389,6 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
     toggleSkill,
     reset: resetForm,
   } = useAgentForm();
-  const [selectedAgentId, setSelectedAgentId] = useState("");
-  const [templateTitle, setTemplateTitle] = useState("");
-  const [templateDescription, setTemplateDescription] = useState("");
-  const templates = useQuery({
-    queryKey: ["agent-task-templates", selectedAgentId],
-    queryFn: () => agentApi.listTaskTemplates(selectedAgentId),
-    enabled: Boolean(selectedAgentId),
-  });
-  useEffect(() => {
-    if (!selectedAgentId && agents.data?.[0]) setSelectedAgentId(agents.data[0].id);
-  }, [agents.data, selectedAgentId]);
   const mutation = useMutation({
     mutationFn: () =>
       agentApi.create({
@@ -597,64 +404,19 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         skillIds: selectedSkills,
         permissions: { ...permissions, fileRead: true, terminal: true },
       }),
-    onSuccess: (agent) => {
+    onSuccess: () => {
       resetForm();
-      setSelectedAgentId(agent.id);
       void queryClient.invalidateQueries({ queryKey: ["agents", workspace.id] });
     },
   });
   const selectedPet = PETS.find((pet) => pet.id === avatarId)!;
-  const mappedSkillPermissions = Array.from(
-    new Set(
-      (skills.data ?? [])
-        .filter((skill) => selectedSkills.includes(skill.id))
-        .flatMap((skill) => skill.requiredPermissions ?? []),
-    ),
-  );
-  const selectedAgent = agents.data?.find((agent) => agent.id === selectedAgentId);
-  const quickTask = useMutation({
-    mutationFn: (input: {
-      title: string;
-      description?: string;
-      priority?: "low" | "medium" | "high";
-    }) => taskApi.create({ ...input, workspaceId: workspace.id, assigneeAgentId: selectedAgentId }),
-    onSuccess: (task) => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
-      navigate(`/tasks/${task.id}`);
-    },
-  });
-  const saveTemplate = useMutation({
-    mutationFn: () =>
-      agentApi.createTaskTemplate(selectedAgentId, {
-        title: templateTitle,
-        description: templateDescription || undefined,
-      }),
-    onSuccess: () => {
-      setTemplateTitle("");
-      setTemplateDescription("");
-      void queryClient.invalidateQueries({ queryKey: ["agent-task-templates", selectedAgentId] });
-    },
-  });
-  const removeTemplate = useMutation({
-    mutationFn: (id: string) => agentApi.deleteTaskTemplate(selectedAgentId, id),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["agent-task-templates", selectedAgentId] }),
-  });
   const removeAgent = useMutation({
     mutationFn: (id: string) => agentApi.remove(id),
-    onSuccess: (_result, deletedId) => {
-      if (selectedAgentId === deletedId) setSelectedAgentId("");
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["agents", workspace.id] });
       void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
     },
   });
-  const recentJobs = Array.from(
-    new Map(
-      (tasks.data ?? [])
-        .filter((task) => task.assigneeAgentId === selectedAgentId)
-        .map((task) => [task.title, task]),
-    ).values(),
-  ).slice(0, 3);
   return (
     <BaseLayout>
       <PageHeader eyebrow="TEAM BUILDER" title="AI 동료 만들기" />
@@ -691,119 +453,30 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               required
             />
           </Field>
-          <Fieldset>
-            <Legend>스킬 · 선택 사항</Legend>
-            <Styled.IntroText>
-              스킬 없이도 기본 업무를 수행합니다. 반복해서 잘해야 할 전문 업무가 있으면 스킬을
-              연결하세요.
-            </Styled.IntroText>
-            <Styled.CheckGrid>
-              {(skills.data ?? []).map((skill) => (
-                <Styled.CheckChip
-                  key={skill.id}
-                  title={
-                    (skill.requiredPermissions ?? []).length > 0
-                      ? `필요 권한: ${(skill.requiredPermissions ?? []).map((permission) => PERMISSIONS.find((item) => item.key === permission)?.label ?? permission).join(", ")}`
-                      : undefined
-                  }
-                >
-                  <Input
-                    type="checkbox"
-                    checked={selectedSkills.includes(skill.id)}
-                    onChange={() => toggleSkill(skill)}
-                  />
-                  <span>{skill.name}</span>
-                </Styled.CheckChip>
-              ))}
-              {skills.data?.length === 0 && (
-                <Empty>스킬 없이 바로 만들 수 있습니다. 나중에 스킬 작업실에서 추가하세요.</Empty>
-              )}
-            </Styled.CheckGrid>
-            {mappedSkillPermissions.length > 0 && (
-              <Styled.MappedPermissions>
-                <strong>자동으로 적용될 권한</strong>
-                <div>
-                  {mappedSkillPermissions.map((permission) => (
-                    <span key={permission}>
-                      {PERMISSIONS.find((item) => item.key === permission)?.label ?? permission}
-                    </span>
-                  ))}
-                </div>
-              </Styled.MappedPermissions>
-            )}
-          </Fieldset>
-          <Styled.AdvancedOptions>
-            <summary>고급 설정 · 실행 엔진과 모델</summary>
-            <div>
-              <Field>
-                <label>실행 엔진</label>
-                <Styled.EnginePicker>
-                  <button
-                    type="button"
-                    className={model === "codex" ? "selected" : ""}
-                    onClick={() => {
-                      setModel("codex");
-                      setModelName(defaultManualModel("codex"));
-                    }}
-                  >
-                    Codex <small>로컬 CLI</small>
-                  </button>
-                  <button
-                    type="button"
-                    className={model === "claude" ? "selected" : ""}
-                    onClick={() => {
-                      setModel("claude");
-                      setModelName(defaultManualModel("claude"));
-                    }}
-                  >
-                    Claude <small>로컬 CLI</small>
-                  </button>
-                </Styled.EnginePicker>
-              </Field>
-              <ModelPolicyFields
-                runtime={model}
-                policy={modelPolicy}
-                modelName={modelName}
-                reasoningEffort={reasoningEffort}
-                onPolicyChange={setModelPolicy}
-                onModelNameChange={setModelName}
-                onReasoningEffortChange={setReasoningEffort}
-              />
-              <>
-                <Fieldset>
-                  <Legend>도구 권한</Legend>
-                  <Styled.CheckGrid>
-                    {PERMISSIONS.map(({ key, label }) => {
-                      const required = key === "fileRead" || key === "terminal";
-                      return (
-                        <Styled.CheckChip key={key}>
-                          <Input
-                            type="checkbox"
-                            checked={permissions[key] ?? false}
-                            disabled={required}
-                            onChange={(event) =>
-                              setPermissions({ ...permissions, [key]: event.target.checked })
-                            }
-                          />
-                          <span>
-                            {label}
-                            {required ? " · 자동 적용" : key === "figma" ? " · 연결 필요" : ""}
-                          </span>
-                        </Styled.CheckChip>
-                      );
-                    })}
-                  </Styled.CheckGrid>
-                </Fieldset>
-              </>
-            </div>
-          </Styled.AdvancedOptions>
-          <Button
+          <AgentSkillsField
+            skills={skills.data ?? []}
+            selectedSkills={selectedSkills}
+            onToggleSkill={toggleSkill}
+          />
+          <AgentAdvancedOptions
+            model={model}
+            setModel={setModel}
+            modelPolicy={modelPolicy}
+            setModelPolicy={setModelPolicy}
+            modelName={modelName}
+            setModelName={setModelName}
+            reasoningEffort={reasoningEffort}
+            setReasoningEffort={setReasoningEffort}
+            permissions={permissions}
+            setPermissions={setPermissions}
+          />
+          <Styled.SubmitButton
             $variant="primary"
             $fullWidth
             disabled={mutation.isPending || !name.trim() || !role.trim()}
           >
             에이전트 만들기
-          </Button>
+          </Styled.SubmitButton>
           {mutation.isError && <ErrorBanner>{messageOf(mutation.error)}</ErrorBanner>}
         </Styled.BuilderForm>
         <Styled.AvatarLibrary>
@@ -813,6 +486,9 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
               <h2>캐릭터 고르기</h2>
             </div>
           </SectionHeading>
+          <Styled.IntroText>
+            캐릭터는 겉모습일 뿐 업무 능력에는 영향을 주지 않아요. 나중에 언제든 바꿀 수 있어요.
+          </Styled.IntroText>
           <h3>강아지</h3>
           <Styled.PetGrid>
             {PETS.filter((pet) => pet.species === "dog").map((pet) => (
@@ -860,8 +536,8 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         </SectionHeading>
         <Styled.RosterGrid>
           {(agents.data ?? []).map((agent) => (
-            <Styled.AgentCard key={agent.id} $selected={selectedAgentId === agent.id}>
-              <button type="button" onClick={() => setSelectedAgentId(agent.id)}>
+            <Styled.AgentCard key={agent.id}>
+              <button type="button" onClick={() => navigate(`/agents/${agent.id}`)}>
                 <PetPreview petId={agent.avatarId ?? ""} size={72} />
                 <div>
                   <strong>{agent.name}</strong>
@@ -900,93 +576,16 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
         </Styled.RosterGrid>
         {removeAgent.isError && <ErrorBanner>{messageOf(removeAgent.error)}</ErrorBanner>}
       </Styled.Roster>
-      {selectedAgent && (
-        <Styled.QuickJobs>
-          <SectionHeading>
-            <div>
-              <Kicker>QUICK ASSIGN</Kicker>
-              <h2>{selectedAgent.name}에게 바로 맡기기</h2>
-            </div>
-          </SectionHeading>
-          <Styled.IntroText>
-            자주 하는 일을 등록해 두면 동료를 클릭한 뒤 한 번에 작업을 만들 수 있습니다.
-          </Styled.IntroText>
-          <Styled.QuickJobList>
-            {(templates.data ?? []).map((template) => (
-              <Styled.QuickJob key={template.id}>
-                <button type="button" onClick={() => quickTask.mutate(template)}>
-                  <strong>{template.title}</strong>
-                  <span>{template.description || "설명 없이 바로 작업 만들기"}</span>
-                </button>
-                <Styled.RemoveQuickJobButton
-                  type="button"
-                  aria-label="등록 작업 삭제"
-                  title="등록 작업 삭제"
-                  onClick={() => removeTemplate.mutate(template.id)}
-                >
-                  <TrashIcon size={14} />
-                </Styled.RemoveQuickJobButton>
-              </Styled.QuickJob>
-            ))}
-            {templates.data?.length === 0 && (
-              <Empty>등록된 작업이 없습니다. 아래에서 첫 작업을 추가해 보세요.</Empty>
-            )}
-          </Styled.QuickJobList>
-          {recentJobs.length > 0 && (
-            <Styled.RecentJobs>
-              <strong>최근 맡긴 작업</strong>
-              {recentJobs.map((task) => (
-                <button
-                  type="button"
-                  key={task.id}
-                  onClick={() =>
-                    quickTask.mutate({
-                      title: task.title,
-                      description: task.description,
-                      priority: task.priority,
-                    })
-                  }
-                >
-                  {task.title}
-                </button>
-              ))}
-            </Styled.RecentJobs>
-          )}
-          <Styled.QuickJobForm
-            onSubmit={(event) => {
-              event.preventDefault();
-              saveTemplate.mutate();
-            }}
-          >
-            <Field>
-              <label>작업 이름</label>
-              <Input
-                value={templateTitle}
-                onChange={(event) => setTemplateTitle(event.target.value)}
-                placeholder="예: UI 검토"
-                required
-              />
-            </Field>
-            <Field $grow>
-              <label>기본 요청</label>
-              <Input
-                value={templateDescription}
-                onChange={(event) => setTemplateDescription(event.target.value)}
-                placeholder="예: Figma 화면의 사용성과 일관성을 검토해 줘"
-              />
-            </Field>
-            <Button $variant="secondary" disabled={saveTemplate.isPending || !templateTitle.trim()}>
-              등록
-            </Button>
-          </Styled.QuickJobForm>
-          {(quickTask.isError || saveTemplate.isError) && (
-            <ErrorBanner>{messageOf(quickTask.error ?? saveTemplate.error)}</ErrorBanner>
-          )}
-        </Styled.QuickJobs>
-      )}
       <ConfirmDialog {...dialogProps} />
     </BaseLayout>
   );
+}
+
+const RECENT_JOB_LIMIT = 3;
+
+/** 제목 기준 중복 제거 후 최근 항목 limit개만, 표시 개수 정책이 바뀌면 limit만 조정 */
+function recentDistinctTasks(tasks: Task[], limit: number): Task[] {
+  return Array.from(new Map(tasks.map((task) => [task.title, task])).values()).slice(0, limit);
 }
 
 export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
@@ -1079,6 +678,14 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
     mutationFn: (templateId: string) => agentApi.deleteTaskTemplate(id, templateId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["agent-task-templates", id] }),
   });
+  const quickTask = useMutation({
+    mutationFn: (input: { title: string; description?: string }) =>
+      taskApi.create({ ...input, workspaceId: workspace.id, assigneeAgentId: id }),
+    onSuccess: (task) => {
+      void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
+      navigate(`/tasks/${task.id}`);
+    },
+  });
   if (agentQuery.isPending)
     return (
       <BaseLayout>
@@ -1092,6 +699,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
       </BaseLayout>
     );
   const agentTasks = (tasks.data ?? []).filter((task) => task.assigneeAgentId === id);
+  const recentJobs = recentDistinctTasks(agentTasks, RECENT_JOB_LIMIT);
   return (
     <BaseLayout>
       <BackButton onClick={() => navigate("/agents")}>← 에이전트 목록</BackButton>
@@ -1148,89 +756,23 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
               onChange={(event) => setDescription(event.target.value)}
             />
           </Field>
-          <Fieldset>
-            <Legend>스킬 · 선택 사항</Legend>
-            <Styled.IntroText>
-              스킬은 선택 사항이며, 연결한 스킬에 필요한 권한은 자동으로 적용됩니다.
-            </Styled.IntroText>
-            <Styled.CheckGrid>
-              {(skills.data ?? []).map((skill) => (
-                <Styled.CheckChip key={skill.id}>
-                  <Input
-                    type="checkbox"
-                    checked={selectedSkills.includes(skill.id)}
-                    onChange={() => toggleAgentSkill(skill)}
-                  />
-                  <span>{skill.name}</span>
-                </Styled.CheckChip>
-              ))}
-              {skills.data?.length === 0 && (
-                <Empty>등록된 스킬이 없습니다. 스킬 없이도 기본 업무를 수행할 수 있습니다.</Empty>
-              )}
-            </Styled.CheckGrid>
-          </Fieldset>
-          <Styled.AdvancedOptions>
-            <summary>고급 설정 · 실행 엔진과 모델</summary>
-            <div>
-              <Field>
-                <label>실행 엔진</label>
-                <Styled.EnginePicker>
-                  <button
-                    type="button"
-                    className={model === "codex" ? "selected" : ""}
-                    onClick={() => {
-                      setModel("codex");
-                      setModelName(defaultManualModel("codex"));
-                    }}
-                  >
-                    Codex
-                  </button>
-                  <button
-                    type="button"
-                    className={model === "claude" ? "selected" : ""}
-                    onClick={() => {
-                      setModel("claude");
-                      setModelName(defaultManualModel("claude"));
-                    }}
-                  >
-                    Claude
-                  </button>
-                </Styled.EnginePicker>
-              </Field>
-              <ModelPolicyFields
-                runtime={model}
-                policy={modelPolicy}
-                modelName={modelName}
-                reasoningEffort={reasoningEffort}
-                onPolicyChange={setModelPolicy}
-                onModelNameChange={setModelName}
-                onReasoningEffortChange={setReasoningEffort}
-              />
-              <>
-                <Fieldset>
-                  <Legend>권한</Legend>
-                  <Styled.CheckGrid>
-                    {PERMISSIONS.map(({ key, label }) => (
-                      <Styled.CheckChip key={key}>
-                        <Input
-                          type="checkbox"
-                          checked={permissions[key] ?? false}
-                          disabled={key === "fileRead" || key === "terminal"}
-                          onChange={(event) =>
-                            setPermissions({ ...permissions, [key]: event.target.checked })
-                          }
-                        />
-                        <span>
-                          {label}
-                          {key === "fileRead" || key === "terminal" ? " · 자동 적용" : ""}
-                        </span>
-                      </Styled.CheckChip>
-                    ))}
-                  </Styled.CheckGrid>
-                </Fieldset>
-              </>
-            </div>
-          </Styled.AdvancedOptions>
+          <AgentSkillsField
+            skills={skills.data ?? []}
+            selectedSkills={selectedSkills}
+            onToggleSkill={toggleAgentSkill}
+          />
+          <AgentAdvancedOptions
+            model={model}
+            setModel={setModel}
+            modelPolicy={modelPolicy}
+            setModelPolicy={setModelPolicy}
+            modelName={modelName}
+            setModelName={setModelName}
+            reasoningEffort={reasoningEffort}
+            setReasoningEffort={setReasoningEffort}
+            permissions={permissions}
+            setPermissions={setPermissions}
+          />
           <Button
             $variant="primary"
             $fullWidth
@@ -1281,13 +823,14 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
               <h2>자주 맡기는 작업</h2>
               <span>{templates.data?.length ?? 0}</span>
             </SectionHeading>
+            <Styled.IntroText>등록해 둔 작업을 클릭하면 바로 작업이 만들어져요.</Styled.IntroText>
             <Styled.TemplateList>
               {(templates.data ?? []).map((template) => (
                 <div key={template.id}>
-                  <div>
+                  <button type="button" onClick={() => quickTask.mutate(template)}>
                     <strong>{template.title}</strong>
-                    <span>{template.description || "설명 없음"}</span>
-                  </div>
+                    <span>{template.description || "설명 없이 바로 작업 만들기"}</span>
+                  </button>
                   <button
                     type="button"
                     aria-label="등록 작업 삭제"
@@ -1299,23 +842,46 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
                 </div>
               ))}
             </Styled.TemplateList>
+            {recentJobs.length > 0 && (
+              <Styled.RecentJobs>
+                <strong>최근 맡긴 작업</strong>
+                {recentJobs.map((task) => (
+                  <button
+                    type="button"
+                    key={task.id}
+                    onClick={() =>
+                      quickTask.mutate({ title: task.title, description: task.description })
+                    }
+                  >
+                    {task.title}
+                  </button>
+                ))}
+              </Styled.RecentJobs>
+            )}
+            {quickTask.isError && <ErrorBanner>{messageOf(quickTask.error)}</ErrorBanner>}
             <Styled.TemplateForm
               onSubmit={(event) => {
                 event.preventDefault();
                 addTemplate.mutate();
               }}
             >
-              <Input
-                value={templateTitle}
-                onChange={(event) => setTemplateTitle(event.target.value)}
-                placeholder="예: UI 검토"
-                required
-              />
-              <Input
-                value={templateDescription}
-                onChange={(event) => setTemplateDescription(event.target.value)}
-                placeholder="기본 요청"
-              />
+              <Field>
+                <label>작업 이름</label>
+                <Input
+                  value={templateTitle}
+                  onChange={(event) => setTemplateTitle(event.target.value)}
+                  placeholder="예: UI 검토"
+                  required
+                />
+              </Field>
+              <Field>
+                <label>기본 요청</label>
+                <Input
+                  value={templateDescription}
+                  onChange={(event) => setTemplateDescription(event.target.value)}
+                  placeholder="선택 사항"
+                />
+              </Field>
               <Button
                 $variant="secondary"
                 disabled={!templateTitle.trim() || addTemplate.isPending}

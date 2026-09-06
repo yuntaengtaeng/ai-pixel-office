@@ -8,9 +8,10 @@ const Pill = styled.span<{ $status: TaskStatus }>`
   border: 2px solid currentColor;
   border-top-color: ${({ $status }) => STATUS[$status].color};
   background: ${({ theme }) => theme.colors.background.surfaceRaised};
-  font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+  font-family: ${({ theme }) => theme.typography.fontFamily.base};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+  line-height: ${({ theme }) => theme.typography.lineHeight.tight};
 `;
 
 export function StatusPill({ status }: { status: TaskStatus }) {

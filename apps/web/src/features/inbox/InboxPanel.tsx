@@ -3,16 +3,16 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
-import { Button, Kicker, Select, Surface, TextArea } from "@ai-pixel-office/design-system";
+import { Button, Kicker, Surface } from "@ai-pixel-office/design-system";
 import type { Input, Workspace } from "@ai-pixel-office/domain/entities";
 import { inputApi } from "./api.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
-import { isSubmitKey } from "../../shared/lib/keyboard.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
+import { SectionHeadingCount } from "../../shared/ui/SectionHeading.tsx";
 
 const INPUT_TYPES: Array<{ value: Input["type"]; label: string }> = [
   { value: "request", label: "요청" },
@@ -25,10 +25,7 @@ const Styled = {
   Surface: styled(Surface)`
     margin-bottom: ${({ theme }) => theme.space.x6};
     padding: ${({ theme }) => theme.space.x6};
-    border-color: ${({ theme }) => theme.colors.brand.secondary};
-    background:
-      ${({ theme }) => `linear-gradient(135deg, ${theme.colors.brand.secondaryTint}, transparent 42%)`},
-      ${({ theme }) => theme.colors.background.surface};
+    border-top-color: ${({ theme }) => theme.colors.brand.secondary};
   `,
   Intro: styled.div`
     display: flex;
@@ -50,96 +47,49 @@ const Styled = {
       line-height: 1.6;
     }
   `,
-  Count: styled.span`
-    flex: 0 0 auto;
-    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-    color: ${({ theme }) => theme.colors.text.positive};
-    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-    font-size: ${({ theme }) => theme.typography.fontSize.compact};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-  `,
-  Flow: styled.ol`
+  QuickAdd: styled.form`
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: ${({ theme }) => theme.space.x2};
-    margin: ${({ theme }) => `0 0 ${theme.space.x4}`};
-    padding: 0;
-    list-style: none;
-
-    li {
-      position: relative;
-      min-height: 54px;
-      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3} ${theme.space.x3} 40px`};
-      border: 1px solid ${({ theme }) => theme.colors.border.positive};
-      background: ${({ theme }) => theme.colors.background.surfaceTranslucent};
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.45;
-    }
-
-    b {
-      position: absolute;
-      top: 10px;
-      left: 11px;
-      display: grid;
-      width: 20px;
-      height: 20px;
-      place-items: center;
-      background: ${({ theme }) => theme.colors.brand.secondary};
-      color: white;
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    }
-
-    strong {
-      display: block;
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-    }
-
-    @media ${mediaQuery.md} {
-      grid-template-columns: 1fr;
-    }
-  `,
-  Form: styled.form`
-    display: grid;
-    grid-template-columns: 110px minmax(0, 1fr) auto;
-    gap: ${({ theme }) => theme.space.x3};
-    align-items: stretch;
-    padding: ${({ theme }) => theme.space.x3};
-    border: 1px dashed ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-
-    select,
-    textarea {
-      border: 1px solid ${({ theme }) => theme.colors.border.positive};
-      background: white;
-      color: ${({ theme }) => theme.colors.text.primary};
-      font: inherit;
-    }
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 ${({ theme }) => theme.space.x3};
+    border: 1px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    margin-bottom: ${({ theme }) => theme.space.x4};
 
     select {
-      padding: ${({ theme }) => `0 ${theme.space.x3}`};
+      border: 0;
+      border-right: 1px solid ${({ theme }) => theme.colors.border.subtle};
+      background: transparent;
+      padding: 0 ${({ theme }) => theme.space.x2} 0 0;
+      margin-right: ${({ theme }) => theme.space.x2};
       font-size: ${({ theme }) => theme.typography.fontSize.compact};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+      color: ${({ theme }) => theme.colors.text.secondary};
     }
 
-    textarea {
-      min-height: 58px;
-      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
-      resize: vertical;
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-      line-height: 1.5;
+    input {
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      padding: ${({ theme }) => theme.space.x2};
+      background: transparent;
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      color: ${({ theme }) => theme.colors.text.primary};
+      font-family: inherit;
     }
 
-    @media ${mediaQuery.md} {
-      grid-template-columns: 1fr;
+    button {
+      border: 0;
+      background: transparent;
+      padding: 0 ${({ theme }) => theme.space.x2};
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+      cursor: pointer;
 
-      select {
-        min-height: 38px;
+      &:disabled {
+        color: ${({ theme }) => theme.colors.text.muted};
+        cursor: not-allowed;
       }
     }
   `,
@@ -271,27 +221,10 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
             있어요.
           </p>
         </div>
-        <Styled.Count>{inputs.data?.length ?? 0}개 대기</Styled.Count>
+        <SectionHeadingCount>{inputs.data?.length ?? 0}개 대기</SectionHeadingCount>
       </Styled.Intro>
-      <Styled.Flow aria-label="요청이 에이전트에게 전달되는 순서">
-        <li>
-          <b>1</b>
-          <strong>내용 적기</strong>
-          요청·아이디어를 안전하게 보관
-        </li>
-        <li>
-          <b>2</b>
-          <strong>작업으로 만들기</strong>
-          제목과 목표를 확인
-        </li>
-        <li>
-          <b>3</b>
-          <strong>에이전트 배정</strong>
-          담당자를 고른 뒤 실행
-        </li>
-      </Styled.Flow>
-      <Styled.Form onSubmit={submit}>
-        <Select
+      <Styled.QuickAdd onSubmit={submit}>
+        <select
           value={type}
           onChange={(event) => setType(event.target.value as Input["type"])}
           aria-label="입력 종류"
@@ -301,23 +234,16 @@ export function InboxPanel({ workspace }: { workspace: Workspace }) {
               {option.label}
             </option>
           ))}
-        </Select>
-        <TextArea
+        </select>
+        <input
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          onKeyDown={(event) => {
-            if (isSubmitKey(event, "modifier-enter") && content.trim() && !create.isPending) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
-          placeholder="아직 작업으로 정리되지 않은 요청이나 아이디어를 빠르게 남겨보세요."
-          rows={2}
+          placeholder="떠오른 내용을 빠르게 남겨보세요"
         />
-        <Button $variant="primary" disabled={!content.trim() || create.isPending}>
-          {create.isPending ? "담는 중..." : "담아두기"}
-        </Button>
-      </Styled.Form>
+        <button type="submit" disabled={!content.trim() || create.isPending}>
+          {create.isPending ? "담는 중..." : "+ 담기"}
+        </button>
+      </Styled.QuickAdd>
       {error && <ErrorBanner>{messageOf(error)}</ErrorBanner>}
       <Styled.List>
         {(inputs.data ?? []).map((input) => (
