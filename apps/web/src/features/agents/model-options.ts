@@ -5,6 +5,7 @@ export const MODEL_OPTIONS: Record<AgentModel, Array<{ value: string; label: str
     { value: "gpt-5.6-luna", label: "Luna · 빠른 작업" },
     { value: "gpt-5.6-terra", label: "Terra · 균형" },
     { value: "gpt-5.6-sol", label: "Sol · 복잡한 작업" },
+    { value: "gpt-6-astra", label: "Astra (GPT-6)" },
   ],
   claude: [
     { value: "haiku", label: "Haiku · 빠른 작업" },
