@@ -5,6 +5,7 @@ import styled, { keyframes } from "styled-components";
 import type { Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { usePageVisibility } from "../../shared/hooks/usePageVisibility.ts";
 import { useWorkspaceEvent } from "../../shared/hooks/useWorkspaceEvent.ts";
+import { resolveTaskHref } from "../../shared/lib/taskRouting.ts";
 import { useNotificationPermission } from "./hooks/useNotificationPermission.ts";
 import type { NoticeTone } from "./types/notification.ts";
 
@@ -204,7 +205,7 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
     (notice: LiveNotice) => {
       const task = notice.task;
       const isChat = task.origin === "chat";
-      const taskHref = isChat ? `/chat/${task.id}` : `/tasks/${task.id}`;
+      const taskHref = resolveTaskHref(task);
       let copy: Omit<SnackbarItem, "id" | "taskId" | "actionLabel" | "actionHref"> | undefined;
       if (notice.kind === "session_warning") {
         copy = {

@@ -47,8 +47,8 @@ export const colors = {
     low: "#6fa389",
   },
   runtime: {
-    claude: "#72549a",
-    codex: "#397861",
+    claude: "#c9714f",
+    codex: "#2a8f6f",
   },
   runStatus: {
     queued: "#9a9189",

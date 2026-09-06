@@ -1,6 +1,6 @@
 export const fontFamily = {
   base: 'Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, sans-serif',
-  mono: "monospace",
+  mono: 'Consolas, Menlo, "Liberation Mono", monospace',
 } as const;
 
 /**

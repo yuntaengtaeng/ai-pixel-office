@@ -22,9 +22,9 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
   width: 133%;
   height: 27%;
   padding: 0 5%;
-  border: 2px solid #748c83;
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.colors.background.surface};
+  border: 2px solid ${({ theme }) => theme.colors.action.secondary.border};
+  background: ${({ theme }) => theme.colors.background.surfaceRaised};
+  color: ${({ theme }) => theme.colors.action.secondary.foreground};
   display: grid;
   place-items: center;
   overflow: hidden;

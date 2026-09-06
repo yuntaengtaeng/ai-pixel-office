@@ -1,7 +1,7 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
 import { Link, NavLink } from "react-router-dom";
-import type { Workspace } from "@ai-pixel-office/domain/entities";
+import type { AgentModel, Workspace } from "@ai-pixel-office/domain/entities";
 import type { SystemStatus } from "../../features/system/api.ts";
 
 const Styled = {
@@ -67,47 +67,30 @@ const Styled = {
     @media ${mediaQuery.md} {
       display: none;
     }
+  `,
+  RuntimeBadge: styled.span<{ $runtime: AgentModel; $connected: boolean }>`
+    padding: ${({ theme }) => theme.space.x2};
+    border: 1px solid ${({ theme, $runtime }) => theme.colors.runtime[$runtime]};
+    background: ${({ theme, $runtime }) => theme.colors.runtime[$runtime]};
+    color: ${({ theme }) => theme.colors.text.inverse};
+    opacity: ${({ $connected }) => ($connected ? 1 : 0.6)};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+    transition:
+      opacity 0.2s,
+      box-shadow 0.2s;
 
-    > span {
-      padding: ${({ theme }) => theme.space.x2};
-      border: 1px solid ${({ theme }) => theme.colors.brand.primary};
-      background: ${({ theme }) => theme.colors.brand.primary};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      opacity: 0.6;
-      display: flex;
-      align-items: center;
-      gap: ${({ theme }) => theme.space.x1};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-      transition:
-        opacity 0.2s,
-        box-shadow 0.2s;
-
-      &.connected {
-        opacity: 1;
-        color: ${({ theme }) => theme.colors.text.inverse};
-        border-color: ${({ theme }) => theme.colors.semantic.positive};
+    ${({ $connected, theme }) =>
+      $connected &&
+      `
         box-shadow:
-          inset 0 0 0 1px ${({ theme }) => theme.colors.semantic.positive},
-          0 0 8px ${({ theme }) => theme.colors.shadow.glow};
-      }
-    }
-
-    b {
-      width: 15px;
-      height: 15px;
-      display: grid;
-      place-items: center;
-      background: ${({ theme }) => theme.colors.brand.primaryDark};
-      color: ${({ theme }) => theme.colors.text.inverse};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-
-    .connected b {
-      background: ${({ theme }) => theme.colors.semantic.positive};
-      color: ${({ theme }) => theme.colors.text.inverse};
-    }
+          inset 0 0 0 1px ${theme.colors.semantic.positive},
+          0 0 8px ${theme.colors.shadow.glow};
+      `}
   `,
   WorkspaceChip: styled.div`
     margin: ${({ theme }) => `${theme.space.x8} 0 ${theme.space.x5}`};
@@ -215,18 +198,20 @@ export function Sidebar({
         <span>AI Pixel Office</span>
       </Styled.Brand>
       <Styled.RuntimeList aria-label="실행 엔진 연결 상태">
-        <span
-          className={runtimeStatus?.codex.authenticated ? "connected" : ""}
+        <Styled.RuntimeBadge
+          $runtime="codex"
+          $connected={runtimeStatus?.codex.authenticated ?? false}
           title={`Codex · ${runtimeStatus?.codex.detail ?? "확인 중"}`}
         >
-          <b>C</b>Codex
-        </span>
-        <span
-          className={runtimeStatus?.claude.authenticated ? "connected" : ""}
+          Codex
+        </Styled.RuntimeBadge>
+        <Styled.RuntimeBadge
+          $runtime="claude"
+          $connected={runtimeStatus?.claude.authenticated ?? false}
           title={`Claude · ${runtimeStatus?.claude.detail ?? "확인 중"}`}
         >
-          <b>A</b>Claude
-        </span>
+          Claude
+        </Styled.RuntimeBadge>
       </Styled.RuntimeList>
       <Styled.WorkspaceChip>
         <Styled.OnlineDot />

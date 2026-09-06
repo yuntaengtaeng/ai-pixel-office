@@ -21,6 +21,7 @@ import { RUNTIME, STATUS } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
 import { relativeTime } from "../../shared/lib/time.ts";
+import { resolveTaskHref } from "../../shared/lib/taskRouting.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
@@ -481,7 +482,10 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
             <PixelOffice
               agents={agentList}
               tasks={taskList}
-              onOpenTask={(taskId) => navigate(`/tasks/${taskId}`)}
+              onOpenTask={(taskId) => {
+                const task = taskList.find((candidate) => candidate.id === taskId);
+                navigate(task ? resolveTaskHref(task) : `/tasks/${taskId}`);
+              }}
               onQuickAssign={(agentId, title, description) =>
                 officeQuickAssign.mutate({ agentId, title, description })
               }
