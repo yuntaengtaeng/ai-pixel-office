@@ -1,6 +1,18 @@
+<p align="center">
+  <img src="docs/images/logo.png" width="120" alt="AI Pixel Office 로고 - 책상에 앉은 픽셀 곰돌이" />
+</p>
+
 # AI Pixel Office
 
 귀여운 반려동물 모습의 AI 동료를 만들고 작업을 맡기는 로컬 우선 데스크톱 앱입니다. Codex와 Claude Code를 실행 엔진으로 사용하며, 실제 작업 상태와 진행 이벤트를 픽셀 오피스와 작업 상세 화면에 표시합니다.
+
+<p align="center">
+  <img src="docs/images/office-hero.png" width="100%" alt="픽셀 오피스 화면 - 코코·라떼·유자·감자 네 캐릭터가 각자 책상에서 작업 상태를 보여주는 모습" />
+</p>
+
+<p align="center">
+  <img src="docs/images/agent-team.png" width="100%" alt="AI 동료 목록 - 프론트엔드/기획/QA/문서화를 맡은 네 캐릭터 카드" />
+</p>
 
 ## 기술 구성
 
