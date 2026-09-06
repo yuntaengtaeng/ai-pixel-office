@@ -5,6 +5,7 @@ node_modules/
 # Build and test output
 dist/
 **/dist/
+apps/web/public/pets/baked/
 **/release/
 coverage/
 *.tsbuildinfo
