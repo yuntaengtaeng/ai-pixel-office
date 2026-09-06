@@ -5,7 +5,7 @@
 ## 기술 구성
 
 - Desktop: Electron, electron-builder
-- Web renderer: Vite, React, TypeScript, styled-components, TanStack Query, Radix UI, PixiJS
+- Web renderer: Vite, React, TypeScript, styled-components, TanStack Query, PixiJS(네이티브 Dialog/Popover, Radix 미사용)
 - API: Fastify, Server-Sent Events
 - DB: Node SQLite (WAL)
 - Runtime: Codex App Server, Claude Code CLI stream-json
@@ -23,7 +23,38 @@ packages/
 ├─ domain/           제품 entity·validation·task state
 ├─ runtime-protocol/ Claude/Codex 정규화 event 계약
 ├─ design-token/     색상·spacing·shadow·typography·animation 등 원시 design token
-└─ ui/               Button/IconButton/Text·Label typography/animation/icons(design-token 주입 소비)
+├─ design-system/    Button/IconButton/Field/Dialog/Popover 등 web이 쓰는 공용 컴포넌트(design-token 주입 소비)
+└─ pet/              펫 카탈로그와 픽셀 스프라이트 렌더링(캔버스/Pixi 어디서든 재사용)
+```
+
+패키지 간 실제 import 의존성은 다음과 같습니다. `desktop`은 `server`/`web`을 코드로 import하지 않고, 빌드
+산출물을 번들하거나(설치 앱) 별도 프로세스로 띄우기만 합니다(점선) — 그래서 Fastify가 Electron main
+bundle에 포함되지 않는다는 원칙이 의존성 그래프에도 그대로 드러납니다.
+
+```mermaid
+flowchart TD
+  subgraph apps["apps/"]
+    desktop["desktop"]
+    server["server"]
+    web["web"]
+  end
+  subgraph packages["packages/"]
+    domain["domain"]
+    runtime_protocol["runtime-protocol"]
+    design_token["design-token"]
+    design_system["design-system"]
+    pet["pet"]
+  end
+
+  server --> domain
+  server --> pet
+  server --> runtime_protocol
+  web --> design_system
+  web --> domain
+  web --> pet
+  design_system --> design_token
+  desktop -. "빌드 산출물 번들 / 서브프로세스로 실행" .-> server
+  desktop -. "빌드 산출물 번들" .-> web
 ```
 
 서버는 HTTP 경계(`http.ts`), 작업 오케스트레이션(`orchestrator.ts`), 영속화(`repository.ts`, `database.ts`), 외부 실행 엔진 어댑터로 역할을 나눕니다.
@@ -84,7 +115,7 @@ Figma 권한을 켠 작업형 에이전트는 선택한 실행 엔진의 Figma �
 
 ## 프로젝트와 실행 폴더
 
-사이드바의 **프로젝트**에서 목표, 상태, Figma 링크와 작업을 프로젝트별로 관리할 수 있습니다. 새 작업은 담당자 없이 먼저 만들고 작업 상세에서 알맞은 에이전트를 배치합니다. 로컬 코드를 다루는 프로젝트라면 설정의 접힌 **개발자 옵션**에서 운영체제 폴더 선택기로 실행 폴더를 연결할 수 있습니다.
+사이드바의 **프로젝트**에서 목표, 상태, Figma 링크와 작업을 프로젝트별로 관리할 수 있습니다. 새 작업은 담당자 없이 먼저 만들고 작업 상세에서 알맞은 에이전트를 배치합니다. 로컬 코드를 다루는 프로젝트라면 설정의 **연결된 작업 폴더**에서 운영체제 폴더 선택기로 실행 폴더를 연결할 수 있습니다.
 
 실제 실행 폴더는 아래 우선순위로 결정됩니다.
 
@@ -95,24 +126,6 @@ Figma 권한을 켠 작업형 에이전트는 선택한 실행 엔진의 Figma �
 5. 서버를 실행한 폴더
 
 프로젝트를 삭제해도 실제 폴더와 기존 작업은 삭제되지 않으며, 기존 작업의 프로젝트 연결만 해제됩니다.
-
-## 구현 범위
-
-- Workspace, Agent, Skill, Task, AgentRun 영속화
-- AI 기반 스킬 초안과 권장 권한 매핑
-- 에이전트 상세 편집, 삭제, 작업 기록, 자주 맡기는 작업
-- 스킬을 선택적으로 연결하는 단일 에이전트 생성 흐름
-- 프로젝트별 목표, Figma 링크, 참여 에이전트와 작업 관리
-- 작업을 먼저 만든 뒤 상세 화면에서 담당 에이전트를 배치하는 흐름
-- Inbox에 요청·아이디어를 빠르게 담고 Task로 전환하는 흐름
-- 여러 에이전트가 앞 단계 결과를 이어받는 순차 Workflow와 재사용 가능한 협업 그룹
-- Codex/Claude 실행, 취소, 권한 승인, 실패 원인 표시
-- 실행 메시지와 도구 사용 내역의 실시간 진행 표시
-- Markdown/GFM 작업 결과 렌더링과 결과 확인·수정 요청
-- 다양한 강아지와 고양이 픽셀 캐릭터 조합
-- 픽셀 오피스 책상 모니터의 Codex·Claude 실행 엔진 표시
-- 다수 에이전트에 맞춰 확장되는 오피스와 상태별 생활 애니메이션
-- Windows/macOS 원클릭 실행기
 
 프로덕션 웹 빌드는 `pnpm run build`, 실제 Codex를 포함한 전체 smoke 검증은
 `pnpm run smoke:mvp`로 실행합니다.
