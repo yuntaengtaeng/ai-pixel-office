@@ -28,7 +28,8 @@
     "spike:run": "node --experimental-strip-types scripts/runtime-spike/run-codex.ts",
     "spike:permission": "node --experimental-strip-types scripts/runtime-spike/permission-roundtrip.ts",
     "spike:cancel": "node --experimental-strip-types scripts/runtime-spike/cancel.ts",
-    "spike:resume": "node --experimental-strip-types scripts/runtime-spike/resume.ts"
+    "spike:resume": "node --experimental-strip-types scripts/runtime-spike/resume.ts",
+    "pet:gallery": "node scripts/open-pet-gallery.mjs"
   },
   "devDependencies": {
     "@ai-pixel-office/domain": "workspace:*",
