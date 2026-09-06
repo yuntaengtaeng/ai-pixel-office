@@ -38,6 +38,7 @@ const Styled = {
     gap: ${({ theme }) => theme.space.x3};
   `,
   WorkspaceForm: styled(Panel).attrs({ as: "form" })`
+    grid-column: 1 / -1;
     min-width: 0;
     padding: ${({ theme }) => theme.space.x4};
     display: grid;
@@ -136,8 +137,10 @@ const Styled = {
     line-height: 1.55;
   `,
   OptionalSection: styled(Panel).attrs({ as: "section" })`
+    grid-column: 1 / -1;
     min-width: 0;
     padding: ${({ theme }) => theme.space.x4};
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
     display: grid;
     gap: ${({ theme }) => theme.space.x3};
   `,
@@ -319,7 +322,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
         <Styled.Section>
           <SectionHeading $compact>
             <h2>AI 연결</h2>
-            <span>LOCAL</span>
+            <span>필수</span>
           </SectionHeading>
           <Styled.ConnectionDescription>
             AI 동료가 작업을 실행할 수 있도록 사용할 서비스를 연결하세요.
@@ -351,44 +354,6 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
             </Styled.ConnectionList>
           )}
         </Styled.Section>
-        <Styled.OptionalSection>
-          <SectionHeading $compact>
-            <h2>외부 도구 연결</h2>
-            <span>선택 사항</span>
-          </SectionHeading>
-          <Styled.ConnectionDescription>
-            Figma를 연결하면 AI 동료가 디자인 파일을 참고할 수 있어요. 연결하지 않아도 일반 작업은
-            그대로 사용할 수 있습니다.
-          </Styled.ConnectionDescription>
-          {status.data && (
-            <Styled.ConnectionList>
-              <ConnectionCard
-                name="Figma · Codex"
-                installed={status.data.mcp.figma.codex.configured}
-                connected={
-                  status.data.mcp.figma.codex.configured &&
-                  status.data.mcp.figma.codex.enabled &&
-                  status.data.mcp.figma.codex.authenticated === true
-                }
-                detail={status.data.mcp.figma.codex.detail}
-                command="codex mcp add figma --url https://mcp.figma.com/mcp"
-                secondaryCommand="codex mcp login figma"
-                mcpRuntime="codex"
-                onStatusRefresh={() => void status.refetch()}
-              />
-              <ConnectionCard
-                name="Figma · Claude"
-                installed={status.data.mcp.figma.claude.configured}
-                connected={status.data.mcp.figma.claude.authenticated === true}
-                detail={status.data.mcp.figma.claude.detail}
-                command="claude mcp add --transport http --scope user figma-remote-mcp https://mcp.figma.com/mcp"
-                secondaryCommand="claude"
-                mcpRuntime="claude"
-                onStatusRefresh={() => void status.refetch()}
-              />
-            </Styled.ConnectionList>
-          )}
-        </Styled.OptionalSection>
         <Styled.WorkspaceForm
           onSubmit={(event) => {
             event.preventDefault();
@@ -524,6 +489,44 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
             )}
           </Styled.WorkDirectoryBody>
         </Styled.WorkDirectorySettings>
+        <Styled.OptionalSection>
+          <SectionHeading $compact>
+            <h2>외부 도구 연결</h2>
+            <span>선택 사항</span>
+          </SectionHeading>
+          <Styled.ConnectionDescription>
+            Figma를 연결하면 AI 동료가 디자인 파일을 참고할 수 있어요. 연결하지 않아도 일반 작업은
+            그대로 사용할 수 있습니다.
+          </Styled.ConnectionDescription>
+          {status.data && (
+            <Styled.ConnectionList>
+              <ConnectionCard
+                name="Figma · Codex"
+                installed={status.data.mcp.figma.codex.configured}
+                connected={
+                  status.data.mcp.figma.codex.configured &&
+                  status.data.mcp.figma.codex.enabled &&
+                  status.data.mcp.figma.codex.authenticated === true
+                }
+                detail={status.data.mcp.figma.codex.detail}
+                command="codex mcp add figma --url https://mcp.figma.com/mcp"
+                secondaryCommand="codex mcp login figma"
+                mcpRuntime="codex"
+                onStatusRefresh={() => void status.refetch()}
+              />
+              <ConnectionCard
+                name="Figma · Claude"
+                installed={status.data.mcp.figma.claude.configured}
+                connected={status.data.mcp.figma.claude.authenticated === true}
+                detail={status.data.mcp.figma.claude.detail}
+                command="claude mcp add --transport http --scope user figma-remote-mcp https://mcp.figma.com/mcp"
+                secondaryCommand="claude"
+                mcpRuntime="claude"
+                onStatusRefresh={() => void status.refetch()}
+              />
+            </Styled.ConnectionList>
+          )}
+        </Styled.OptionalSection>
       </Styled.Grid>
       <ConfirmDialog {...dialogProps} />
     </Styled.Layout>
@@ -703,7 +706,7 @@ function ConnectionCard({
             <Styled.ConnectionHint data-error>{messageOf(connectMcp.error)}</Styled.ConnectionHint>
           )}
           <Styled.DeveloperOptions>
-            <summary>개발자 옵션</summary>
+            <summary>터미널 명령 보기</summary>
             <Styled.StaticHint>
               터미널을 직접 사용하려면 아래 명령어를 복사해 실행하세요.
             </Styled.StaticHint>

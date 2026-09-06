@@ -29,6 +29,7 @@ import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { LiveBadge, OfficeCard, OfficeLoading } from "../office/OfficeCard.tsx";
+import { OFFICE_STATUS_GROUP_META } from "../office/utils/agentOfficeState.ts";
 import { TaskComposer } from "./components/TaskComposer.tsx";
 import { TaskSection } from "./components/TaskSection.tsx";
 
@@ -38,22 +39,8 @@ const PixelOffice = lazy(async () => {
 });
 
 const Styled = {
-  Onboarding: styled(Panel).attrs({ as: "section" })`
+  OnboardingPanel: styled(Panel).attrs({ as: "section" })`
     padding: ${({ theme }) => theme.space.x6};
-    text-align: center;
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    justify-items: center;
-
-    h2 {
-      margin: 0;
-    }
-
-    p {
-      margin: 0;
-      max-width: 420px;
-      color: ${({ theme }) => theme.colors.text.muted};
-    }
   `,
   DialogContent: styled(Dialog)`
     .dialog-content {
@@ -219,13 +206,13 @@ const Styled = {
       font-family: monospace;
     }
   `,
-  TodayGrid: styled.div`
+  TodayGrid: styled.div<{ $columns: number }>`
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(${({ $columns }) => $columns}, minmax(0, 1fr));
     gap: ${({ theme }) => theme.space.x4};
 
     @media ${mediaQuery.xl} {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(${({ $columns }) => Math.min($columns, 2)}, minmax(0, 1fr));
     }
 
     @media ${mediaQuery.md} {
@@ -372,22 +359,35 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
     () => Array.from(new Set(agentList.map((agent) => agent.model))),
     [agentList],
   );
+  const workingTaskCount = useMemo(
+    () => taskList.filter((task) => task.status === "working").length,
+    [taskList],
+  );
+  const boardStatuses = useMemo(
+    () =>
+      (
+        ["todo", "working", "needs_review", "needs_input", "blocked", "failed"] as TaskStatus[]
+      ).filter((status) => statusFilter === "all" || statusFilter === status),
+    [statusFilter],
+  );
   const officeQuickAssign = useMutation({
     mutationFn: ({
       agentId,
       title,
       description,
+      priority,
     }: {
       agentId: string;
       title: string;
       description?: string;
+      priority?: NonNullable<Task["priority"]>;
     }) =>
       taskApi.create({
         workspaceId: workspace.id,
         assigneeAgentId: agentId,
         title,
         description,
-        priority: "medium",
+        priority: priority ?? "medium",
       }),
     onSuccess: (task) => {
       void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
@@ -472,8 +472,18 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                   ))}
                 </Styled.RuntimeLegend>
               )}
+              <Styled.RuntimeLegend aria-label="에이전트 상태 범례">
+                {(Object.entries(OFFICE_STATUS_GROUP_META) as Array<
+                  [string, { label: string; color: string }]
+                >).map(([group, meta]) => (
+                  <Styled.RuntimeLegendChip key={group}>
+                    <Styled.RuntimeLegendDot style={{ background: meta.color }} />
+                    {meta.label}
+                  </Styled.RuntimeLegendChip>
+                ))}
+              </Styled.RuntimeLegend>
               <LiveBadge>
-                <Styled.OnlineDot /> 실시간
+                <Styled.OnlineDot /> {workingTaskCount}개 진행 중
               </LiveBadge>
             </Styled.HeadingMeta>
           </SectionHeading>
@@ -485,8 +495,8 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                 const task = taskList.find((candidate) => candidate.id === taskId);
                 navigate(task ? resolveTaskHref(task) : `/tasks/${taskId}`);
               }}
-              onQuickAssign={(agentId, title, description) =>
-                officeQuickAssign.mutate({ agentId, title, description })
+              onQuickAssign={(agentId, title, description, priority) =>
+                officeQuickAssign.mutate({ agentId, title, description, priority })
               }
             />
           </Suspense>
@@ -495,13 +505,18 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           )}
         </OfficeCard>
         {taskList.length === 0 ? (
-          <Styled.Onboarding>
-            <h2>아직 작업이 없어요</h2>
-            <p>위쪽 "+ 새 작업" 버튼으로 첫 작업을 만들면, 여기서 진행 상황을 확인할 수 있어요.</p>
-            <Button $variant="primary" onClick={() => setShowComposer(true)}>
-              + 첫 작업 만들기
-            </Button>
-          </Styled.Onboarding>
+          <Styled.OnboardingPanel>
+            <Empty
+              title="아직 작업이 없어요"
+              action={
+                <Button $variant="primary" onClick={() => setShowComposer(true)}>
+                  + 첫 작업 만들기
+                </Button>
+              }
+            >
+              위쪽 "+ 새 작업" 버튼으로 첫 작업을 만들면, 여기서 진행 상황을 확인할 수 있어요.
+            </Empty>
+          </Styled.OnboardingPanel>
         ) : (
           <>
             <Styled.Toolbar aria-label="작업 검색과 상태 필터">
@@ -529,45 +544,34 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                 >
                   전체 <b>{taskList.length}</b>
                 </button>
-                {(Object.keys(STATUS) as TaskStatus[]).map((status) => (
-                  <button
-                    key={status}
-                    className={statusFilter === status ? "selected" : ""}
-                    onClick={() => setStatusFilter(status)}
-                  >
-                    {STATUS[status].label}{" "}
-                    <b>{taskList.filter((task) => task.status === status).length}</b>
-                  </button>
-                ))}
+                {(Object.keys(STATUS) as TaskStatus[])
+                  .filter((status) => status !== "done")
+                  .map((status) => (
+                    <button
+                      key={status}
+                      className={statusFilter === status ? "selected" : ""}
+                      onClick={() => setStatusFilter(status)}
+                    >
+                      {STATUS[status].label}{" "}
+                      <b>{taskList.filter((task) => task.status === status).length}</b>
+                    </button>
+                  ))}
               </Styled.StatusFilterList>
             </Styled.Toolbar>
-            <Styled.TodayGrid>
-              {(
-                [
-                  "todo",
-                  "working",
-                  "needs_review",
-                  "needs_input",
-                  "blocked",
-                  "failed",
-                ] as TaskStatus[]
-              )
-                .filter((status) => statusFilter === "all" || statusFilter === status)
-                .map((status) => (
-                  <TaskSection
-                    key={status}
-                    status={status}
-                    tasks={visibleTasks.filter((task) => task.status === status)}
-                    agents={agentList}
-                    onDelete={deleteTask}
-                    deletingId={removeTask.isPending ? removeTask.variables : undefined}
-                    onCreate={
-                      status === "todo" && !taskSearch.trim()
-                        ? () => setShowComposer(true)
-                        : undefined
-                    }
-                  />
-                ))}
+            <Styled.TodayGrid $columns={Math.min(boardStatuses.length, 3)}>
+              {boardStatuses.map((status) => (
+                <TaskSection
+                  key={status}
+                  status={status}
+                  tasks={visibleTasks.filter((task) => task.status === status)}
+                  agents={agentList}
+                  onDelete={deleteTask}
+                  deletingId={removeTask.isPending ? removeTask.variables : undefined}
+                  onCreate={
+                    status === "todo" && !taskSearch.trim() ? () => setShowComposer(true) : undefined
+                  }
+                />
+              ))}
             </Styled.TodayGrid>
           </>
         )}

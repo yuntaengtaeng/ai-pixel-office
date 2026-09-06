@@ -1,4 +1,5 @@
 import type { TaskDetail } from "../../api.ts";
+import { RUN_STATUS_LABEL } from "../../../../shared/config/presentation.ts";
 import { Empty } from "../../../../shared/ui/Empty.tsx";
 import { SectionHeading } from "../../../../shared/ui/SectionHeading.tsx";
 import { TaskResultView } from "./TaskResultView.tsx";
@@ -209,14 +210,6 @@ export function RunHistory({
   runs: TaskDetail["runs"];
   progressByRun: TaskDetail["progressByRun"];
 }) {
-  const statusLabel: Record<TaskDetail["runs"][number]["status"], string> = {
-    queued: "대기",
-    running: "실행 중",
-    waiting: "입력 대기",
-    completed: "완료",
-    failed: "실패",
-    cancelled: "취소",
-  };
   return (
     <Styled.RunHistory>
       <SectionHeading $compact>
@@ -230,7 +223,7 @@ export function RunHistory({
             <Styled.RunRow>
               <Styled.RunDot $status={entry.status} />
               <strong>{entry.runtime.toUpperCase()}</strong>
-              <span>{statusLabel[entry.status]}</span>
+              <span>{RUN_STATUS_LABEL[entry.status]}</span>
               <time>{new Date(entry.createdAt).toLocaleString("ko-KR")}</time>
               <Styled.RunExpandIcon aria-hidden="true">›</Styled.RunExpandIcon>
             </Styled.RunRow>

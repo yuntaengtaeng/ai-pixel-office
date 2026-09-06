@@ -25,3 +25,15 @@ export const slideUpIn = keyframes`
     transform: translateY(8px);
   }
 `;
+
+/** Pixel-height pulse — "agent is working" indicator bars. */
+export const pixelWork = keyframes`
+  from {
+    height: 8px;
+    opacity: 0.45;
+  }
+  to {
+    height: 31px;
+    opacity: 1;
+  }
+`;

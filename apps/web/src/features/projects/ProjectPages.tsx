@@ -14,9 +14,10 @@ import {
   Select,
   TextArea,
 } from "@ai-pixel-office/design-system";
-import type { Project, Workspace } from "@ai-pixel-office/domain/entities";
+import type { Project, Task, Workspace } from "@ai-pixel-office/domain/entities";
 import { agentApi } from "../agents/api.ts";
 import { taskApi } from "../tasks/api.ts";
+import { TaskComposerFields } from "../tasks/components/TaskComposerFields.tsx";
 import { projectApi } from "./api.ts";
 import { projectStatusLabel } from "./presentation.ts";
 import { PetPreview } from "../office/PetPreview.tsx";
@@ -396,7 +397,9 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
             })}
             {!projects.isPending && projects.data?.length === 0 && (
               <Panel>
-                <Empty>첫 프로젝트를 만들어 보세요.</Empty>
+                <Empty title="아직 프로젝트가 없어요">
+                  '새 프로젝트 시작하기' 폼에 이름만 입력해도 시작할 수 있어요.
+                </Empty>
               </Panel>
             )}
           </Styled.CardGrid>
@@ -427,6 +430,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
   const [figmaUrl, setFigmaUrl] = useState("");
   const [title, setTitle] = useState("");
   const [result, setResult] = useState("");
+  const [priority, setPriority] = useState<NonNullable<Task["priority"]>>("medium");
   useEffect(() => {
     const project = projectQuery.data;
     if (!project) return;
@@ -456,7 +460,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
         projectId: id,
         title,
         description: result.trim() || undefined,
-        priority: "medium",
+        priority,
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
@@ -507,25 +511,16 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
               <h2>새 작업</h2>
               <span>담당자는 다음 화면에서 선택</span>
             </SectionHeading>
-            <Field>
-              <label>무엇을 맡길까요?</label>
-              <Input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="예: 결제 화면 사용성 검토"
-                required
-              />
-            </Field>
-            <Field>
-              <label>원하는 결과 · 선택 사항</label>
-              <Input
-                value={result}
-                onChange={(event) => setResult(event.target.value)}
-                placeholder="예: 문제와 개선안을 우선순위로 정리해 주세요"
-              />
-            </Field>
+            <TaskComposerFields
+              title={title}
+              onTitleChange={setTitle}
+              description={result}
+              onDescriptionChange={setResult}
+              priority={priority}
+              onPriorityChange={setPriority}
+            />
             <Button $variant="primary" disabled={!title.trim() || createTask.isPending}>
-              작업 만들기
+              {createTask.isPending ? "만드는 중..." : "작업 만들기"}
             </Button>
             {createTask.isError && <ErrorBanner>{messageOf(createTask.error)}</ErrorBanner>}
           </Styled.TaskCreateForm>
@@ -542,7 +537,11 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
                   agent={(agents.data ?? []).find((agent) => agent.id === task.assigneeAgentId)}
                 />
               ))}
-              {relatedTasks.length === 0 && <Empty>첫 작업을 만들어 프로젝트를 시작하세요.</Empty>}
+              {relatedTasks.length === 0 && (
+                <Empty title="아직 작업이 없어요">
+                  위의 '새 작업' 폼에 제목만 입력하면 시작할 수 있어요.
+                </Empty>
+              )}
             </Styled.TaskList>
           </Styled.TasksSection>
         </Styled.MainColumn>

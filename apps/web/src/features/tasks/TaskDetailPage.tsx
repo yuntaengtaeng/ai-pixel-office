@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BackButton, Button, Input, Select, TextArea } from "@ai-pixel-office/design-system";
-import type { KnowledgeDocument, Workspace } from "@ai-pixel-office/domain/entities";
+import { BackButton, Button, Select } from "@ai-pixel-office/design-system";
+import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { activityApi } from "../activity/api.ts";
 import { agentApi } from "../agents/api.ts";
 import { skillApi } from "../skills/api.ts";
 import { workflowApi } from "../workflows/api.ts";
 import { taskApi } from "./api.ts";
 import { PetPreview } from "../office/PetPreview.tsx";
+import { PRIORITIES, RUN_STATUS_LABEL } from "../../shared/config/presentation.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
-import { isSubmitKey } from "../../shared/lib/keyboard.ts";
 import { josa } from "../../shared/lib/korean.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
@@ -20,7 +20,6 @@ import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { StatusPill } from "../../shared/ui/StatusPill.tsx";
-import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
 import { ProjectSelect } from "../projects/ProjectSelect.tsx";
 import { recordApi } from "../records/api.ts";
 import { TaskResultView } from "./components/results/TaskResultView.tsx";
@@ -31,25 +30,15 @@ import { SessionLimitState as ExecutionSessionLimitState } from "./components/ex
 import { sessionLimitFrom as parseSessionLimit } from "./utils/sessionLimit.ts";
 import { RuntimeApproval as ExecutionRuntimeApproval } from "./components/execution/RuntimeApproval.tsx";
 import { WorkflowPanel } from "./components/assignment/WorkflowPanel.tsx";
-import { CurrentRunRequest } from "./components/execution/CurrentRunRequest.tsx";
 import { PreviousResult } from "./components/results/PreviousResult.tsx";
 import { ExecutionContextPanel } from "./components/context/ExecutionContextPanel.tsx";
-import { RunHistory } from "./components/results/RunHistory.tsx";
-import { WorkflowResults } from "./components/results/WorkflowResults.tsx";
+import { ReferenceDocumentsDialog } from "./components/context/ReferenceDocumentsDialog.tsx";
+import { TaskTodoView } from "./components/detail/TaskTodoView.tsx";
+import { TaskSessionComposer } from "./components/detail/TaskSessionComposer.tsx";
+import { TaskConversationThread } from "./components/detail/TaskConversationThread.tsx";
 
 import * as DS from "@ai-pixel-office/design-system";
-import styled, { keyframes } from "styled-components";
-
-const pixelWork = keyframes`
-  from {
-    height: 8px;
-    opacity: 0.45;
-  }
-  to {
-    height: 31px;
-    opacity: 1;
-  }
-`;
+import styled from "styled-components";
 
 const Styled = {
   Heading: styled.div`
@@ -57,6 +46,10 @@ const Styled = {
 
     h1 {
       margin: ${({ theme }) => `${theme.space.x1} 0 0`};
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: ${({ theme }) => theme.space.x3};
       color: ${({ theme }) => theme.colors.text.primary};
       font-size: clamp(29px, 4vw, 42px);
       letter-spacing: -0.045em;
@@ -68,14 +61,10 @@ const Styled = {
     }
   `,
   PrimaryActionBar: styled.div`
-    position: sticky;
-    top: ${({ theme }) => theme.space.x3};
-    z-index: ${({ theme }) => theme.zIndex.navigation};
-    margin: ${({ theme }) => `-${theme.space.x4} 0 ${theme.space.x5}`};
+    margin: ${({ theme }) => `0 0 ${theme.space.x5}`};
     padding: ${({ theme }) => theme.space.x3};
-    border: 2px solid ${({ theme }) => theme.colors.border.strong};
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -95,7 +84,11 @@ const Styled = {
 
     b {
       display: inline-block;
-      animation: ${pixelWork} 0.55s ease-in-out infinite alternate;
+      animation: ${DS.pixelWork} 0.55s ease-in-out infinite alternate;
+
+      @media ${DS.mediaQuery.reducedMotion} {
+        animation: none;
+      }
     }
   `,
   DetailLayout: styled.div`
@@ -114,46 +107,25 @@ const Styled = {
     gap: ${({ theme }) => theme.space.x5};
   `,
   ResultPanel: styled(DS.Panel).attrs({ as: "section" })`
-    padding: ${({ theme }) => theme.space.x5};
+    padding: ${({ theme }) => theme.space.x4};
     min-height: 340px;
+  `,
+  SessionStream: styled.div`
+    display: grid;
+    gap: ${({ theme }) => theme.space.x4};
+    max-height: min(620px, calc(100vh - 300px));
+    padding-right: ${({ theme }) => theme.space.x1};
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    scrollbar-color: ${({ theme }) => theme.colors.border.default} transparent;
   `,
   ReviewBox: styled.div`
     display: grid;
     gap: ${({ theme }) => theme.space.x3};
     margin-top: ${({ theme }) => theme.space.x6};
-    padding: ${({ theme }) => theme.space.x4};
-    border: 2px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.positive};
-  `,
-  ReviewCopy: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x1};
-
-    strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.base};
-    }
-
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      line-height: 1.5;
-    }
-  `,
-  ReviewFollowup: styled.form`
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: ${({ theme }) => theme.space.x2};
-
-    input {
-      min-width: 0;
-    }
-
-    @media ${DS.mediaQuery.md} {
-      grid-template-columns: 1fr;
-    }
+    padding-top: ${({ theme }) => theme.space.x4};
+    border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
   `,
   ReviewFinish: styled.div`
     display: flex;
@@ -209,46 +181,6 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.positive};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    }
-  `,
-  ReferenceDocuments: styled.div`
-    margin: ${({ theme }) => `${theme.space.x4} 0`};
-    padding: ${({ theme }) => theme.space.x3};
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceMuted};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    > div {
-      display: flex;
-      justify-content: space-between;
-      gap: ${({ theme }) => theme.space.x2};
-    }
-
-    small {
-      color: ${({ theme }) => theme.colors.text.muted};
-    }
-    a {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-    }
-    > details > summary {
-      cursor: pointer;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-    }
-    > details > div {
-      display: grid;
-      gap: ${({ theme }) => theme.space.x1};
-      margin-top: ${({ theme }) => theme.space.x2};
-    }
-    > details button {
-      display: flex;
-      justify-content: space-between;
-      padding: ${({ theme }) => theme.space.x2};
-      border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      cursor: pointer;
     }
   `,
   PermissionWarning: styled.div`
@@ -363,71 +295,6 @@ const Styled = {
     width: fit-content;
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
   `,
-  TaskBriefEditor: styled.div`
-    margin-top: ${({ theme }) => theme.space.x5};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-
-    label {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    }
-
-    p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.55;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 180px;
-      resize: vertical;
-      line-height: 1.55;
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-    }
-  `,
-  TaskBriefActions: styled.div`
-    margin-top: ${({ theme }) => theme.space.x1};
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${({ theme }) => theme.space.x3};
-
-    small {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
-      line-height: 1.55;
-    }
-
-    @media ${DS.mediaQuery.md} {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-  `,
-  TaskBriefPrompt: styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${({ theme }) => theme.space.x3};
-    padding: ${({ theme }) => theme.space.x3};
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
-
-    span {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.sm};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-    }
-
-    @media ${DS.mediaQuery.md} {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-  `,
 };
 
 export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
@@ -467,7 +334,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   });
   const [feedback, setFeedback] = useState("");
   const [taskBrief, setTaskBrief] = useState("");
-  const taskBriefRef = useRef<HTMLTextAreaElement>(null);
+  const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   useEffect(() => {
     if (task.data?.status === "todo") setTaskBrief(task.data.description ?? "");
   }, [task.data?.description, task.data?.id, task.data?.status]);
@@ -563,7 +430,8 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   );
   const agentSkills = (skills.data ?? []).filter((skill) => agent?.skillIds.includes(skill.id));
   const referenceDocuments = (knowledgeDocuments.data ?? []).filter(
-    (document) => document.taskId === item?.id,
+    (document) =>
+      document.taskId === item?.id || document.referenceTaskIds.includes(item?.id ?? ""),
   );
   const createRecord = useMutation({
     mutationFn: () => taskApi.createDocument(item!.id),
@@ -572,16 +440,25 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       navigate("/records");
     },
   });
-  const toggleReferenceDocument = useMutation({
-    mutationFn: (document: KnowledgeDocument) => {
-      const isReferenced = document.referenceTaskIds.includes(item!.id);
-      const referenceTaskIds = isReferenced
-        ? document.referenceTaskIds.filter((taskId) => taskId !== item!.id)
-        : [...document.referenceTaskIds, item!.id];
-      return recordApi.update(workspace.id, document.id, { referenceTaskIds });
+  const updateReferenceDocuments = useMutation({
+    mutationFn: async (selectedIds: string[]) => {
+      const selected = new Set(selectedIds);
+      const updates = (knowledgeDocuments.data ?? []).flatMap((document) => {
+        if (document.taskId === item!.id) return [];
+        const isReferenced = document.referenceTaskIds.includes(item!.id);
+        const shouldReference = selected.has(document.id);
+        if (isReferenced === shouldReference) return [];
+        const referenceTaskIds = shouldReference
+          ? [...document.referenceTaskIds, item!.id]
+          : document.referenceTaskIds.filter((taskId) => taskId !== item!.id);
+        return [recordApi.update(workspace.id, document.id, { referenceTaskIds })];
+      });
+      await Promise.all(updates);
     },
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-documents", workspace.id] }),
+    onSuccess: () => {
+      setReferenceDialogOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["knowledge-documents", workspace.id] });
+    },
   });
   const repairPermissions = useMutation({
     mutationFn: () =>
@@ -618,7 +495,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       : undefined;
   const actionError =
     createRecord.error ??
-    toggleReferenceDocument.error ??
+    updateReferenceDocuments.error ??
     run.error ??
     retry.error ??
     extendSession.error ??
@@ -644,8 +521,10 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     <BaseLayout>
       <BackButton onClick={() => navigate(-1)}>← 작업 목록</BackButton>
       <Styled.Heading>
-        <StatusPill status={item.status} />
-        <h1>{item.title}</h1>
+        <h1>
+          {item.title}
+          <StatusPill status={item.status} />
+        </h1>
         <p>
           {item.status === "todo"
             ? "담당자와 요청 내용을 확인한 뒤 작업을 시작하세요."
@@ -653,38 +532,63 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
         </p>
       </Styled.Heading>
       <Styled.PrimaryActionBar>
-        {createRecord.isPending ? (
-          <Styled.Organizing>
-            <b aria-hidden="true">▦</b> {agent?.name ?? "AI"}
-            {josa(agent?.name ?? "AI", "이/가")} 기록을 문서로 정리하고 있어요.
-          </Styled.Organizing>
-        ) : (
-          <span>
-            {item.status === "todo"
-              ? agent
-                ? "요청을 확인했다면 바로 시작할 수 있어요."
-                : "담당자를 선택하면 작업을 시작할 수 있어요."
-              : "현재 작업의 요청과 결과를 Markdown 문서로 남길 수 있어요."}
-          </span>
-        )}
         {item.status === "todo" ? (
-          <Button
-            $variant="primary"
-            disabled={!agent || missingRuntimePermissions || run.isPending}
-            onClick={() => run.mutate()}
-          >
-            {run.isPending ? "시작하는 중…" : "▶ 작업 시작"}
-          </Button>
+          <>
+            <span>
+              {agent
+                ? "작업 목표와 실행 준비를 확인한 뒤 시작하세요."
+                : "오른쪽 실행 준비에서 담당자를 선택하세요."}
+            </span>
+            <Button
+              $variant="primary"
+              disabled={!agent || missingRuntimePermissions || run.isPending}
+              onClick={() => run.mutate()}
+            >
+              {run.isPending ? "시작하는 중" : "작업 시작"}
+            </Button>
+          </>
+        ) : item.status === "failed" ? (
+          <>
+            <span>실패 원인을 확인한 뒤 같은 조건으로 다시 실행할 수 있어요.</span>
+            <Button
+              $variant="primary"
+              disabled={!agent || missingRuntimePermissions || retry.isPending}
+              onClick={() => retry.mutate()}
+            >
+              {retry.isPending ? "다시 실행하는 중" : "다시 실행"}
+            </Button>
+          </>
+        ) : active && latestRun ? (
+          <>
+            <span>에이전트가 작업 중입니다. 취소하면 현재 실행만 중단됩니다.</span>
+            <Button
+              $variant="danger"
+              disabled={cancel.isPending}
+              onClick={() => cancel.mutate(latestRun.id)}
+            >
+              {cancel.isPending ? "취소하는 중" : "실행 취소"}
+            </Button>
+          </>
         ) : (
-          <Button
-            $variant="secondary"
-            disabled={createRecord.isPending}
-            onClick={() => createRecord.mutate()}
-          >
-            {createRecord.isPending
-              ? `${agent?.name ?? "AI"}가 문서 작성 중…`
-              : "▤ AI로 문서 만들기"}
-          </Button>
+          <>
+            {createRecord.isPending ? (
+              <Styled.Organizing>
+                <b aria-hidden="true">▦</b> {agent?.name ?? "AI"}
+                {josa(agent?.name ?? "AI", "이/가")} 기록을 문서로 정리하고 있어요.
+              </Styled.Organizing>
+            ) : (
+              <span>현재 작업의 요청과 결과를 Markdown 문서로 남길 수 있어요.</span>
+            )}
+            <Button
+              $variant="secondary"
+              disabled={createRecord.isPending}
+              onClick={() => createRecord.mutate()}
+            >
+              {createRecord.isPending
+                ? `${agent?.name ?? "AI"}가 문서 작성 중…`
+                : "▤ AI로 문서 만들기"}
+            </Button>
+          </>
         )}
       </Styled.PrimaryActionBar>
       <Styled.DetailLayout>
@@ -700,116 +604,83 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
               </h2>
               <span>
                 {item.status === "todo"
-                  ? "BEFORE START"
+                  ? "시작 전"
                   : item.workflow.length > 0
-                    ? `${item.workflow.filter((step) => step.result).length}/${item.workflow.length} STEPS`
-                    : item.result
-                      ? "RESULT"
-                      : "WAITING"}
+                    ? `${item.workflow.filter((step) => step.result).length}/${item.workflow.length}단계`
+                    : item.status === "failed"
+                      ? "실패"
+                      : active
+                        ? "진행 중"
+                        : item.result
+                          ? "결과"
+                          : "대기 중"}
               </span>
             </SectionHeading>
-            {active && latestRun?.request && <CurrentRunRequest request={latestRun.request} />}
-            {item.status === "todo" ? (
-              <Styled.TaskBriefEditor>
-                <label htmlFor="task-brief">에이전트에게 전달할 내용</label>
-                <p>
-                  배경, 원하는 결과, 지켜야 할 조건을 적어 주세요. 제목과 함께 첫 요청으로
-                  전달됩니다.
-                </p>
-                {!taskBrief.trim() && (
-                  <Styled.TaskBriefPrompt>
-                    <span>작업 목표를 입력하면 에이전트가 바로 시작할 수 있어요.</span>
-                    <Button
-                      type="button"
-                      $variant="primary"
-                      onClick={() => taskBriefRef.current?.focus()}
-                    >
-                      작업 목표 입력
-                    </Button>
-                  </Styled.TaskBriefPrompt>
-                )}
-                <TextArea
-                  id="task-brief"
-                  ref={taskBriefRef}
+            <Styled.SessionStream>
+              {item.status === "todo" ? (
+                <TaskTodoView
                   value={taskBrief}
-                  onChange={(event) => setTaskBrief(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (
-                      isSubmitKey(event) &&
-                      agent &&
-                      !missingRuntimePermissions &&
-                      !run.isPending
-                    ) {
-                      event.preventDefault();
-                      run.mutate();
-                    }
-                  }}
-                  placeholder="예: 현재 UI 구조를 먼저 확인하고, 기존 컴포넌트 스타일을 유지하면서 개선해 주세요."
-                  rows={8}
+                  originalValue={item.description ?? ""}
+                  savePending={updateBrief.isPending}
+                  onChange={setTaskBrief}
+                  onSave={() => updateBrief.mutate()}
                 />
-                <Styled.TaskBriefActions>
-                  <small>Enter로 바로 시작 · Shift+Enter로 줄바꿈</small>
-                  <Button
-                    type="button"
-                    $variant="secondary"
-                    disabled={
-                      updateBrief.isPending || taskBrief.trim() === (item.description ?? "").trim()
+              ) : item.runs.length > 0 ? (
+                <>
+                  <TaskConversationThread
+                    runs={item.runs}
+                    agents={agents.data ?? []}
+                    showAgentLabels={item.workflow.length > 0}
+                    emphasizeLastAgentBubble={item.status === "needs_review"}
+                    activeRunStatus={
+                      latestRun?.status === "queued" ||
+                      latestRun?.status === "running" ||
+                      latestRun?.status === "waiting"
+                        ? latestRun.status
+                        : undefined
                     }
-                    onClick={() => updateBrief.mutate()}
-                  >
-                    {updateBrief.isPending ? "저장 중…" : "요청 저장"}
-                  </Button>
-                </Styled.TaskBriefActions>
-              </Styled.TaskBriefEditor>
-            ) : sessionLimitReason ? (
-              <ExecutionSessionLimitState
-                reason={sessionLimitReason}
-                canExtend={Boolean(latestRun?.runtimeThreadId)}
-                extendPending={extendSession.isPending}
-                newSessionPending={continueSession.isPending}
-                onExtend={() => extendSession.mutate()}
-                onNewSession={() => continueSession.mutate()}
-              />
-            ) : item.workflow.length > 0 ? (
-              <WorkflowResults task={item} agents={agents.data ?? []} error={latestRun?.error} />
-            ) : active ? (
-              <>
-                <WorkInProgress waiting={item.status === "needs_input"} />
-                <RunProgress events={item.progress} />
-                {item.result && <PreviousResult result={item.result} />}
-              </>
-            ) : item.result ? (
-              <TaskResultView result={item.result} />
-            ) : item.status === "failed" ? (
-              <ExecutionFailureState error={latestRun?.error} />
-            ) : (
-              <Empty>작업을 시작하면 여기에 결과가 나타납니다.</Empty>
-            )}
+                  />
+                  {active && <RunProgress events={item.progress} />}
+                </>
+              ) : sessionLimitReason ? (
+                <ExecutionSessionLimitState
+                  reason={sessionLimitReason}
+                  canExtend={Boolean(latestRun?.runtimeThreadId)}
+                  extendPending={extendSession.isPending}
+                  newSessionPending={continueSession.isPending}
+                  onExtend={() => extendSession.mutate()}
+                  onNewSession={() => continueSession.mutate()}
+                />
+              ) : active ? (
+                <>
+                  <WorkInProgress waiting={item.status === "needs_input"} />
+                  <RunProgress events={item.progress} />
+                  {item.result && <PreviousResult result={item.result} />}
+                </>
+              ) : item.result ? (
+                <TaskResultView result={item.result} />
+              ) : item.status === "failed" ? (
+                <ExecutionFailureState error={latestRun?.error} />
+              ) : (
+                <Empty>작업을 시작하면 여기에 결과가 나타납니다.</Empty>
+              )}
+            </Styled.SessionStream>
             {item.status === "needs_review" && (
               <Styled.ReviewBox>
-                <Styled.ReviewCopy>
-                  <strong>이어서 요청할 내용이 있나요?</strong>
-                  <p>같은 작업 흐름에서 추가 요청을 바로 전달할 수 있어요.</p>
-                </Styled.ReviewCopy>
-                <Styled.ReviewFollowup
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (feedback.trim() && !changes.isPending) changes.mutate();
-                  }}
-                >
-                  <Input
-                    value={feedback}
-                    onChange={(event) => setFeedback(event.target.value)}
-                    placeholder="추가로 요청할 내용을 입력하세요."
-                  />
-                  <Button
-                    type="submit"
-                    $variant="primary"
-                    disabled={!feedback.trim() || changes.isPending}
-                  >
-                    이어서 요청
-                  </Button>
-                </Styled.ReviewFollowup>
+                <TaskSessionComposer
+                  id="task-followup"
+                  title="이어서 요청할 내용이 있나요?"
+                  description="같은 작업 흐름에서 추가 요청을 바로 전달할 수 있어요."
+                  value={feedback}
+                  placeholder="추가로 요청할 내용을 입력하세요."
+                  submitLabel="이어서 요청"
+                  submittingLabel="요청 보내는 중"
+                  pending={changes.isPending}
+                  disabled={!feedback.trim()}
+                  helper="Enter로 바로 전송, Shift+Enter로 줄바꿈"
+                  onChange={setFeedback}
+                  onSubmit={() => changes.mutate()}
+                />
                 <Styled.ReviewFinish>
                   <span>결과가 충분하다면 이 작업을 마무리하세요.</span>
                   <Button
@@ -824,9 +695,9 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
             )}
             {actionError && <ErrorBanner>{messageOf(actionError)}</ErrorBanner>}
           </Styled.ResultPanel>
-          <RunHistory runs={item.runs} progressByRun={item.progressByRun} />
         </Styled.DetailMain>
         <Styled.TaskMeta>
+          <h2>작업 정보</h2>
           <WorkflowPanel
             task={item}
             agents={agents.data ?? []}
@@ -880,26 +751,30 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
               ) : null
             }
           />
-          <h2>현재 담당 에이전트</h2>
-          {agent ? (
-            <Styled.DetailAgent>
-              <PetPreview petId={agent.avatarId ?? ""} size={88} />
-              <div>
-                <strong>{agent.name}</strong>
-                <span>{agent.role}</span>
-                <small>{agent.model.toUpperCase()}</small>
-                <Styled.AgentSkillList>
-                  {agentSkills.map((skill) => (
-                    <span key={skill.id}>{skill.name}</span>
-                  ))}
-                  {agentSkills.length === 0 && (
-                    <span>{agent.mode === "worker" ? "기본 업무" : "업무 전환 필요"}</span>
-                  )}
-                </Styled.AgentSkillList>
-              </div>
-            </Styled.DetailAgent>
-          ) : (
-            <Empty>담당자가 없습니다.</Empty>
+          {item.status !== "todo" && item.workflow.length === 0 && (
+            <>
+              <h2>현재 담당 에이전트</h2>
+              {agent ? (
+                <Styled.DetailAgent>
+                  <PetPreview petId={agent.avatarId ?? ""} size={88} />
+                  <div>
+                    <strong>{agent.name}</strong>
+                    <span>{agent.role}</span>
+                    <small>{agent.model.toUpperCase()}</small>
+                    <Styled.AgentSkillList>
+                      {agentSkills.map((skill) => (
+                        <span key={skill.id}>{skill.name}</span>
+                      ))}
+                      {agentSkills.length === 0 && (
+                        <span>{agent.mode === "worker" ? "기본 업무" : "업무 전환 필요"}</span>
+                      )}
+                    </Styled.AgentSkillList>
+                  </div>
+                </Styled.DetailAgent>
+              ) : (
+                <Empty>담당자가 없습니다.</Empty>
+              )}
+            </>
           )}
           <ExecutionContextPanel
             contexts={executionContexts.data ?? []}
@@ -907,46 +782,17 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
             skills={skills.data ?? []}
             loading={executionContexts.isPending}
             error={executionContexts.isError ? messageOf(executionContexts.error) : undefined}
-            referenceDocuments={
-              <Styled.ReferenceDocuments>
-                <div>
-                  <strong>참고 문서</strong>
-                  <small>{referenceDocuments.length}개 자동 전달</small>
-                </div>
-                {referenceDocuments.map((document) => (
-                  <Link to={`/records?document=${document.id}`} key={document.id}>
-                    {document.title}
-                  </Link>
-                ))}
-                {!knowledgeDocuments.isPending && referenceDocuments.length === 0 && (
-                  <small>이 작업에 연결된 문서가 없습니다.</small>
-                )}
-                {(knowledgeDocuments.data?.length ?? 0) > 0 && (
-                  <details>
-                    <summary>자료실에서 참고 문서 선택</summary>
-                    <div>
-                      {(knowledgeDocuments.data ?? []).map((document) => {
-                        const isSource = document.taskId === item.id;
-                        const isReferenced = document.referenceTaskIds.includes(item.id);
-                        return (
-                          <button
-                            type="button"
-                            key={document.id}
-                            disabled={isSource || toggleReferenceDocument.isPending}
-                            onClick={() => toggleReferenceDocument.mutate(document)}
-                          >
-                            <span>{document.title}</span>
-                            <strong>
-                              {isSource ? "이 작업에서 생성" : isReferenced ? "제외" : "추가"}
-                            </strong>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </details>
-                )}
-              </Styled.ReferenceDocuments>
-            }
+            referenceDocuments={referenceDocuments}
+            usage={latestRun?.usage}
+            onManageReferences={() => setReferenceDialogOpen(true)}
+          />
+          <ReferenceDocumentsDialog
+            open={referenceDialogOpen}
+            documents={knowledgeDocuments.data ?? []}
+            taskId={item.id}
+            pending={updateReferenceDocuments.isPending}
+            onOpenChange={setReferenceDialogOpen}
+            onSave={(documentIds) => updateReferenceDocuments.mutate(documentIds)}
           />
           {missingRuntimePermissions && (
             <Styled.PermissionWarning>
@@ -978,16 +824,18 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
           <dl>
             <div>
               <dt>우선순위</dt>
-              <dd>{item.priority ?? "medium"}</dd>
+              <dd>{PRIORITIES[item.priority ?? "medium"]}</dd>
             </div>
             <div>
               <dt>생성</dt>
               <dd>{new Date(item.createdAt).toLocaleString("ko-KR")}</dd>
             </div>
-            <div>
-              <dt>최근 실행</dt>
-              <dd>{latestRun?.status ?? "없음"}</dd>
-            </div>
+            {item.status !== "todo" && (
+              <div>
+                <dt>최근 실행</dt>
+                <dd>{latestRun ? RUN_STATUS_LABEL[latestRun.status] : "없음"}</dd>
+              </div>
+            )}
           </dl>
           {item.status === "todo" && (
             <ProjectSelect
@@ -996,22 +844,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
               onChange={(value) => updateProject.mutate(value)}
             />
           )}
-          <TechnicalDetails>
-            <summary>개발자 옵션</summary>
-            {latestRun?.usage && (
-              <dl>
-                <div>
-                  <dt>입력 토큰</dt>
-                  <dd>{latestRun.usage.inputTokens?.toLocaleString() ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt>출력 토큰</dt>
-                  <dd>{latestRun.usage.outputTokens?.toLocaleString() ?? "-"}</dd>
-                </div>
-              </dl>
-            )}
-          </TechnicalDetails>
-          {item.status === "failed" && (
+          {item.status === "failed" && latestRun?.status !== "failed" && (
             <Button
               $variant="primary"
               $fullWidth
@@ -1021,7 +854,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
               ↻ 실패한 작업 다시 실행
             </Button>
           )}
-          {latestRun && ["queued", "running", "waiting"].includes(latestRun.status) && (
+          {latestRun && !active && ["queued", "running", "waiting"].includes(latestRun.status) && (
             <Button $variant="danger" $fullWidth onClick={() => cancel.mutate(latestRun.id)}>
               실행 취소
             </Button>

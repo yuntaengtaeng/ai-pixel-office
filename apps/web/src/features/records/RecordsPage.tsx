@@ -400,8 +400,29 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
               </span>
             </Styled.Record>
           ))}
-          {!records.isPending && visible.length === 0 && (
-            <Empty>{query ? "검색 결과가 없습니다." : "첫 문서를 만들어 보세요."}</Empty>
+          {!records.isPending && visible.length === 0 && query && (
+            <Empty
+              title="검색 결과가 없어요"
+              action={
+                <Button $variant="secondary" type="button" onClick={() => setQuery("")}>
+                  검색어 지우기
+                </Button>
+              }
+            >
+              다른 검색어로 다시 시도해 보세요.
+            </Empty>
+          )}
+          {!records.isPending && visible.length === 0 && !query && (
+            <Empty
+              title="아직 문서가 없어요"
+              action={
+                <Button $variant="primary" onClick={() => select(undefined)}>
+                  + 새 문서
+                </Button>
+              }
+            >
+              작업에서 얻은 결정과 결과를 Markdown으로 남겨 보세요.
+            </Empty>
           )}
         </Styled.List>
         <Styled.Editor

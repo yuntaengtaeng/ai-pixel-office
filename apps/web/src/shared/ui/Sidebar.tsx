@@ -15,6 +15,7 @@ const Styled = {
     border-right: 4px solid ${({ theme }) => theme.colors.brand.primary};
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
     z-index: ${({ theme }) => theme.zIndex.navigation};
 
     @media ${mediaQuery.md} {
@@ -26,6 +27,7 @@ const Styled = {
       border-bottom: 4px solid ${({ theme }) => theme.colors.brand.primary};
       flex-direction: row;
       align-items: center;
+      overflow-y: visible;
     }
   `,
   Brand: styled(Link)`
@@ -115,12 +117,23 @@ const Styled = {
   `,
   Nav: styled.nav`
     display: grid;
-    gap: ${({ theme }) => theme.space.x2};
+    gap: ${({ theme }) => theme.space.x4};
+    margin-bottom: ${({ theme }) => theme.space.x6};
 
     @media ${mediaQuery.md} {
       margin-left: auto;
+      margin-bottom: 0;
       display: flex;
+      align-items: center;
       gap: ${({ theme }) => theme.space.x1};
+    }
+  `,
+  NavGroup: styled.div`
+    display: grid;
+    gap: ${({ theme }) => theme.space.x2};
+
+    @media ${mediaQuery.md} {
+      display: contents;
     }
 
     a {
@@ -160,6 +173,19 @@ const Styled = {
         border-color: ${({ theme }) => theme.colors.border.strong};
         box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
       }
+    }
+  `,
+  NavGroupLabel: styled.span`
+    padding: 0 ${({ theme }) => theme.space.x3};
+    color: ${({ theme }) => theme.colors.text.onBrandMuted};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.compact};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    @media ${mediaQuery.md} {
+      display: none;
     }
   `,
   Note: styled.div`
@@ -218,30 +244,42 @@ export function Sidebar({
         {workspace.name}
       </Styled.WorkspaceChip>
       <Styled.Nav>
-        <NavLink to="/" end>
-          <span>⌂</span> 사무실
-        </NavLink>
-        <NavLink to="/chat">
-          <span>◈</span> 메신저
-        </NavLink>
-        <NavLink to="/projects">
-          <span>▦</span> 프로젝트
-        </NavLink>
-        <NavLink to="/agents">
-          <span>♟</span> 에이전트
-        </NavLink>
-        <NavLink to="/skills">
-          <span>✦</span> 스킬
-        </NavLink>
-        <NavLink to="/records">
-          <span>▤</span> 자료실
-        </NavLink>
-        <NavLink to="/performance">
-          <span>★</span> 인사평가
-        </NavLink>
-        <NavLink to="/settings">
-          <span>⚙</span> 설정
-        </NavLink>
+        <Styled.NavGroup>
+          <Styled.NavGroupLabel>업무</Styled.NavGroupLabel>
+          <NavLink to="/" end>
+            <span>⌂</span> 사무실
+          </NavLink>
+          <NavLink to="/chat">
+            <span>◈</span> 메신저
+          </NavLink>
+          <NavLink to="/projects">
+            <span>▦</span> 프로젝트
+          </NavLink>
+        </Styled.NavGroup>
+        <Styled.NavGroup>
+          <Styled.NavGroupLabel>팀</Styled.NavGroupLabel>
+          <NavLink to="/agents">
+            <span>♟</span> 에이전트
+          </NavLink>
+          <NavLink to="/skills">
+            <span>✦</span> 스킬
+          </NavLink>
+        </Styled.NavGroup>
+        <Styled.NavGroup>
+          <Styled.NavGroupLabel>경영지원</Styled.NavGroupLabel>
+          <NavLink to="/records">
+            <span>▤</span> 자료실
+          </NavLink>
+          <NavLink to="/performance">
+            <span>★</span> 인사평가
+          </NavLink>
+        </Styled.NavGroup>
+        <Styled.NavGroup>
+          <Styled.NavGroupLabel>관리</Styled.NavGroupLabel>
+          <NavLink to="/settings">
+            <span>⚙</span> 설정
+          </NavLink>
+        </Styled.NavGroup>
       </Styled.Nav>
       <Styled.Note>
         <strong>LOCAL FIRST</strong>

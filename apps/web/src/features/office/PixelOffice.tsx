@@ -5,9 +5,13 @@ import type { Agent, Task } from "@ai-pixel-office/domain/entities";
 import { getPet, getPetSpriteUrl } from "@ai-pixel-office/pet";
 import { OfficeCanvasStyles } from "./components/OfficeCanvasStyles.ts";
 import { AgentQuickAssign } from "./components/AgentQuickAssign.tsx";
-import { petMessage } from "./utils/pet-personality.ts";
+import { OFFICE_STATUS_LABEL, petMessage } from "./utils/pet-personality.ts";
 import { animatePet, type AnimatedPet } from "./utils/pet-animation.ts";
-import { agentOfficeState } from "./utils/agentOfficeState.ts";
+import {
+  agentOfficeState,
+  OFFICE_STATUS_GROUP_META,
+  officeStatusGroup,
+} from "./utils/agentOfficeState.ts";
 import {
   OFFICE_WIDTH,
   desk,
@@ -87,7 +91,62 @@ const EmptyLabel = styled.div`
   font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 `;
 
-const Styled = { Office, Stage, BootState, LabelLayer, EmptyLabel };
+const AccessibleList = styled.details`
+  margin-top: ${({ theme }) => theme.space.x3};
+
+  summary {
+    color: ${({ theme }) => theme.colors.text.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.xs};
+    cursor: pointer;
+  }
+
+  ul {
+    list-style: none;
+    margin: ${({ theme }) => theme.space.x2} 0 0;
+    padding: 0;
+    display: grid;
+    gap: ${({ theme }) => theme.space.x1};
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => theme.space.x2} 0;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+
+    &:last-child {
+      border-bottom: 0;
+    }
+
+    small {
+      overflow: hidden;
+      min-width: 0;
+      color: ${({ theme }) => theme.colors.text.muted};
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+`;
+
+const AccessibleDot = styled.span`
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: ${({ theme }) => theme.radius.circle};
+  display: inline-block;
+`;
+
+const Styled = {
+  Office,
+  Stage,
+  BootState,
+  LabelLayer,
+  EmptyLabel,
+  AccessibleList,
+  AccessibleDot,
+};
 
 export function PixelOffice({
   agents,
@@ -97,7 +156,12 @@ export function PixelOffice({
 }: {
   agents: Agent[];
   tasks: Task[];
-  onQuickAssign?: (agentId: string, title: string, description?: string) => void;
+  onQuickAssign?: (
+    agentId: string,
+    title: string,
+    description?: string,
+    priority?: NonNullable<Task["priority"]>,
+  ) => void;
   onOpenTask?: (taskId: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -254,43 +318,62 @@ export function PixelOffice({
     };
   });
   return (
-    <Styled.Office
-      data-canvas-state={canvasState}
-      style={{ aspectRatio: `${OFFICE_WIDTH} / ${roomHeight}` }}
-      aria-label={`${agents.length}명의 에이전트가 있는 픽셀 오피스`}
-    >
-      <OfficeCanvasStyles />
-      <Styled.Stage ref={host} />
-      <Styled.BootState
-        $hidden={canvasState === "ready"}
-        $error={canvasState === "error"}
-        role="status"
-        aria-live="polite"
+    <>
+      <Styled.Office
+        data-canvas-state={canvasState}
+        style={{ aspectRatio: `${OFFICE_WIDTH} / ${roomHeight}` }}
+        aria-label={`${agents.length}명의 에이전트가 있는 픽셀 오피스`}
       >
-        <span aria-hidden="true">{canvasState === "error" ? "!" : "···"}</span>
-        {canvasState === "error"
-          ? "픽셀 오피스를 불러오지 못했습니다."
-          : "픽셀 오피스를 준비하는 중..."}
-      </Styled.BootState>
-      <Styled.LabelLayer $ready={canvasState === "ready"}>
-        {labels.map(({ agent, message, tasks: agentTasks, status, left, top }) => (
-          <AgentQuickAssign
-            key={agent.id}
-            agent={agent}
-            message={message}
-            tasks={agentTasks}
-            status={status}
-            left={left}
-            top={top}
-            height={`${(105 / roomHeight) * 100}%`}
-            onAssign={onQuickAssign}
-            onOpenTask={onOpenTask}
-          />
-        ))}
-        {agents.length === 0 && (
-          <Styled.EmptyLabel>첫 번째 AI 동료를 만들어 주세요!</Styled.EmptyLabel>
-        )}
-      </Styled.LabelLayer>
-    </Styled.Office>
+        <OfficeCanvasStyles />
+        <Styled.Stage ref={host} />
+        <Styled.BootState
+          $hidden={canvasState === "ready"}
+          $error={canvasState === "error"}
+          role="status"
+          aria-live="polite"
+        >
+          <span aria-hidden="true">{canvasState === "error" ? "!" : "···"}</span>
+          {canvasState === "error"
+            ? "픽셀 오피스를 불러오지 못했습니다."
+            : "픽셀 오피스를 준비하는 중..."}
+        </Styled.BootState>
+        <Styled.LabelLayer $ready={canvasState === "ready"}>
+          {labels.map(({ agent, message, tasks: agentTasks, status, left, top }) => (
+            <AgentQuickAssign
+              key={agent.id}
+              agent={agent}
+              message={message}
+              tasks={agentTasks}
+              status={status}
+              left={left}
+              top={top}
+              height={`${(105 / roomHeight) * 100}%`}
+              onAssign={onQuickAssign}
+              onOpenTask={onOpenTask}
+            />
+          ))}
+          {agents.length === 0 && (
+            <Styled.EmptyLabel>첫 번째 AI 동료를 만들어 주세요!</Styled.EmptyLabel>
+          )}
+        </Styled.LabelLayer>
+      </Styled.Office>
+      {agents.length > 0 && (
+        <Styled.AccessibleList>
+          <summary>목록으로 보기</summary>
+          <ul aria-label="오피스에 있는 에이전트 현황">
+            {labels.map(({ agent, status, tasks: agentTasks }) => (
+              <li key={agent.id}>
+                <Styled.AccessibleDot
+                  style={{ background: OFFICE_STATUS_GROUP_META[officeStatusGroup(status)].color }}
+                />
+                <strong>{agent.name}</strong>
+                <span>{OFFICE_STATUS_LABEL[status]}</span>
+                {agentTasks[0] && <small>{agentTasks[0].title}</small>}
+              </li>
+            ))}
+          </ul>
+        </Styled.AccessibleList>
+      )}
+    </>
   );
 }

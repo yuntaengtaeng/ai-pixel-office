@@ -1,6 +1,7 @@
 import type {
   AgentModel,
   AgentPermissions,
+  AgentRunStatus,
   Task,
   TaskStatus,
 } from "@ai-pixel-office/domain/entities";
@@ -36,4 +37,13 @@ export const PRIORITIES: Record<NonNullable<Task["priority"]>, string> = {
   low: "낮음",
   medium: "보통",
   high: "높음",
+};
+
+export const RUN_STATUS_LABEL: Record<AgentRunStatus, string> = {
+  queued: "대기",
+  running: "실행 중",
+  waiting: "입력 대기",
+  completed: "완료",
+  failed: "실패",
+  cancelled: "취소",
 };

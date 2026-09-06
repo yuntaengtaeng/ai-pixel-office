@@ -34,5 +34,5 @@ export { Input, TextArea, Select } from "./Input.tsx";
 export { Dialog, useDialogIds, type DialogProps } from "./Dialog.tsx";
 export { Popover, type PopoverProps } from "./Popover.tsx";
 export { Text, Label, Kicker, HelperText } from "./typography.ts";
-export { fadeIn, popIn, slideUpIn, duration, easing } from "./animation.ts";
+export { fadeIn, popIn, slideUpIn, pixelWork, duration, easing } from "./animation.ts";
 export { TrashIcon, CloseIcon, type IconProps } from "./icons/index.ts";

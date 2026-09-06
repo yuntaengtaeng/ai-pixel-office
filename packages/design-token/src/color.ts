@@ -1,4 +1,5 @@
 const BRAND_SECONDARY = "#4d7f8a";
+const ON_BRAND_MUTED = "#a9c3b5";
 
 export const colors = {
   brand: {
@@ -23,6 +24,7 @@ export const colors = {
     muted: "#847a72",
     inverse: "#fffaf0",
     onBrand: "#fff9ec",
+    onBrandMuted: ON_BRAND_MUTED,
     positive: "#3f6b5c",
     negative: "#9f413d",
   },
@@ -76,7 +78,7 @@ export const colors = {
   },
   shadow: {
     default: "#cbbdac",
-    focus: "#a9c3b5",
+    focus: ON_BRAND_MUTED,
     positive: "#b9cfc4",
     negative: "#d4aaa4",
     glow: "#63b48655",

@@ -1,20 +1,27 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { Empty } from "../../../../shared/ui/Empty.tsx";
 import type { TaskDetail } from "../../api.ts";
 
-const Container = styled.div`
+const Container = styled.details`
   margin-top: ${({ theme }) => theme.space.x1};
   padding-top: ${({ theme }) => theme.space.x4};
   border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
 `;
-const Heading = styled.div`
+const Heading = styled.summary`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: ${({ theme }) => theme.space.x2};
   color: ${({ theme }) => theme.colors.text.positive};
   font-size: ${({ theme }) => theme.typography.fontSize.compact};
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
   span {
     padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
@@ -72,14 +79,19 @@ const Event = styled.div<{ $type: string }>`
 
 export function RunProgress({ events }: { events: TaskDetail["progress"] }) {
   const listRef = useRef<HTMLDivElement>(null);
+  const hasIssue = events.some((event) => event.type === "permission_requested");
+  const [open, setOpen] = useState(hasIssue);
+  useEffect(() => {
+    if (hasIssue) setOpen(true);
+  }, [hasIssue]);
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }, [events.length]);
   return (
-    <Container>
+    <Container open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <Heading>
-        <strong>실시간 진행</strong>
+        <strong>실시간 진행 · 무슨 일이 일어나고 있어요?</strong>
         <span>{events.length}</span>
       </Heading>
       <List ref={listRef}>

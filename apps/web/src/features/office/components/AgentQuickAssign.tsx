@@ -1,9 +1,10 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
 import { useId, useRef, useState, type FormEvent } from "react";
 import styled, { keyframes } from "styled-components";
-import { Button, Input, Popover } from "@ai-pixel-office/design-system";
+import { Button, Popover } from "@ai-pixel-office/design-system";
 import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { RUNTIME } from "../../../shared/config/presentation.ts";
+import { TaskComposerFields } from "../../tasks/components/TaskComposerFields.tsx";
 import { OFFICE_STATUS_LABEL } from "../utils/pet-personality.ts";
 
 const agentFloat = keyframes`
@@ -176,15 +177,7 @@ const QuickPopover = styled(Popover)`
 
   form {
     display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-  }
-
-  label {
-    color: #796b60;
-    font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x1};
+    gap: ${({ theme }) => theme.space.x3};
   }
 `;
 
@@ -267,20 +260,27 @@ export function AgentQuickAssign({
   left: string;
   top: string;
   height: string;
-  onAssign?: (agentId: string, title: string, description?: string) => void;
+  onAssign?: (
+    agentId: string,
+    title: string,
+    description?: string,
+    priority?: NonNullable<Task["priority"]>,
+  ) => void;
   onOpenTask?: (taskId: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<NonNullable<Task["priority"]>>("medium");
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverId = useId();
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim() || !onAssign) return;
-    onAssign(agent.id, title.trim(), description.trim() || undefined);
+    onAssign(agent.id, title.trim(), description.trim() || undefined, priority);
     setTitle("");
     setDescription("");
+    setPriority("medium");
     setOpen(false);
   };
   const runtime = RUNTIME[agent.model];
@@ -360,23 +360,15 @@ export function AgentQuickAssign({
           </Styled.TaskList>
         )}
         <form onSubmit={submit}>
-          <label>
-            할 일
-            <Input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="예: 화면 문구 검토"
-              autoFocus
-            />
-          </label>
-          <label>
-            원하는 결과 · 선택
-            <Input
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="비워도 괜찮아요"
-            />
-          </label>
+          <TaskComposerFields
+            title={title}
+            onTitleChange={setTitle}
+            description={description}
+            onDescriptionChange={setDescription}
+            priority={priority}
+            onPriorityChange={setPriority}
+            autoFocusTitle
+          />
           <Button $variant="primary" disabled={!title.trim()}>
             작업 만들기
           </Button>

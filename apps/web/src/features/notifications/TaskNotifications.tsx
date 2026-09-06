@@ -1,7 +1,7 @@
-import { colors, mediaQuery } from "@ai-pixel-office/design-system";
+import { colors, mediaQuery, slideUpIn } from "@ai-pixel-office/design-system";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import type { Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { usePageVisibility } from "../../shared/hooks/usePageVisibility.ts";
 import { useWorkspaceEvent } from "../../shared/hooks/useWorkspaceEvent.ts";
@@ -75,13 +75,6 @@ const CHAT_STATUS: Partial<
   },
 };
 
-const snackbarIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-`;
-
 const TONE_COLORS: Record<SnackbarItem["tone"], { border: string; background: string }> = {
   info: colors.feedback.info,
   warning: colors.feedback.warning,
@@ -116,7 +109,11 @@ const Styled = {
     box-shadow: 5px 5px 0 ${({ theme }) => theme.colors.shadow.snackbar};
     line-height: 1.35;
     pointer-events: auto;
-    animation: ${snackbarIn} 180ms ease-out;
+    animation: ${slideUpIn} 180ms ease-out;
+
+    @media ${mediaQuery.reducedMotion} {
+      animation: none;
+    }
 
     > div {
       min-width: 0;

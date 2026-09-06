@@ -33,26 +33,20 @@ export function WorkflowProgressStep({ step, agent }: { step: TaskWorkflowStep; 
       <div>
         <strong>{agent?.name ?? "삭제된 에이전트"}</strong>
         <small>{labels[step.status]}</small>
-        {step.result && <p>{step.result.summary}</p>}
       </div>
-      {step.result && (
+      {step.result && step.runId && (
         <Styled.WorkflowStepJump
           type="button"
           aria-label={`${step.position + 1}단계 ${agent?.name ?? "에이전트"} 결과로 이동`}
-          title="단계 결과 펼쳐보기"
-          onClick={() => revealWorkflowResult(step.id)}
+          title="대화에서 이 단계 결과 보기"
+          onClick={() => revealWorkflowResult(step.runId!)}
         />
       )}
     </li>
   );
 }
 
-function revealWorkflowResult(stepId: string): void {
-  const result = document.getElementById(`workflow-result-${stepId}`);
-  if (!(result instanceof HTMLDetailsElement)) return;
-  result.open = true;
-  result.scrollIntoView({ behavior: "smooth", block: "start" });
-  window.requestAnimationFrame(() => {
-    result.querySelector("summary")?.focus({ preventScroll: true });
-  });
+function revealWorkflowResult(runId: string): void {
+  const target = document.getElementById(`run-${runId}`);
+  target?.scrollIntoView({ behavior: "smooth", block: "center" });
 }

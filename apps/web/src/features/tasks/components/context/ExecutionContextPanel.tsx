@@ -1,148 +1,148 @@
-import type { Agent, Skill } from "@ai-pixel-office/domain/entities";
-import type { ReactNode } from "react";
+import type { Agent, KnowledgeDocument, Skill } from "@ai-pixel-office/domain/entities";
 import type { TaskExecutionContext } from "../../api.ts";
-
 import styled from "styled-components";
 
 const Styled = {
-  ExecutionContext: styled.details`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
+  Panel: styled.details`
     margin: ${({ theme }) => `${theme.space.x4} 0`};
-    padding: ${({ theme }) => theme.space.x3};
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.positiveSubtle};
+    border: 1px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
 
-    > small,
-    > p {
-      margin: 0;
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      line-height: 1.5;
+    > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: ${({ theme }) => theme.space.x2};
+      padding: ${({ theme }) => theme.space.x3};
+      cursor: pointer;
+      list-style: none;
     }
-  `,
-  ExecutionContextSummary: styled.summary`
-    cursor: pointer;
-    list-style: none;
-    &::-webkit-details-marker {
+
+    > summary::-webkit-details-marker {
       display: none;
     }
+    > summary::after {
+      content: "+";
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+    }
+    &[open] > summary::after {
+      content: "−";
+    }
   `,
-  ExecutionContextHeading: styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  Summary: styled.span`
+    display: grid;
+    gap: ${({ theme }) => theme.space.x1};
 
     strong {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
+    small {
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+    }
+  `,
+  Rows: styled.div`
+    display: grid;
+    border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  `,
+  Row: styled.div`
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x3};
+    padding: ${({ theme }) => theme.space.x3};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
-    span {
-      color: ${({ theme }) => theme.colors.text.positive};
+    > div {
+      display: grid;
+      min-width: 0;
+      gap: ${({ theme }) => theme.space.x1};
+    }
+    strong {
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    }
+    small {
+      overflow: hidden;
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    > span {
+      color: ${({ theme }) => theme.colors.text.secondary};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
-  `,
-  ExecutionContextContent: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    padding-top: ${({ theme }) => theme.space.x2};
-  `,
-  ExecutionContextItem: styled.details`
-    border: 1px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-
-    > summary {
-      display: grid;
-      grid-template-columns: 22px minmax(0, 1fr);
-      gap: ${({ theme }) => theme.space.x2};
-      align-items: center;
-      padding: ${({ theme }) => theme.space.x2};
+    button {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font: inherit;
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
       cursor: pointer;
-      list-style: none;
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-
-      > span {
-        width: 20px;
-        height: 20px;
-        display: grid;
-        place-items: center;
-        background: ${({ theme }) => theme.colors.background.surfaceMuted};
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
-
-      > div {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: ${({ theme }) => theme.space.x2};
-      }
-
-      strong {
-        font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      }
-
-      small {
-        color: ${({ theme }) => theme.colors.text.positive};
-        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-        font-size: ${({ theme }) => theme.typography.fontSize.xs};
-        font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      }
     }
   `,
-  ExecutionContextBody: styled.div`
+  PathRow: styled.div`
     display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-    padding: ${({ theme }) => theme.space.x2};
-    border-top: 1px solid ${({ theme }) => theme.colors.border.positive};
+    gap: ${({ theme }) => theme.space.x1};
+    padding: ${({ theme }) => theme.space.x3};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
 
-    > code {
+    strong {
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    }
+    small {
       overflow: hidden;
-      color: ${({ theme }) => theme.colors.text.positive};
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       text-overflow: ellipsis;
       white-space: nowrap;
     }
   `,
-  ExecutionContextGroup: styled.div`
+  Message: styled.small`
+    display: block;
+    padding: ${({ theme }) => theme.space.x3};
+    color: ${({ theme }) => theme.colors.text.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  `,
+  ReferenceRow: styled.div`
+    margin: ${({ theme }) => `${theme.space.x4} 0`};
+    padding: ${({ theme }) => theme.space.x3};
+    border: 1px solid ${({ theme }) => theme.colors.border.default};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
-    gap: ${({ theme }) => theme.space.x1};
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x3};
 
-    > b {
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-    }
-
-    > div {
-      display: flex;
-      flex-wrap: wrap;
+    div {
+      display: grid;
+      min-width: 0;
       gap: ${({ theme }) => theme.space.x1};
     }
-
-    span {
-      padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x1}`};
-      border: 1px solid ${({ theme }) => theme.colors.border.positive};
-      background: ${({ theme }) => theme.colors.background.positiveSubtle};
-      color: ${({ theme }) => theme.colors.text.positive};
-      font-size: ${({ theme }) => theme.typography.fontSize.xs};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+    strong {
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
-
     small {
-      color: ${({ theme }) => theme.colors.text.positive};
+      color: ${({ theme }) => theme.colors.text.muted};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
     }
-  `,
-  ExecutionContextError: styled.small`
-    color: ${({ theme }) => theme.colors.text.negative};
+    button {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: ${({ theme }) => theme.colors.text.positive};
+      font: inherit;
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+      cursor: pointer;
+    }
   `,
 };
 
@@ -153,93 +153,116 @@ export function ExecutionContextPanel({
   loading,
   error,
   referenceDocuments,
+  usage,
+  onManageReferences,
 }: {
   contexts: TaskExecutionContext[];
   agents: Agent[];
   skills: Skill[];
   loading: boolean;
   error?: string;
-  referenceDocuments: ReactNode;
+  referenceDocuments: KnowledgeDocument[];
+  usage?: { inputTokens?: number; outputTokens?: number };
+  onManageReferences: () => void;
 }) {
+  const instructionFileCount = new Set(contexts.flatMap((context) => context.instructionFiles))
+    .size;
+  const projectSkillCount = new Set(
+    contexts.flatMap((context) => context.projectSkills.map((skill) => skill.path)),
+  ).size;
+  const agentSkillCount = new Set(
+    contexts.flatMap((context) => {
+      const agent = agents.find((candidate) => candidate.id === context.agentId);
+      return skills.filter((skill) => agent?.skillIds.includes(skill.id)).map((skill) => skill.id);
+    }),
+  ).size;
+  const workingDirectory = contexts[0]?.workingDirectory;
+  const skillCount = projectSkillCount + agentSkillCount;
+  const tokenCount = (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
+  const compactSummary = loading
+    ? "환경 확인 중"
+    : `${workingDirectory ? fileName(workingDirectory) : "폴더 미설정"} · 스킬 ${skillCount}개${tokenCount ? ` · 토큰 ${tokenCount.toLocaleString()}` : ""}`;
+
   return (
-    <Styled.ExecutionContext>
-      <Styled.ExecutionContextSummary>
-        <Styled.ExecutionContextHeading>
-          <strong>실행 컨텍스트</strong>
-          <span>펼쳐 보기</span>
-        </Styled.ExecutionContextHeading>
-      </Styled.ExecutionContextSummary>
-      <Styled.ExecutionContextContent>
-        {loading ? (
-          <small>프로젝트 지침을 확인하는 중입니다.</small>
-        ) : error ? (
-          <Styled.ExecutionContextError>{error}</Styled.ExecutionContextError>
-        ) : contexts.length === 0 ? (
-          <small>담당자를 정하면 실행 컨텍스트를 확인할 수 있습니다.</small>
-        ) : (
-          contexts.map((context) => {
-            const contextAgent = agents.find((candidate) => candidate.id === context.agentId);
-            const mappedSkills = skills.filter((skill) =>
-              contextAgent?.skillIds.includes(skill.id),
-            );
-            return (
-              <Styled.ExecutionContextItem key={context.workflowStepId ?? context.agentId}>
-                <summary>
-                  <span>{context.position === undefined ? "1" : context.position + 1}</span>
-                  <div>
-                    <strong>{context.agentName}</strong>
-                    <small>{context.runtime.toUpperCase()}</small>
-                  </div>
-                </summary>
-                <Styled.ExecutionContextBody>
-                  <code title={context.workingDirectory}>{context.workingDirectory}</code>
-                  <ContextGroup label={`${context.runtime.toUpperCase()} 프로젝트 지침`}>
-                    {context.instructionFiles.length > 0 ? (
-                      context.instructionFiles.map((path) => (
-                        <span title={path} key={path}>
-                          {fileName(path)} 감지됨
-                        </span>
-                      ))
-                    ) : (
-                      <small>설정된 프로젝트 지침이 없습니다.</small>
-                    )}
-                  </ContextGroup>
-                  <ContextGroup label="프로젝트 스킬">
-                    {context.projectSkills.length > 0 ? (
-                      context.projectSkills.map((skill) => (
-                        <span title={skill.path} key={skill.path}>
-                          {skill.name}
-                        </span>
-                      ))
-                    ) : (
-                      <small>감지된 프로젝트 스킬이 없습니다.</small>
-                    )}
-                  </ContextGroup>
-                  <ContextGroup label="동료에게 매핑된 스킬">
-                    {mappedSkills.length > 0 ? (
-                      mappedSkills.map((skill) => <span key={skill.id}>{skill.name}</span>)
-                    ) : (
-                      <small>기본 업무 능력으로 실행합니다.</small>
-                    )}
-                  </ContextGroup>
-                </Styled.ExecutionContextBody>
-              </Styled.ExecutionContextItem>
-            );
-          })
-        )}
-        {referenceDocuments}
-        <p>파일 존재 여부만 표시하며, 실제 해석과 적용은 각 런타임이 담당합니다.</p>
-      </Styled.ExecutionContextContent>
-    </Styled.ExecutionContext>
+    <>
+      <Styled.ReferenceRow>
+        <div>
+          <strong>참고 문서</strong>
+          <small>
+            {referenceDocuments.length
+              ? `${referenceDocuments.length}개만 전달`
+              : "선택한 문서만 전달"}
+          </small>
+        </div>
+        <button type="button" onClick={onManageReferences}>
+          관리
+        </button>
+      </Styled.ReferenceRow>
+      <Styled.Panel>
+        <summary>
+          <Styled.Summary>
+            <strong>실행 정보</strong>
+            <small>{compactSummary}</small>
+          </Styled.Summary>
+        </summary>
+        <Styled.Rows>
+          {error ? (
+            <Styled.Message>{error}</Styled.Message>
+          ) : !loading && contexts.length === 0 ? (
+            <Styled.Message>담당자를 선택하면 실행 환경을 확인할 수 있어요.</Styled.Message>
+          ) : (
+            <>
+              <WorkingDirectoryRow path={workingDirectory} />
+              <SummaryRow
+                label="프로젝트 지침"
+                detail={instructionFileCount ? `${instructionFileCount}개 파일` : "설정된 지침 없음"}
+                value={String(instructionFileCount)}
+              />
+              <SummaryRow
+                label="사용 스킬"
+                detail={skillCount ? `${skillCount}개 적용` : "기본 업무 능력"}
+                value={String(skillCount)}
+              />
+            </>
+          )}
+          {usage && (
+            <>
+              <SummaryRow
+                label="입력 토큰"
+                detail="최근 실행 기준"
+                value={usage.inputTokens?.toLocaleString() ?? "-"}
+              />
+              <SummaryRow
+                label="출력 토큰"
+                detail="최근 실행 기준"
+                value={usage.outputTokens?.toLocaleString() ?? "-"}
+              />
+            </>
+          )}
+        </Styled.Rows>
+      </Styled.Panel>
+    </>
   );
 }
 
-function ContextGroup({ label, children }: { label: string; children: ReactNode }) {
+function SummaryRow({ label, detail, value }: { label: string; detail: string; value: string }) {
   return (
-    <Styled.ExecutionContextGroup>
-      <b>{label}</b>
-      <div>{children}</div>
-    </Styled.ExecutionContextGroup>
+    <Styled.Row>
+      <div>
+        <strong>{label}</strong>
+        <small title={detail}>{detail}</small>
+      </div>
+      <span title={value}>{value}</span>
+    </Styled.Row>
+  );
+}
+
+function WorkingDirectoryRow({ path }: { path?: string }) {
+  return (
+    <Styled.PathRow>
+      <strong>작업 폴더</strong>
+      <small title={path}>{path ?? "확인 중"}</small>
+    </Styled.PathRow>
   );
 }
 

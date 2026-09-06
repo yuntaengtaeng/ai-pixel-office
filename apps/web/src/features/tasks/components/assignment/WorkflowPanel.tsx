@@ -13,36 +13,26 @@ const Styled = {
     padding-bottom: ${({ theme }) => theme.space.x4};
     border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
   `,
-  AssignmentModeSwitch: styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: ${({ theme }) => theme.space.x1};
-    margin-bottom: ${({ theme }) => theme.space.x3};
-    padding: ${({ theme }) => theme.space.x1};
-    border: 1px solid ${({ theme }) => theme.colors.shadow.default};
-    background: ${({ theme }) => theme.colors.background.surfaceMuted};
+  AssignmentSecondaryToggle: styled.label`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x2};
+    margin-top: ${({ theme }) => theme.space.x3};
+    color: ${({ theme }) => theme.colors.text.secondary};
+    font-size: ${({ theme }) => theme.typography.fontSize.compact};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+    cursor: pointer;
 
-    button {
-      min-width: 0;
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
-      border: 1px solid transparent;
-      background: transparent;
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      cursor: pointer;
+    input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: ${({ theme }) => theme.colors.brand.primary};
+    }
 
-      &.selected {
-        border-color: ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.background.surfaceRaised};
-        color: ${({ theme }) => theme.colors.text.positive};
-        box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.border.positive};
-      }
-
-      &:disabled {
-        cursor: not-allowed;
-        opacity: 0.48;
-      }
+    &:has(input:disabled) {
+      cursor: not-allowed;
+      opacity: 0.5;
     }
   `,
   WorkflowEmpty: styled.p`
@@ -406,29 +396,6 @@ export function WorkflowPanel({
       <SectionHeading $compact>
         <h2>담당 방식</h2>
       </SectionHeading>
-      {editable && (
-        <Styled.AssignmentModeSwitch aria-label="담당 방식 선택">
-          <button
-            type="button"
-            className={!sequential ? "selected" : ""}
-            onClick={chooseSingle}
-            disabled={saving}
-          >
-            한 명에게 맡기기
-          </button>
-          <button
-            type="button"
-            className={sequential ? "selected" : ""}
-            onClick={() => {
-              if (!sequential) startConfiguring();
-              else if (task.workflow.length > 0) setEditing(true);
-            }}
-            disabled={agents.length < 2 || saving}
-          >
-            순차 협업
-          </button>
-        </Styled.AssignmentModeSwitch>
-      )}
       {!sequential ? (
         (singleAssignment ?? (
           <Styled.WorkflowEmpty>한 명이 이 작업을 담당합니다.</Styled.WorkflowEmpty>
@@ -607,6 +574,20 @@ export function WorkflowPanel({
             ? "순차 협업에는 에이전트가 2명 이상 필요합니다."
             : "이 작업은 단일 에이전트로 진행됩니다."}
         </Styled.WorkflowEmpty>
+      )}
+      {editable && !editing && (
+        <Styled.AssignmentSecondaryToggle>
+          <input
+            type="checkbox"
+            checked={sequential}
+            disabled={agents.length < 2 || saving}
+            onChange={() => {
+              if (sequential) chooseSingle();
+              else startConfiguring();
+            }}
+          />
+          여러 명이 순서대로 진행하기
+        </Styled.AssignmentSecondaryToggle>
       )}
     </Styled.WorkflowPanel>
   );

@@ -5,4 +5,9 @@ export const AppGlobalStyles = createGlobalStyle`
     opacity: 0.47;
     cursor: not-allowed;
   }
+
+  :focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.border.focus};
+    outline-offset: 2px;
+  }
 `;

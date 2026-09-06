@@ -1,9 +1,5 @@
-import styled, { keyframes } from "styled-components";
-
-const pixelWork = keyframes`
-  from { height: 8px; opacity: 0.45; }
-  to { height: 31px; opacity: 1; }
-`;
+import { mediaQuery, pixelWork } from "@ai-pixel-office/design-system";
+import styled from "styled-components";
 
 const Container = styled.div<{ $waiting: boolean }>`
   min-height: 230px;
@@ -47,6 +43,10 @@ const Pixels = styled.div`
     }
     &:nth-child(4) {
       animation-delay: 0.45s;
+    }
+
+    @media ${mediaQuery.reducedMotion} {
+      animation: none;
     }
   }
 `;
