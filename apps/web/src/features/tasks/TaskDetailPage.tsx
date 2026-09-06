@@ -889,7 +889,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                 )}
                 {(knowledgeDocuments.data?.length ?? 0) > 0 && (
                   <details>
-                    <summary>기록실에서 참고 문서 선택</summary>
+                    <summary>자료실에서 참고 문서 선택</summary>
                     <div>
                       {(knowledgeDocuments.data ?? []).map((document) => {
                         const isSource = document.taskId === item.id;

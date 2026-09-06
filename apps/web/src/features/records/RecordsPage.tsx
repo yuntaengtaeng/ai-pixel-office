@@ -30,7 +30,7 @@ const Styled = {
     display: grid;
     grid-template-columns: minmax(220px, 0.55fr) minmax(0, 1.45fr);
     gap: ${({ theme }) => theme.space.x4};
-    align-items: start;
+    align-items: stretch;
     @media ${mediaQuery.md} {
       grid-template-columns: 1fr;
     }
@@ -39,6 +39,7 @@ const Styled = {
     padding: ${({ theme }) => theme.space.x3};
     display: grid;
     gap: ${({ theme }) => theme.space.x2};
+    align-content: start;
   `,
   Record: styled.button<{ $selected: boolean }>`
     padding: ${({ theme }) => theme.space.x3};
@@ -347,7 +348,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
     <BaseLayout>
       <PageHeader
         eyebrow="OFFICE ARCHIVE"
-        title="기록실"
+        title="자료실"
         action={
           <Button
             $variant="primary"
@@ -438,7 +439,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
             <TextArea
               value={content}
               onChange={(event) => setContent(event.target.value)}
-              placeholder="# 결정 사항\n\n작업에서 알게 된 내용과 다음 할 일을 남겨 보세요."
+              placeholder={"# 결정 사항\n\n작업에서 알게 된 내용과 다음 할 일을 남겨 보세요."}
             />
           )}
           {selected?.taskId && (

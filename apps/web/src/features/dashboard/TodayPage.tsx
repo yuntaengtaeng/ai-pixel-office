@@ -28,7 +28,6 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
-import { InboxPanel } from "../inbox/InboxPanel.tsx";
 import { LiveBadge, OfficeCard, OfficeLoading } from "../office/OfficeCard.tsx";
 import { TaskComposer } from "./components/TaskComposer.tsx";
 import { TaskSection } from "./components/TaskSection.tsx";
@@ -495,7 +494,6 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
             <ErrorBanner>{messageOf(officeQuickAssign.error)}</ErrorBanner>
           )}
         </OfficeCard>
-        <InboxPanel workspace={workspace} />
         {taskList.length === 0 ? (
           <Styled.Onboarding>
             <h2>아직 작업이 없어요</h2>
@@ -578,7 +576,6 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                 aria-label="활동 종류 필터"
               >
                 <option value="all">전체 {activities.data?.length ?? 0}</option>
-                <option value="input">Inbox</option>
                 <option value="task">작업</option>
                 <option value="approval">승인</option>
                 <option value="agent">에이전트</option>

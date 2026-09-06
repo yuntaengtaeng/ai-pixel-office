@@ -129,23 +129,86 @@ function installRuntimeCli(runtime: RuntimeName): Promise<InstallRuntimeResult> 
   });
 }
 
-function launchRuntimeLogin(runtime: RuntimeName): { started: true } {
-  const args = runtime === "codex" ? ["login"] : ["auth", "login"];
+function spawnRuntimeCommand(
+  runtime: RuntimeName,
+  args: string[],
+  options: { detached?: boolean } = {},
+): ChildProcess {
   const command = process.platform === "win32" ? `${runtime}.cmd` : runtime;
-  const child =
-    process.platform === "win32"
-      ? spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", command, ...args], {
-          detached: true,
-          stdio: "ignore",
-          windowsHide: true,
-        })
-      : spawn(command, args, {
-          detached: true,
-          stdio: "ignore",
-          env: runtimeEnvironment(),
-        });
-  child.unref();
+  const stdio: import("node:child_process").StdioOptions = options.detached
+    ? "ignore"
+    : ["ignore", "pipe", "pipe"];
+  return process.platform === "win32"
+    ? spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", command, ...args], {
+        detached: options.detached,
+        stdio,
+        windowsHide: true,
+      })
+    : spawn(command, args, {
+        detached: options.detached,
+        stdio,
+        env: runtimeEnvironment(),
+      });
+}
+
+function runRuntimeCommand(runtime: RuntimeName, args: string[]): Promise<InstallRuntimeResult> {
+  const child = spawnRuntimeCommand(runtime, args);
+  return new Promise((resolve) => {
+    let stderr = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr = `${stderr}${chunk.toString("utf8")}`.slice(-4_096);
+    });
+    child.once("error", (error) => {
+      resolve({ ok: false, message: error.message });
+    });
+    child.once("exit", (code) => {
+      if (code === 0) resolve({ ok: true });
+      else resolve({ ok: false, message: stderr.trim() || `명령이 코드 ${String(code)}로 종료되었습니다.` });
+    });
+  });
+}
+
+function launchRuntimeCommand(runtime: RuntimeName, args: string[]): { started: true } {
+  spawnRuntimeCommand(runtime, args, { detached: true }).unref();
   return { started: true };
+}
+
+function launchRuntimeLogin(runtime: RuntimeName): { started: true } {
+  return launchRuntimeCommand(runtime, runtime === "codex" ? ["login"] : ["auth", "login"]);
+}
+
+// Figma MCP 연동은 Codex/Claude 두 런타임 모두 지원 대상이 늘어날 걸 대비해 이름을 남겨 둠
+const FIGMA_MCP_URL = "https://mcp.figma.com/mcp";
+
+function configureFigmaMcp(runtime: RuntimeName): Promise<InstallRuntimeResult> {
+  const args =
+    runtime === "codex"
+      ? ["mcp", "add", "figma", "--url", FIGMA_MCP_URL]
+      : ["mcp", "add", "--transport", "http", "--scope", "user", "figma-remote-mcp", FIGMA_MCP_URL];
+  return runRuntimeCommand(runtime, args);
+}
+
+// Claude의 MCP 로그인 확인은 CLI 안에서 /mcp를 직접 쳐야 하는 대화형 단계라
+// 백그라운드로 조용히 실행해도 아무 효과가 없음 - 눈에 보이는 터미널을 띄워 사용자가 이어서 입력하게 함
+function openInteractiveTerminal(command: string): { started: true } {
+  if (process.platform === "win32") {
+    spawn(process.env.ComSpec ?? "cmd.exe", ["/c", "start", "", "cmd", "/k", `${command}.cmd`], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: false,
+    }).unref();
+  } else {
+    spawn("osascript", ["-e", `tell application "Terminal" to do script "${command}"`], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
+  }
+  return { started: true };
+}
+
+function connectFigmaMcp(runtime: RuntimeName): { started: true } {
+  if (runtime === "codex") return launchRuntimeCommand("codex", ["mcp", "login", "figma"]);
+  return openInteractiveTerminal("claude");
 }
 
 async function createMainWindow(): Promise<void> {
@@ -190,6 +253,14 @@ if (!hasLock) {
   ipcMain.handle("runtime:install", (_event, runtime: RuntimeName) => {
     if (runtime !== "codex" && runtime !== "claude") throw new Error("Unknown runtime");
     return installRuntimeCli(runtime);
+  });
+  ipcMain.handle("mcp:configureFigma", (_event, runtime: RuntimeName) => {
+    if (runtime !== "codex" && runtime !== "claude") throw new Error("Unknown runtime");
+    return configureFigmaMcp(runtime);
+  });
+  ipcMain.handle("mcp:connectFigma", (_event, runtime: RuntimeName) => {
+    if (runtime !== "codex" && runtime !== "claude") throw new Error("Unknown runtime");
+    return connectFigmaMcp(runtime);
   });
   app.on("second-instance", () => {
     if (mainWindow?.isMinimized()) mainWindow.restore();

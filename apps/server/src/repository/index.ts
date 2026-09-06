@@ -5,12 +5,9 @@ import type {
   AgentTaskTemplate,
   CreateAgentInput,
   CreateAgentTaskTemplateInput,
-  CreateInputInput,
   CreateSkillInput,
   CreateTaskInput,
   CreateWorkspaceInput,
-  Input,
-  InputStatus,
   PerformanceReviewPeriod,
   PerformanceReviewSummary,
   Project,
@@ -23,7 +20,6 @@ import type {
   TaskStatus,
   TaskWorkflowStep,
   UpdateAgentInput,
-  UpdateInputInput,
   UpdateSkillInput,
   UpdateTaskInput,
   UpdateWorkspaceInput,
@@ -43,14 +39,6 @@ import {
   updateAgent,
   type AgentLookup,
 } from "./agents.ts";
-import {
-  convertInput,
-  createInput,
-  deleteInput,
-  getInput,
-  listInputs,
-  updateInput,
-} from "./inputs.ts";
 import {
   createProjectDirectory,
   deleteProjectDirectory,
@@ -248,35 +236,6 @@ export class Repository {
 
   async deleteTask(id: string): Promise<void> {
     return deleteTask(this.database, id);
-  }
-
-  async listInputs(workspaceId: string, status?: InputStatus): Promise<Input[]> {
-    return listInputs(this.database, workspaceId, status);
-  }
-
-  async getInput(id: string): Promise<Input | undefined> {
-    return getInput(this.database, id);
-  }
-
-  async createInput(input: CreateInputInput): Promise<Input> {
-    return createInput(this.database, input);
-  }
-
-  async updateInput(id: string, input: UpdateInputInput): Promise<Input> {
-    return updateInput(this.database, id, input);
-  }
-
-  async deleteInput(id: string): Promise<void> {
-    return deleteInput(this.database, id);
-  }
-
-  async convertInput(
-    id: string,
-    taskInput: Partial<
-      Pick<CreateTaskInput, "title" | "description" | "assigneeAgentId" | "priority" | "projectId">
-    >,
-  ): Promise<{ input: Input; task: Task }> {
-    return convertInput(this.database, id, taskInput, this.scopeLookups());
   }
 
   async listWorkflowSteps(taskId: string): Promise<TaskWorkflowStep[]> {

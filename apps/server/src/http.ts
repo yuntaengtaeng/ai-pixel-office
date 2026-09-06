@@ -13,7 +13,6 @@ import type { SkillDraft } from "./skill-draft.ts";
 import { activityRoutes } from "./routes/activities.ts";
 import { agentRoutes } from "./routes/agents.ts";
 import "./routes/app-types.ts";
-import { inputRoutes } from "./routes/inputs.ts";
 import { performanceRoutes } from "./routes/performance.ts";
 import { petUnlockRoutes } from "./routes/pet-unlocks.ts";
 import { projectRoutes } from "./routes/projects.ts";
@@ -106,7 +105,6 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   void app.register(projectRoutes, { prefix: "/api/projects" });
   void app.register(skillRoutes, { prefix: "/api/skills" });
   void app.register(agentRoutes, { prefix: "/api/agents" });
-  void app.register(inputRoutes, { prefix: "/api/inputs" });
   void app.register(taskRoutes, { prefix: "/api/tasks" });
   void app.register(workflowPresetRoutes, { prefix: "/api/workflow-presets" });
   void app.register(runRoutes, { prefix: "/api/runs" });

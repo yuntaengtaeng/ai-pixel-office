@@ -135,30 +135,3 @@ test("recovers waiting runs after a server restart", async () => {
   }
 });
 
-test("captures Inbox inputs and converts them into linked tasks", async () => {
-  const repository = new Repository(openDatabase(":memory:"));
-  try {
-    const workspace = await repository.createWorkspace({ name: "Studio" });
-    const captured = await repository.createInput({
-      workspaceId: workspace.id,
-      type: "idea",
-      content: "검색 결과를 프로젝트별로 묶어 보여주기",
-    });
-
-    assert.equal(captured.status, "inbox");
-    assert.equal((await repository.listInputs(workspace.id, "inbox"))[0]?.id, captured.id);
-
-    const converted = await repository.convertInput(captured.id, { priority: "high" });
-    assert.equal(converted.input.status, "converted");
-    assert.equal(converted.task.sourceInputId, captured.id);
-    assert.equal(converted.task.priority, "high");
-    assert.equal(converted.task.description, captured.content);
-    assert.equal((await repository.listInputs(workspace.id, "inbox")).length, 0);
-    assert.deepEqual(
-      (await repository.listActivities(workspace.id)).map((activity) => activity.type),
-      ["input_converted", "task_created", "input_created"],
-    );
-  } finally {
-    repository.close();
-  }
-});

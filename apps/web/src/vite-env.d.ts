@@ -9,6 +9,8 @@ type PixelOfficeDesktopApi = {
   platform: NodeJS.Platform;
   connectRuntime(runtime: DesktopRuntime): Promise<{ started: true }>;
   installRuntime(runtime: DesktopRuntime): Promise<InstallRuntimeResult>;
+  configureFigmaMcp(runtime: DesktopRuntime): Promise<InstallRuntimeResult>;
+  connectFigmaMcp(runtime: DesktopRuntime): Promise<{ started: true }>;
 };
 
 interface Window {

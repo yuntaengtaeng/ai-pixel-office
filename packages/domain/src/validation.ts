@@ -3,20 +3,16 @@ import type {
   AgentModel,
   AgentPermissions,
   CreateAgentInput,
-  CreateInputInput,
   CreateSkillInput,
   CreateTaskInput,
   CreateWorkspaceInput,
   ToolBinding,
   UpdateAgentInput,
-  UpdateInputInput,
   UpdateSkillInput,
   UpdateTaskInput,
   UpdateWorkspaceInput,
 } from "./entities.ts";
 
-const inputTypes = new Set(["request", "feedback", "idea", "message", "file"] as const);
-const inputStatuses = new Set(["inbox", "triaged", "converted", "archived"] as const);
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -232,43 +228,10 @@ export function parseCreateTask(value: unknown): CreateTaskInput {
     title: string(body.title, "title") as string,
     description: optionalString(body.description, "description"),
     assigneeAgentId: optionalString(body.assigneeAgentId, "assigneeAgentId"),
-    sourceInputId: optionalString(body.sourceInputId, "sourceInputId"),
     dueDate: optionalString(body.dueDate, "dueDate"),
     priority,
     projectId: optionalString(body.projectId, "projectId"),
     origin: (body.origin as CreateTaskInput["origin"]) ?? "office",
-  };
-}
-
-export function parseCreateInput(value: unknown): CreateInputInput {
-  const body = object(value);
-  if (body.type !== undefined && !inputTypes.has(body.type as never)) {
-    throw new DomainError(
-      "INVALID_FIELD",
-      "type must be request, feedback, idea, message, or file",
-    );
-  }
-  return {
-    workspaceId: string(body.workspaceId, "workspaceId") as string,
-    content: string(body.content, "content") as string,
-    title: optionalString(body.title, "title"),
-    type: (body.type as CreateInputInput["type"]) ?? "request",
-  };
-}
-
-export function parseUpdateInput(value: unknown): UpdateInputInput {
-  const body = object(value);
-  if (body.type !== undefined && !inputTypes.has(body.type as never)) {
-    throw new DomainError("INVALID_FIELD", "Unknown input type");
-  }
-  if (body.status !== undefined && !inputStatuses.has(body.status as never)) {
-    throw new DomainError("INVALID_FIELD", "Unknown input status");
-  }
-  return {
-    ...(body.type !== undefined ? { type: body.type as UpdateInputInput["type"] } : {}),
-    ...(body.title !== undefined ? { title: optionalString(body.title, "title") } : {}),
-    ...(body.content !== undefined ? { content: string(body.content, "content") } : {}),
-    ...(body.status !== undefined ? { status: body.status as UpdateInputInput["status"] } : {}),
   };
 }
 

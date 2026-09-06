@@ -3,8 +3,6 @@ import type {
   AgentRun,
   AgentRunStatus,
   AgentTaskTemplate,
-  Input,
-  InputStatus,
   Project,
   RunUsage,
   Skill,
@@ -86,7 +84,6 @@ export function taskFrom(row: Row): Task {
     description: optional(row.description),
     status: row.status as TaskStatus,
     assigneeAgentId: optional(row.assignee_agent_id),
-    sourceInputId: optional(row.source_input_id),
     dueDate: optional(row.due_date),
     priority: row.priority as Task["priority"],
     projectId: optional(row.project_id),
@@ -96,19 +93,6 @@ export function taskFrom(row: Row): Task {
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     completedAt: optional(row.completed_at),
-  };
-}
-
-export function inputFrom(row: Row): Input {
-  return {
-    id: String(row.id),
-    workspaceId: String(row.workspace_id),
-    type: row.type as Input["type"],
-    title: optional(row.title),
-    content: String(row.content),
-    status: row.status as InputStatus,
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
   };
 }
 

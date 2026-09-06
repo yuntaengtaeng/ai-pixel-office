@@ -96,7 +96,6 @@ export type Task = {
   description?: string;
   status: TaskStatus;
   assigneeAgentId?: string;
-  sourceInputId?: string;
   dueDate?: string;
   priority?: "low" | "medium" | "high";
   projectId?: string;
@@ -106,20 +105,6 @@ export type Task = {
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
-};
-
-export type InputType = "request" | "feedback" | "idea" | "message" | "file";
-export type InputStatus = "inbox" | "triaged" | "converted" | "archived";
-
-export type Input = {
-  id: string;
-  workspaceId: string;
-  type: InputType;
-  title?: string;
-  content: string;
-  status: InputStatus;
-  createdAt: string;
-  updatedAt: string;
 };
 
 export type AgentTaskTemplate = {
@@ -199,9 +184,6 @@ export type RunProgressEvent = {
 };
 
 export type ActivityType =
-  | "input_created"
-  | "input_converted"
-  | "input_archived"
   | "workflow_configured"
   | "workflow_step_started"
   | "workflow_step_completed"
@@ -305,7 +287,6 @@ export type CreateTaskInput = Pick<Task, "workspaceId" | "title"> &
       Task,
       | "description"
       | "assigneeAgentId"
-      | "sourceInputId"
       | "dueDate"
       | "priority"
       | "projectId"
@@ -315,10 +296,6 @@ export type CreateTaskInput = Pick<Task, "workspaceId" | "title"> &
 export type UpdateTaskInput = Partial<
   Pick<Task, "title" | "description" | "assigneeAgentId" | "dueDate" | "priority" | "projectId">
 >;
-
-export type CreateInputInput = Pick<Input, "workspaceId" | "content"> &
-  Partial<Pick<Input, "type" | "title">>;
-export type UpdateInputInput = Partial<Pick<Input, "type" | "title" | "content" | "status">>;
 
 export type CreateAgentTaskTemplateInput = Pick<AgentTaskTemplate, "agentId" | "title"> &
   Partial<Pick<AgentTaskTemplate, "description" | "priority">>;

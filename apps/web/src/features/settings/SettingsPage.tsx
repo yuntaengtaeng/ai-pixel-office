@@ -117,12 +117,12 @@ const Styled = {
 
     p {
       margin: ${({ theme }) => `${theme.space.x1} 0`};
-      color: ${({ theme }) => theme.colors.text.muted};
+      color: ${({ theme }) => theme.colors.text.secondary};
       font-size: ${({ theme }) => theme.typography.fontSize.sm};
     }
 
     small {
-      color: ${({ theme }) => theme.colors.text.secondary};
+      color: ${({ theme }) => theme.colors.text.muted};
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       font-size: ${({ theme }) => theme.typography.fontSize.micro};
     }
@@ -208,6 +208,14 @@ const Styled = {
 
     &[data-error] {
       color: ${({ theme }) => theme.colors.semantic.negative};
+    }
+  `,
+  StaticHint: styled.p`
+    && {
+      margin-top: ${({ theme }) => theme.space.x2};
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.regular};
     }
   `,
 };
@@ -319,6 +327,8 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                 detail={status.data.mcp.figma.codex.detail}
                 command="codex mcp add figma --url https://mcp.figma.com/mcp"
                 secondaryCommand="codex mcp login figma"
+                mcpRuntime="codex"
+                onStatusRefresh={() => void status.refetch()}
               />
               <ConnectionCard
                 name="Figma · Claude"
@@ -327,6 +337,8 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                 detail={status.data.mcp.figma.claude.detail}
                 command="claude mcp add --transport http --scope user figma-remote-mcp https://mcp.figma.com/mcp"
                 secondaryCommand="claude"
+                mcpRuntime="claude"
+                onStatusRefresh={() => void status.refetch()}
               />
             </Styled.ConnectionList>
           )}
@@ -479,6 +491,7 @@ function ConnectionCard({
   command,
   secondaryCommand,
   runtime,
+  mcpRuntime,
   onStatusRefresh,
 }: {
   name: string;
@@ -489,6 +502,7 @@ function ConnectionCard({
   command: string;
   secondaryCommand?: string;
   runtime?: DesktopRuntime;
+  mcpRuntime?: DesktopRuntime;
   onStatusRefresh?: () => void;
 }) {
   const { alert, dialogProps } = useAlertDialog();
@@ -513,8 +527,32 @@ function ConnectionCard({
       onStatusRefresh?.();
     },
   });
+  const configureMcp = useMutation({
+    mutationFn: async () => {
+      if (!mcpRuntime || !window.pixelOffice) throw new Error("데스크톱 앱에서만 등록할 수 있습니다.");
+      const result = await window.pixelOffice.configureFigmaMcp(mcpRuntime);
+      if (!result.ok) throw new Error(result.message);
+      return result;
+    },
+    onSuccess: () => {
+      onStatusRefresh?.();
+    },
+  });
+  const connectMcp = useMutation({
+    mutationFn: async () => {
+      if (!mcpRuntime || !window.pixelOffice) throw new Error("데스크톱 앱에서만 연결할 수 있습니다.");
+      return window.pixelOffice.connectFigmaMcp(mcpRuntime);
+    },
+    onSuccess: () => {
+      window.setTimeout(() => onStatusRefresh?.(), 1_500);
+      window.setTimeout(() => onStatusRefresh?.(), 5_000);
+    },
+  });
   const canConnect = Boolean(runtime && window.pixelOffice?.isDesktop && installed && !connected);
   const canInstall = Boolean(runtime && window.pixelOffice?.isDesktop && !installed);
+  const canConfigureMcp = Boolean(mcpRuntime && window.pixelOffice?.isDesktop && !installed);
+  const canConnectMcp = Boolean(mcpRuntime && window.pixelOffice?.isDesktop && installed && !connected);
+  const isClaudeMcpLogin = mcpRuntime === "claude" && canConnectMcp;
   const copy = async (value: string) => {
     try {
       if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
@@ -570,6 +608,50 @@ function ConnectionCard({
           {connect.isError && (
             <Styled.ConnectionHint data-error>{messageOf(connect.error)}</Styled.ConnectionHint>
           )}
+          {canConfigureMcp && (
+            <Styled.DesktopInstallButton
+              type="button"
+              onClick={() => configureMcp.mutate()}
+              disabled={configureMcp.isPending}
+            >
+              {configureMcp.isPending ? "등록하는 중…" : "MCP 등록하기"}
+            </Styled.DesktopInstallButton>
+          )}
+          {configureMcp.isSuccess && (
+            <Styled.ConnectionHint>
+              등록이 끝났습니다. 상태를 다시 확인하고 있어요.
+            </Styled.ConnectionHint>
+          )}
+          {configureMcp.isError && (
+            <Styled.ConnectionHint data-error>{messageOf(configureMcp.error)}</Styled.ConnectionHint>
+          )}
+          {canConnectMcp && (
+            <Styled.DesktopConnectButton
+              type="button"
+              onClick={() => connectMcp.mutate()}
+              disabled={connectMcp.isPending}
+            >
+              {connectMcp.isPending
+                ? "여는 중…"
+                : isClaudeMcpLogin
+                  ? "터미널에서 로그인 확인하기"
+                  : "브라우저로 로그인하기"}
+            </Styled.DesktopConnectButton>
+          )}
+          {connectMcp.isSuccess && (
+            <Styled.ConnectionHint>
+              {isClaudeMcpLogin
+                ? "열린 터미널에서 /mcp 명령으로 로그인을 확인해 주세요."
+                : "브라우저 로그인을 마치면 연결 상태가 자동으로 갱신됩니다."}
+            </Styled.ConnectionHint>
+          )}
+          {connectMcp.isError && (
+            <Styled.ConnectionHint data-error>{messageOf(connectMcp.error)}</Styled.ConnectionHint>
+          )}
+          <Styled.StaticHint>
+            터미널에 직접 붙여넣으려면 Mac은 &apos;터미널&apos; 앱, Windows는 &apos;명령 프롬프트&apos;나
+            PowerShell을 열어 실행하세요.
+          </Styled.StaticHint>
           <Styled.CommandRow>
             <code>{command}</code>
             <Button $variant="secondary" type="button" onClick={() => void copy(command)}>

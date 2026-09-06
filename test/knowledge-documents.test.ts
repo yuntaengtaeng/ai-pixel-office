@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { KnowledgeDocumentStore } from "../apps/server/src/knowledge-documents.ts";
 
-test("기록실 문서는 Markdown 파일을 원본으로 생성하고 다시 읽는다", async () => {
+test("자료실 문서는 Markdown 파일을 원본으로 생성하고 다시 읽는다", async () => {
   const directory = await mkdtemp(join(tmpdir(), "pixel-office-records-"));
   try {
     const store = new KnowledgeDocumentStore(directory);

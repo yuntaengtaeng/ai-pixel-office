@@ -234,7 +234,7 @@ export function Sidebar({
           <span>✦</span> 스킬
         </NavLink>
         <NavLink to="/records">
-          <span>▤</span> 기록실
+          <span>▤</span> 자료실
         </NavLink>
         <NavLink to="/performance">
           <span>★</span> 인사평가

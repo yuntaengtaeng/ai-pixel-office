@@ -71,9 +71,9 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
   database
     .prepare(
       `INSERT INTO tasks
-      (id, workspace_id, title, description, status, assignee_agent_id, source_input_id,
+      (id, workspace_id, title, description, status, assignee_agent_id,
        due_date, priority, project_id, working_directory, origin, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       task.id,
@@ -82,7 +82,6 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
       task.description ?? null,
       task.status,
       task.assigneeAgentId ?? null,
-      task.sourceInputId ?? null,
       task.dueDate ?? null,
       task.priority ?? null,
       task.projectId ?? null,
@@ -98,7 +97,7 @@ export function writeTask(database: AppDatabase, task: Task): void {
   database
     .prepare(
       `UPDATE tasks SET title = ?, description = ?, status = ?, assignee_agent_id = ?,
-      source_input_id = ?, due_date = ?, priority = ?, project_id = ?, working_directory = ?, result_json = ?, updated_at = ?, completed_at = ?
+      due_date = ?, priority = ?, project_id = ?, working_directory = ?, result_json = ?, updated_at = ?, completed_at = ?
       WHERE id = ?`,
     )
     .run(
@@ -106,7 +105,6 @@ export function writeTask(database: AppDatabase, task: Task): void {
       task.description ?? null,
       task.status,
       task.assigneeAgentId ?? null,
-      task.sourceInputId ?? null,
       task.dueDate ?? null,
       task.priority ?? null,
       task.projectId ?? null,

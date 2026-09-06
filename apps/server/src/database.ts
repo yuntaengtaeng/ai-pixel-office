@@ -112,7 +112,6 @@ function migrate(database: AppDatabase): void {
       description TEXT,
       status TEXT NOT NULL CHECK(status IN ('todo', 'working', 'needs_review', 'needs_input', 'blocked', 'done', 'failed')),
       assignee_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
-      source_input_id TEXT,
       due_date TEXT,
       priority TEXT CHECK(priority IN ('low', 'medium', 'high')),
       project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
@@ -126,19 +125,6 @@ function migrate(database: AppDatabase): void {
     CREATE INDEX IF NOT EXISTS tasks_workspace_status_idx ON tasks(workspace_id, status);
     CREATE INDEX IF NOT EXISTS tasks_workspace_completion_idx
       ON tasks(workspace_id, status, completed_at);
-
-    CREATE TABLE IF NOT EXISTS inputs (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-      type TEXT NOT NULL DEFAULT 'request' CHECK(type IN ('request', 'feedback', 'idea', 'message', 'file')),
-      title TEXT,
-      content TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'inbox' CHECK(status IN ('inbox', 'triaged', 'converted', 'archived')),
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS inputs_workspace_status_idx
-      ON inputs(workspace_id, status, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS agent_task_templates (
       id TEXT PRIMARY KEY,

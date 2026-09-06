@@ -85,29 +85,6 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     const workspace = workspaceResponse.body?.data as { id: string; workingDirectory?: string };
     assert.equal(workspace.workingDirectory, undefined);
 
-    const inputResponse = await request("/api/inputs", {
-      method: "POST",
-      body: JSON.stringify({
-        workspaceId: workspace.id,
-        type: "idea",
-        content: "검색 필터를 추가하면 좋겠다",
-      }),
-    });
-    assert.equal(inputResponse.response.statusCode, 201);
-    const capturedInput = inputResponse.body?.data as { id: string; status: string };
-    assert.equal(capturedInput.status, "inbox");
-    const inputList = await request(`/api/inputs?workspaceId=${workspace.id}&status=inbox`);
-    assert.equal((inputList.body?.data as unknown[]).length, 1);
-    const convertedInput = await request(`/api/inputs/${capturedInput.id}/convert`, {
-      method: "POST",
-      body: JSON.stringify({ priority: "high" }),
-    });
-    assert.equal(convertedInput.response.statusCode, 201);
-    assert.equal(
-      (convertedInput.body?.data as { task: { sourceInputId: string } }).task.sourceInputId,
-      capturedInput.id,
-    );
-
     const projectResponse = await request("/api/projects", {
       method: "POST",
       body: JSON.stringify({
