@@ -18,41 +18,62 @@ import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 
 const Styled = {
+  Layout: styled(BaseLayout)`
+    width: min(1040px, 100%);
+  `,
   Grid: styled.div`
     display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: ${({ theme }) => theme.space.x5};
-    align-items: start;
+    align-items: stretch;
 
     @media ${mediaQuery.xl} {
       grid-template-columns: 1fr;
     }
   `,
   Section: styled(Panel).attrs({ as: "section" })`
-    padding: ${({ theme }) => theme.space.x5};
+    grid-column: 1 / -1;
+    padding: ${({ theme }) => theme.space.x4};
     display: grid;
-    gap: ${({ theme }) => theme.space.x4};
+    gap: ${({ theme }) => theme.space.x3};
   `,
   WorkspaceForm: styled(Panel).attrs({ as: "form" })`
-    padding: ${({ theme }) => theme.space.x5};
+    min-width: 0;
+    padding: ${({ theme }) => theme.space.x4};
     display: grid;
-    gap: ${({ theme }) => theme.space.x4};
+    gap: ${({ theme }) => theme.space.x3};
   `,
   WorkDirectorySettings: styled(Panel).attrs({ as: "section" })`
     grid-column: 1 / -1;
+    min-width: 0;
   `,
   WorkDirectoryBody: styled.div`
-    padding: ${({ theme }) => theme.space.x5};
+    padding: ${({ theme }) => theme.space.x4};
     display: grid;
-    gap: ${({ theme }) => theme.space.x4};
+    gap: ${({ theme }) => theme.space.x3};
   `,
   ProjectAddForm: styled.form`
-    display: flex;
-    align-items: end;
+    display: grid;
+    grid-template-columns: minmax(180px, 0.7fr) minmax(280px, 1.3fr);
     gap: ${({ theme }) => theme.space.x2};
 
     @media ${mediaQuery.md} {
       display: grid;
+      grid-template-columns: 1fr;
+    }
+  `,
+  ProjectActions: styled.div`
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: ${({ theme }) => theme.space.x2};
+
+    @media ${mediaQuery.md} {
+      justify-content: stretch;
+
+      button {
+        flex: 1;
+      }
     }
   `,
   ProjectDirectoryList: styled.div`
@@ -100,6 +121,23 @@ const Styled = {
     cursor: pointer;
   `,
   ConnectionList: styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: ${({ theme }) => theme.space.x3};
+
+    @media ${mediaQuery.md} {
+      grid-template-columns: 1fr;
+    }
+  `,
+  ConnectionDescription: styled.p`
+    margin: -${({ theme }) => theme.space.x2} 0 0;
+    color: ${({ theme }) => theme.colors.text.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    line-height: 1.55;
+  `,
+  OptionalSection: styled(Panel).attrs({ as: "section" })`
+    min-width: 0;
+    padding: ${({ theme }) => theme.space.x4};
     display: grid;
     gap: ${({ theme }) => theme.space.x3};
   `,
@@ -169,35 +207,17 @@ const Styled = {
     justify-content: flex-end;
     gap: ${({ theme }) => theme.space.x2};
   `,
-  DesktopConnectButton: styled.button`
+  DesktopConnectButton: styled(Button).attrs({ $variant: "primary" as const })`
     margin-top: ${({ theme }) => theme.space.x2};
-    padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
-    border: 1px solid ${({ theme }) => theme.colors.brand.primaryDark};
-    background: ${({ theme }) => theme.colors.brand.primary};
-    color: white;
-    font-size: ${({ theme }) => theme.typography.fontSize.sm};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    cursor: pointer;
-
-    &:disabled {
-      cursor: wait;
-      opacity: 0.6;
-    }
   `,
-  DesktopInstallButton: styled.button`
+  DesktopInstallButton: styled(Button).attrs({ $variant: "secondary" as const })`
+    margin-top: ${({ theme }) => theme.space.x2};
+  `,
+  McpConnectButton: styled(Button).attrs({ $variant: "secondary" as const })`
+    min-height: 32px;
     margin-top: ${({ theme }) => theme.space.x2};
     padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x3}`};
-    border: 1px solid ${({ theme }) => theme.colors.brand.secondary};
-    background: white;
-    color: ${({ theme }) => theme.colors.brand.secondary};
-    font-size: ${({ theme }) => theme.typography.fontSize.sm};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    cursor: pointer;
-
-    &:disabled {
-      cursor: wait;
-      opacity: 0.6;
-    }
+    font-size: ${({ theme }) => theme.typography.fontSize.xs};
   `,
   ConnectionHint: styled.p`
     && {
@@ -216,6 +236,15 @@ const Styled = {
       color: ${({ theme }) => theme.colors.text.muted};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       font-weight: ${({ theme }) => theme.typography.fontWeight.regular};
+    }
+  `,
+  DeveloperOptions: styled.details`
+    margin-top: ${({ theme }) => theme.space.x3};
+
+    summary {
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.xs};
+      cursor: pointer;
     }
   `,
 };
@@ -272,7 +301,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
     },
   });
   return (
-    <BaseLayout>
+    <Styled.Layout>
       <PageHeader
         eyebrow="CONNECTION CENTER"
         title="실행 환경 설정"
@@ -289,9 +318,12 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
       <Styled.Grid>
         <Styled.Section>
           <SectionHeading $compact>
-            <h2>런타임 연결</h2>
+            <h2>AI 연결</h2>
             <span>LOCAL</span>
           </SectionHeading>
+          <Styled.ConnectionDescription>
+            AI 동료가 작업을 실행할 수 있도록 사용할 서비스를 연결하세요.
+          </Styled.ConnectionDescription>
           {status.isPending && <Empty>설치와 로그인 상태를 확인하는 중...</Empty>}
           {status.isError && <ErrorBanner>{messageOf(status.error)}</ErrorBanner>}
           {status.data && (
@@ -316,8 +348,22 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                 runtime="claude"
                 onStatusRefresh={() => void status.refetch()}
               />
+            </Styled.ConnectionList>
+          )}
+        </Styled.Section>
+        <Styled.OptionalSection>
+          <SectionHeading $compact>
+            <h2>외부 도구 연결</h2>
+            <span>선택 사항</span>
+          </SectionHeading>
+          <Styled.ConnectionDescription>
+            Figma를 연결하면 AI 동료가 디자인 파일을 참고할 수 있어요. 연결하지 않아도 일반 작업은
+            그대로 사용할 수 있습니다.
+          </Styled.ConnectionDescription>
+          {status.data && (
+            <Styled.ConnectionList>
               <ConnectionCard
-                name="Figma MCP · Codex"
+                name="Figma · Codex"
                 installed={status.data.mcp.figma.codex.configured}
                 connected={
                   status.data.mcp.figma.codex.configured &&
@@ -342,7 +388,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
               />
             </Styled.ConnectionList>
           )}
-        </Styled.Section>
+        </Styled.OptionalSection>
         <Styled.WorkspaceForm
           onSubmit={(event) => {
             event.preventDefault();
@@ -417,20 +463,22 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
                   required
                 />
               </Field>
-              <Button
-                type="button"
-                $variant="secondary"
-                disabled={pickProject.isPending}
-                onClick={() => pickProject.mutate()}
-              >
-                {pickProject.isPending ? "선택기 여는 중" : "폴더 찾아보기…"}
-              </Button>
-              <Button
-                $variant="primary"
-                disabled={addProject.isPending || !projectName.trim() || !projectPath.trim()}
-              >
-                등록
-              </Button>
+              <Styled.ProjectActions>
+                <Button
+                  type="button"
+                  $variant="secondary"
+                  disabled={pickProject.isPending}
+                  onClick={() => pickProject.mutate()}
+                >
+                  {pickProject.isPending ? "선택기 여는 중" : "폴더 찾아보기…"}
+                </Button>
+                <Button
+                  $variant="primary"
+                  disabled={addProject.isPending || !projectName.trim() || !projectPath.trim()}
+                >
+                  등록
+                </Button>
+              </Styled.ProjectActions>
             </Styled.ProjectAddForm>
             <Styled.ProjectDirectoryList>
               {(projects.data ?? [])
@@ -478,7 +526,7 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
         </Styled.WorkDirectorySettings>
       </Styled.Grid>
       <ConfirmDialog {...dialogProps} />
-    </BaseLayout>
+    </Styled.Layout>
   );
 }
 
@@ -529,7 +577,8 @@ function ConnectionCard({
   });
   const configureMcp = useMutation({
     mutationFn: async () => {
-      if (!mcpRuntime || !window.pixelOffice) throw new Error("데스크톱 앱에서만 등록할 수 있습니다.");
+      if (!mcpRuntime || !window.pixelOffice)
+        throw new Error("데스크톱 앱에서만 등록할 수 있습니다.");
       const result = await window.pixelOffice.configureFigmaMcp(mcpRuntime);
       if (!result.ok) throw new Error(result.message);
       return result;
@@ -540,7 +589,8 @@ function ConnectionCard({
   });
   const connectMcp = useMutation({
     mutationFn: async () => {
-      if (!mcpRuntime || !window.pixelOffice) throw new Error("데스크톱 앱에서만 연결할 수 있습니다.");
+      if (!mcpRuntime || !window.pixelOffice)
+        throw new Error("데스크톱 앱에서만 연결할 수 있습니다.");
       return window.pixelOffice.connectFigmaMcp(mcpRuntime);
     },
     onSuccess: () => {
@@ -551,7 +601,9 @@ function ConnectionCard({
   const canConnect = Boolean(runtime && window.pixelOffice?.isDesktop && installed && !connected);
   const canInstall = Boolean(runtime && window.pixelOffice?.isDesktop && !installed);
   const canConfigureMcp = Boolean(mcpRuntime && window.pixelOffice?.isDesktop && !installed);
-  const canConnectMcp = Boolean(mcpRuntime && window.pixelOffice?.isDesktop && installed && !connected);
+  const canConnectMcp = Boolean(
+    mcpRuntime && window.pixelOffice?.isDesktop && installed && !connected,
+  );
   const isClaudeMcpLogin = mcpRuntime === "claude" && canConnectMcp;
   const copy = async (value: string) => {
     try {
@@ -580,7 +632,7 @@ function ConnectionCard({
               onClick={() => install.mutate()}
               disabled={install.isPending}
             >
-              {install.isPending ? "설치하는 중…" : "CLI 설치하기"}
+              {install.isPending ? "AI를 준비하는 중…" : "AI 준비하기"}
             </Styled.DesktopInstallButton>
           )}
           {install.isSuccess && (
@@ -597,7 +649,7 @@ function ConnectionCard({
               onClick={() => connect.mutate()}
               disabled={connect.isPending}
             >
-              {connect.isPending ? "로그인 여는 중…" : "브라우저로 연결하기"}
+              {connect.isPending ? "로그인 창을 여는 중…" : "로그인하고 연결하기"}
             </Styled.DesktopConnectButton>
           )}
           {connect.isSuccess && (
@@ -623,10 +675,12 @@ function ConnectionCard({
             </Styled.ConnectionHint>
           )}
           {configureMcp.isError && (
-            <Styled.ConnectionHint data-error>{messageOf(configureMcp.error)}</Styled.ConnectionHint>
+            <Styled.ConnectionHint data-error>
+              {messageOf(configureMcp.error)}
+            </Styled.ConnectionHint>
           )}
           {canConnectMcp && (
-            <Styled.DesktopConnectButton
+            <Styled.McpConnectButton
               type="button"
               onClick={() => connectMcp.mutate()}
               disabled={connectMcp.isPending}
@@ -636,7 +690,7 @@ function ConnectionCard({
                 : isClaudeMcpLogin
                   ? "터미널에서 로그인 확인하기"
                   : "브라우저로 로그인하기"}
-            </Styled.DesktopConnectButton>
+            </Styled.McpConnectButton>
           )}
           {connectMcp.isSuccess && (
             <Styled.ConnectionHint>
@@ -648,24 +702,30 @@ function ConnectionCard({
           {connectMcp.isError && (
             <Styled.ConnectionHint data-error>{messageOf(connectMcp.error)}</Styled.ConnectionHint>
           )}
-          <Styled.StaticHint>
-            터미널에 직접 붙여넣으려면 Mac은 &apos;터미널&apos; 앱, Windows는 &apos;명령 프롬프트&apos;나
-            PowerShell을 열어 실행하세요.
-          </Styled.StaticHint>
-          <Styled.CommandRow>
-            <code>{command}</code>
-            <Button $variant="secondary" type="button" onClick={() => void copy(command)}>
-              복사
-            </Button>
-          </Styled.CommandRow>
-          {secondaryCommand && (
+          <Styled.DeveloperOptions>
+            <summary>개발자 옵션</summary>
+            <Styled.StaticHint>
+              터미널을 직접 사용하려면 아래 명령어를 복사해 실행하세요.
+            </Styled.StaticHint>
             <Styled.CommandRow>
-              <code>{secondaryCommand}</code>
-              <Button $variant="secondary" type="button" onClick={() => void copy(secondaryCommand)}>
+              <code>{command}</code>
+              <Button $variant="secondary" type="button" onClick={() => void copy(command)}>
                 복사
               </Button>
             </Styled.CommandRow>
-          )}
+            {secondaryCommand && (
+              <Styled.CommandRow>
+                <code>{secondaryCommand}</code>
+                <Button
+                  $variant="secondary"
+                  type="button"
+                  onClick={() => void copy(secondaryCommand)}
+                >
+                  복사
+                </Button>
+              </Styled.CommandRow>
+            )}
+          </Styled.DeveloperOptions>
         </div>
       </Styled.ConnectionCard>
       <AlertDialog {...dialogProps} />
