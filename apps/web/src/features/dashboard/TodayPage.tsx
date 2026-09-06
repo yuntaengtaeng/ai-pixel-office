@@ -498,6 +498,9 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
           <Styled.Onboarding>
             <h2>아직 작업이 없어요</h2>
             <p>위쪽 "+ 새 작업" 버튼으로 첫 작업을 만들면, 여기서 진행 상황을 확인할 수 있어요.</p>
+            <Button $variant="primary" onClick={() => setShowComposer(true)}>
+              + 첫 작업 만들기
+            </Button>
           </Styled.Onboarding>
         ) : (
           <>
@@ -540,7 +543,14 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
             </Styled.Toolbar>
             <Styled.TodayGrid>
               {(
-                ["todo", "working", "needs_review", "needs_input", "blocked", "failed"] as TaskStatus[]
+                [
+                  "todo",
+                  "working",
+                  "needs_review",
+                  "needs_input",
+                  "blocked",
+                  "failed",
+                ] as TaskStatus[]
               )
                 .filter((status) => statusFilter === "all" || statusFilter === status)
                 .map((status) => (
@@ -551,6 +561,11 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                     agents={agentList}
                     onDelete={deleteTask}
                     deletingId={removeTask.isPending ? removeTask.variables : undefined}
+                    onCreate={
+                      status === "todo" && !taskSearch.trim()
+                        ? () => setShowComposer(true)
+                        : undefined
+                    }
                   />
                 ))}
             </Styled.TodayGrid>

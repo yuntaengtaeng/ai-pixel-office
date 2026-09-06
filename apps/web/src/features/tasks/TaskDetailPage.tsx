@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BackButton, Button, Input, Select, TextArea } from "@ai-pixel-office/design-system";
@@ -408,6 +408,26 @@ const Styled = {
       flex-direction: column;
     }
   `,
+  TaskBriefPrompt: styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.space.x3};
+    padding: ${({ theme }) => theme.space.x3};
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.positiveSubtle};
+
+    span {
+      color: ${({ theme }) => theme.colors.text.positive};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+    }
+
+    @media ${DS.mediaQuery.md} {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  `,
 };
 
 export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
@@ -447,6 +467,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   });
   const [feedback, setFeedback] = useState("");
   const [taskBrief, setTaskBrief] = useState("");
+  const taskBriefRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (task.data?.status === "todo") setTaskBrief(task.data.description ?? "");
   }, [task.data?.description, task.data?.id, task.data?.status]);
@@ -695,8 +716,21 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                   배경, 원하는 결과, 지켜야 할 조건을 적어 주세요. 제목과 함께 첫 요청으로
                   전달됩니다.
                 </p>
+                {!taskBrief.trim() && (
+                  <Styled.TaskBriefPrompt>
+                    <span>작업 목표를 입력하면 에이전트가 바로 시작할 수 있어요.</span>
+                    <Button
+                      type="button"
+                      $variant="primary"
+                      onClick={() => taskBriefRef.current?.focus()}
+                    >
+                      작업 목표 입력
+                    </Button>
+                  </Styled.TaskBriefPrompt>
+                )}
                 <TextArea
                   id="task-brief"
+                  ref={taskBriefRef}
                   value={taskBrief}
                   onChange={(event) => setTaskBrief(event.target.value)}
                   onKeyDown={(event) => {

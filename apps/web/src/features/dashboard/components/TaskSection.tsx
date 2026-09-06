@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { Panel } from "@ai-pixel-office/design-system";
+import { Button, Panel } from "@ai-pixel-office/design-system";
 import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { STATUS } from "../../../shared/config/presentation.ts";
 import { Empty } from "../../../shared/ui/Empty.tsx";
@@ -18,6 +18,17 @@ const Styled = {
     max-height: 360px;
     overflow: auto;
   `,
+  EmptyAction: styled.div`
+    display: grid;
+    justify-items: center;
+    gap: ${({ theme }) => theme.space.x2};
+    padding: ${({ theme }) => `${theme.space.x5} ${theme.space.x2}`};
+
+    span {
+      color: ${({ theme }) => theme.colors.text.muted};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    }
+  `,
 };
 
 export function TaskSection({
@@ -27,6 +38,7 @@ export function TaskSection({
   agents,
   onDelete,
   deletingId,
+  onCreate,
 }: {
   status: TaskStatus;
   title?: string;
@@ -34,6 +46,7 @@ export function TaskSection({
   agents: Agent[];
   onDelete: (task: Task) => void;
   deletingId?: string;
+  onCreate?: () => void;
 }) {
   return (
     <Styled.Section $status={status}>
@@ -55,7 +68,17 @@ export function TaskSection({
             deleting={deletingId === task.id}
           />
         ))}
-        {tasks.length === 0 && <Empty>비어 있습니다.</Empty>}
+        {tasks.length === 0 &&
+          (status === "todo" && onCreate ? (
+            <Styled.EmptyAction>
+              <span>아직 할 일이 없습니다.</span>
+              <Button type="button" $variant="secondary" onClick={onCreate}>
+                + 작업 만들기
+              </Button>
+            </Styled.EmptyAction>
+          ) : (
+            <Empty>비어 있습니다.</Empty>
+          ))}
       </Styled.TaskList>
     </Styled.Section>
   );
