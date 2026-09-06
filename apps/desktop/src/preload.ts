@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld("pixelOffice", {
   installRuntime: (runtime: RuntimeName) => ipcRenderer.invoke("runtime:install", runtime),
   configureFigmaMcp: (runtime: RuntimeName) => ipcRenderer.invoke("mcp:configureFigma", runtime),
   connectFigmaMcp: (runtime: RuntimeName) => ipcRenderer.invoke("mcp:connectFigma", runtime),
+  pickDirectory: (startPath?: string) => ipcRenderer.invoke("directory:pick", startPath),
 });

@@ -111,6 +111,12 @@ ADR 009에서 결정한 UI/UX 개선을 실제 화면에 적용하면서, 무엇
 - 섹션 제목과 Task의 상단 대표 액션은 유지하고, 누적되는 요청·응답·진행 메시지만 내부에서 스크롤한다.
 - 후속 요청 composer는 타임라인 바깥 하단에 배치해 내부 메시지 스크롤과 함께 움직이지 않도록 했다.
 
+### 2026-09-06 — 네이티브 폴더 선택기 소유권 정리
+
+- 데스크톱 폴더 선택은 Fastify 서버에서 PowerShell·AppleScript를 실행하는 방식 대신 Electron main의 `dialog.showOpenDialog`가 소유한다.
+- preload의 명시적 `pickDirectory` bridge를 통해 renderer에만 노출한다. 이는 창 소유권과 포커스를 보장하고 macOS·Windows에서 동일한 Electron native dialog를 사용하게 한다.
+- 브라우저 개발 모드에서는 기존 `/api/system/pick-directory`를 fallback으로 유지한다.
+
 ### 2026-09-06 — 모바일 탐색 구조 (보류)
 
 - Chat 외 Today·Project·Office의 모바일 전환 규칙 수립과 Sidebar의 drawer/bottom navigation 전환은 이번 라운드에서 보류한다.

@@ -24,5 +24,7 @@ export const systemApi = {
   checkDirectory: (path: string) =>
     post<{ path: string; valid: boolean }>("/api/system/check-directory", { path }),
   pickDirectory: (startPath?: string) =>
-    post<{ path?: string; cancelled: boolean }>("/api/system/pick-directory", { startPath }),
+    window.pixelOffice?.isDesktop
+      ? window.pixelOffice.pickDirectory(startPath)
+      : post<{ path?: string; cancelled: boolean }>("/api/system/pick-directory", { startPath }),
 };

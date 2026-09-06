@@ -1,6 +1,6 @@
 import { fork, spawn, type ChildProcess } from "node:child_process";
 import { join } from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from "electron";
 import { runtimeEnvironment } from "../../../scripts/runtime-spike/process.ts";
 import type { RuntimeName } from "./preload.ts";
 
@@ -163,7 +163,11 @@ function runRuntimeCommand(runtime: RuntimeName, args: string[]): Promise<Instal
     });
     child.once("exit", (code) => {
       if (code === 0) resolve({ ok: true });
-      else resolve({ ok: false, message: stderr.trim() || `명령이 코드 ${String(code)}로 종료되었습니다.` });
+      else
+        resolve({
+          ok: false,
+          message: stderr.trim() || `명령이 코드 ${String(code)}로 종료되었습니다.`,
+        });
     });
   });
 }
@@ -261,6 +265,17 @@ if (!hasLock) {
   ipcMain.handle("mcp:connectFigma", (_event, runtime: RuntimeName) => {
     if (runtime !== "codex" && runtime !== "claude") throw new Error("Unknown runtime");
     return connectFigmaMcp(runtime);
+  });
+  ipcMain.handle("directory:pick", async (_event, startPath?: string) => {
+    const options: OpenDialogOptions = {
+      title: "AI Pixel Office 프로젝트 폴더 선택",
+      defaultPath: startPath,
+      properties: ["openDirectory", "createDirectory"],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    return result.canceled ? { cancelled: true } : { path: result.filePaths[0], cancelled: false };
   });
   app.on("second-instance", () => {
     if (mainWindow?.isMinimized()) mainWindow.restore();
