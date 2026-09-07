@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { CreateWorkspaceInput, UpdateWorkspaceInput, Workspace } from "@ai-pixel-office/domain";
+import type {
+  CreateWorkspaceInput,
+  UpdateWorkspaceInput,
+  Workspace,
+} from "@ai-pixel-office/domain";
 import { requireEntity } from "../database.ts";
 import type { AppDatabase } from "../database.ts";
 import { assertAgentWorkspace } from "./agents.ts";
@@ -53,14 +57,16 @@ export async function updateWorkspace(
     .prepare(
       "UPDATE workspaces SET name = ?, working_directory = ?, default_agent_id = ?, updated_at = ? WHERE id = ?",
     )
-    .run(updated.name, updated.workingDirectory ?? null, updated.defaultAgentId ?? null, updated.updatedAt, id);
+    .run(
+      updated.name,
+      updated.workingDirectory ?? null,
+      updated.defaultAgentId ?? null,
+      updated.updatedAt,
+      id,
+    );
   return updated;
 }
 
 export async function deleteWorkspace(database: AppDatabase, id: string): Promise<void> {
-  requireChanged(
-    database.prepare("DELETE FROM workspaces WHERE id = ?").run(id),
-    "Workspace",
-    id,
-  );
+  requireChanged(database.prepare("DELETE FROM workspaces WHERE id = ?").run(id), "Workspace", id);
 }

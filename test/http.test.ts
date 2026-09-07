@@ -92,6 +92,7 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
         name: "Main app",
         description: "Ship the new app",
         figmaUrl: "https://figma.com/design/example",
+        path: process.cwd(),
       }),
     });
     assert.equal(projectResponse.response.statusCode, 201);
@@ -109,7 +110,7 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     assert.equal(relativeProjectUpdate.response.statusCode, 422);
     const projectUpdate = await request(`/api/projects/${project.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ status: "paused", path: process.cwd() }),
+      body: JSON.stringify({ status: "paused" }),
     });
     assert.equal((projectUpdate.body?.data as { status: string }).status, "paused");
     const projectList = await request(`/api/projects?workspaceId=${workspace.id}`);

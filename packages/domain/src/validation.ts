@@ -13,7 +13,6 @@ import type {
   UpdateWorkspaceInput,
 } from "./entities.ts";
 
-
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new DomainError("INVALID_BODY", "Request body must be a JSON object");

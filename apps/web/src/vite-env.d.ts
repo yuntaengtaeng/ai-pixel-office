@@ -12,6 +12,7 @@ type PixelOfficeDesktopApi = {
   configureFigmaMcp(runtime: DesktopRuntime): Promise<InstallRuntimeResult>;
   connectFigmaMcp(runtime: DesktopRuntime): Promise<{ started: true }>;
   pickDirectory(startPath?: string): Promise<{ path?: string; cancelled: boolean }>;
+  openPath(path: string): Promise<{ ok: boolean; message?: string }>;
 };
 
 interface Window {

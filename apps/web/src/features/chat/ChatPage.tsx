@@ -11,11 +11,13 @@ import { messageOf } from "../../shared/lib/errors.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { agentApi } from "../agents/api.ts";
+import { projectApi } from "../projects/api.ts";
 import { taskApi } from "../tasks/api.ts";
 import { chatApi } from "./api.ts";
 import { ChatList } from "./components/ChatList.tsx";
 import { ChatThread } from "./components/ChatThread.tsx";
 import { NewChatComposer } from "./components/NewChatComposer.tsx";
+import { recentProjectId, rememberProject } from "../../shared/lib/recentProject.ts";
 
 const Styled = {
   Grid: styled.div`
@@ -50,6 +52,10 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["tasks", workspace.id, "chat"],
     queryFn: () => chatApi.listRecent(workspace.id),
   });
+  const projects = useQuery({
+    queryKey: ["projects", workspace.id],
+    queryFn: () => projectApi.list(workspace.id),
+  });
   const task = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => taskApi.get(taskId as string),
@@ -64,9 +70,10 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
   };
 
   const startChat = useMutation({
-    mutationFn: (input: { agentId: string; message: string }) =>
-      chatApi.start({ workspaceId: workspace.id, agentId: input.agentId, message: input.message }),
-    onSuccess: (created) => {
+    mutationFn: (input: { agentId: string; message: string; projectId?: string }) =>
+      chatApi.start({ workspaceId: workspace.id, ...input }),
+    onSuccess: (created, input) => {
+      rememberProject(workspace.id, input.projectId);
       void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
       navigate(`/chat/${created.id}`);
     },
@@ -75,7 +82,10 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     mutationFn: (message: string) => chatApi.sendMessage(taskId as string, message),
     onSuccess: invalidate,
   });
-  const retry = useMutation({ mutationFn: () => taskApi.retry(taskId as string), onSuccess: invalidate });
+  const retry = useMutation({
+    mutationFn: () => taskApi.retry(taskId as string),
+    onSuccess: invalidate,
+  });
   const continueSession = useMutation({
     mutationFn: () => taskApi.continue(taskId as string),
     onSuccess: invalidate,
@@ -96,10 +106,26 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     },
   });
 
-  if (agents.isPending || chats.isPending) return <FullScreenMessage>대화를 준비하는 중...</FullScreenMessage>;
-  if (agents.isError) return <FullScreenMessage error>{messageOf(agents.error)}</FullScreenMessage>;
+  if (agents.isPending || chats.isPending || projects.isPending)
+    return <FullScreenMessage>대화를 준비하는 중...</FullScreenMessage>;
+  if (agents.isError || projects.isError)
+    return <FullScreenMessage error>{messageOf(agents.error ?? projects.error)}</FullScreenMessage>;
 
   const activeAgent = agents.data?.find((agent) => agent.id === task.data?.assigneeAgentId);
+  const projectsWithFolders = (projects.data ?? []).filter((project) => project.path);
+  const recentProject = recentProjectId(workspace.id);
+  const latestProject = projectsWithFolders.reduce<
+    (typeof projectsWithFolders)[number] | undefined
+  >(
+    (latest, project) => (!latest || project.createdAt > latest.createdAt ? project : latest),
+    undefined,
+  );
+  let initialProjectId: string | undefined;
+  if (recentProject !== "") {
+    initialProjectId = projectsWithFolders.some((project) => project.id === recentProject)
+      ? (recentProject ?? undefined)
+      : latestProject?.id;
+  }
 
   return (
     <BaseLayout>
@@ -147,6 +173,8 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
         ) : (
           <NewChatComposer
             agents={agents.data ?? []}
+            projects={projectsWithFolders}
+            initialProjectId={initialProjectId}
             defaultAgentId={workspace.defaultAgentId}
             onStart={(input) => startChat.mutate(input)}
             pending={startChat.isPending}

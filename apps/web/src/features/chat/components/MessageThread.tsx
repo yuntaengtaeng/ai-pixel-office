@@ -9,6 +9,10 @@ const Styled = {
     display: grid;
     gap: ${({ theme }) => theme.space.x4};
   `,
+  Turn: styled.div`
+    display: grid;
+    gap: ${({ theme }) => theme.space.x3};
+  `,
   Row: styled.div<{ $from: "user" | "agent" }>`
     display: flex;
     justify-content: ${({ $from }) => ($from === "user" ? "flex-end" : "flex-start")};
@@ -21,12 +25,11 @@ const Styled = {
       $from === "user" ? `${theme.space.x2} ${theme.space.x4}` : "0"};
     border: ${({ $failed, theme }) => ($failed ? `1px solid ${theme.colors.border.negative}` : "0")};
     border-radius: ${({ $from, theme }) => ($from === "user" ? theme.radius.xl : "0")};
-    background: ${({ $from, $failed, theme }) =>
-      $failed
-        ? theme.colors.background.negativeSubtle
-        : $from === "user"
-          ? theme.colors.background.positiveSubtle
-          : "transparent"};
+    background: ${({ $from, $failed, theme }) => {
+      if ($failed) return theme.colors.background.negativeSubtle;
+      if ($from === "user") return theme.colors.background.positiveSubtle;
+      return "transparent";
+    }};
     font-size: ${({ theme }) => theme.typography.fontSize.md};
     line-height: 1.6;
     /* 마크다운은 <p>/<li>가 자체적으로 줄바꿈을 표현하므로 pre-wrap을 상속하면 원문 개행이 중복 표시됨 */
@@ -85,7 +88,7 @@ export function MessageThread({
   return (
     <Styled.Thread>
       {chronological.map((run) => (
-        <div key={run.id}>
+        <Styled.Turn key={run.id}>
           {run.request && (
             <Styled.Row $from="user">
               <Styled.Bubble $from="user">{run.request}</Styled.Bubble>
@@ -107,7 +110,7 @@ export function MessageThread({
               </Styled.Bubble>
             </Styled.Row>
           )}
-        </div>
+        </Styled.Turn>
       ))}
       {activeRunStatus && (
         <Styled.Row $from="agent">

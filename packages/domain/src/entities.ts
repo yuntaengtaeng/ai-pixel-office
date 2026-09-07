@@ -283,15 +283,7 @@ export type UpdateSkillInput = Partial<Omit<CreateSkillInput, "workspaceId">>;
 
 export type CreateTaskInput = Pick<Task, "workspaceId" | "title"> &
   Partial<
-    Pick<
-      Task,
-      | "description"
-      | "assigneeAgentId"
-      | "dueDate"
-      | "priority"
-      | "projectId"
-      | "origin"
-    >
+    Pick<Task, "description" | "assigneeAgentId" | "dueDate" | "priority" | "projectId" | "origin">
   >;
 export type UpdateTaskInput = Partial<
   Pick<Task, "title" | "description" | "assigneeAgentId" | "dueDate" | "priority" | "projectId">

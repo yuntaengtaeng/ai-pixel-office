@@ -28,11 +28,30 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
   color: ${({ theme }) => theme.colors.action.secondary.foreground};
   display: grid;
   place-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow: visible;
   font-size: clamp(5px, 0.82vw, 10px);
   font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+
+  > span {
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: center;
+    text-overflow: ellipsis;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid ${({ theme }) => theme.colors.action.secondary.border};
+    border-bottom: 2px solid ${({ theme }) => theme.colors.action.secondary.border};
+    background: ${({ theme }) => theme.colors.background.surfaceRaised};
+    transform: translateX(-50%) rotate(45deg);
+  }
   transition:
     opacity 0.18s ease-out,
     transform 0.18s ease-out;
@@ -295,7 +314,7 @@ export function AgentQuickAssign({
   );
   const bubble = (
     <Styled.StatusLabel $hidden={!message} aria-hidden={!message}>
-      {message ?? "대화 없음"}
+      <span>{message ?? "대화 없음"}</span>
     </Styled.StatusLabel>
   );
 

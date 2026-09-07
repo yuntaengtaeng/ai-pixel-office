@@ -1,5 +1,6 @@
 import { fork, spawn, type ChildProcess } from "node:child_process";
-import { join } from "node:path";
+import { statSync } from "node:fs";
+import { extname, isAbsolute, join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from "electron";
 import { runtimeEnvironment } from "../../../scripts/runtime-spike/process.ts";
 import type { RuntimeName } from "./preload.ts";
@@ -236,7 +237,7 @@ async function createMainWindow(): Promise<void> {
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("https://")) void shell.openExternal(url);
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
   await mainWindow.loadURL(rendererUrl);
@@ -276,6 +277,57 @@ if (!hasLock) {
       ? await dialog.showOpenDialog(mainWindow, options)
       : await dialog.showOpenDialog(options);
     return result.canceled ? { cancelled: true } : { path: result.filePaths[0], cancelled: false };
+  });
+  /**
+   * `file://` URL을 OS 네이티브 절대 경로로 변환한다.
+   * Windows의 `file:///C:/...` 형태는 `file://`만 제거하면 `/C:/...`가 남아
+   * 드라이브 문자 앞에 잘못된 슬래시가 붙으므로 별도로 제거해야 한다.
+   */
+  function toLocalPath(input: string): string | undefined {
+    if (!/^file:\/\//i.test(input)) return input;
+    try {
+      const decoded = decodeURIComponent(input.replace(/^file:\/\//i, ""));
+      return decoded.replace(/^\/([A-Za-z]:[\\/])/, "$1");
+    } catch {
+      return undefined;
+    }
+  }
+
+  ipcMain.handle("path:open", async (event, path: string) => {
+    if (event.sender !== mainWindow?.webContents) {
+      return { ok: false, message: "파일 열기 요청을 확인할 수 없습니다" };
+    }
+    if (typeof path !== "string" || path.trim().length === 0) {
+      return { ok: false, message: "열 파일 경로가 없습니다" };
+    }
+    const localPath = toLocalPath(path);
+    if (localPath === undefined) return { ok: false, message: "파일 경로 형식이 올바르지 않습니다" };
+    if (!isAbsolute(localPath)) return { ok: false, message: "절대 경로만 열 수 있습니다" };
+    let isDirectory: boolean;
+    try {
+      isDirectory = statSync(localPath).isDirectory();
+    } catch {
+      return { ok: false, message: "파일이나 폴더를 찾을 수 없습니다" };
+    }
+    const allowedExtensions = new Set([
+      ".md",
+      ".markdown",
+      ".html",
+      ".htm",
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".webp",
+      ".svg",
+      ".bmp",
+      ".pdf",
+    ]);
+    if (!isDirectory && !allowedExtensions.has(extname(localPath).toLowerCase())) {
+      return { ok: false, message: "지원하지 않는 파일 형식입니다" };
+    }
+    const message = await shell.openPath(localPath);
+    return message ? { ok: false, message } : { ok: true };
   });
   app.on("second-instance", () => {
     if (mainWindow?.isMinimized()) mainWindow.restore();

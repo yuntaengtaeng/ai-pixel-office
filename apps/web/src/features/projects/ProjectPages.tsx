@@ -33,6 +33,16 @@ import { PromptSuggestions } from "../../shared/ui/PromptSuggestions.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { TechnicalDetails } from "../../shared/ui/TechnicalDetails.tsx";
 import { TaskCard } from "../tasks/TaskCard.tsx";
+import { systemApi } from "../system/api.ts";
+
+function folderName(path: string): string {
+  return (
+    path
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .pop() ?? path
+  );
+}
 
 const STATUS_COLORS: Record<
   Project["status"],
@@ -162,6 +172,16 @@ const Styled = {
     font-size: ${({ theme }) => theme.typography.fontSize.xs};
     font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
   `,
+  ConnectionBadge: styled.span`
+    width: fit-content;
+    padding: ${({ theme }) => `${theme.space.x1} ${theme.space.x2}`};
+    border: 1px solid ${({ theme }) => theme.colors.border.negative};
+    background: ${({ theme }) => theme.colors.background.negativeSubtle};
+    color: ${({ theme }) => theme.colors.text.negative};
+    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
+    font-size: ${({ theme }) => theme.typography.fontSize.micro};
+    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
+  `,
   DetailHeading: styled.div`
     margin: ${({ theme }) => `${theme.space.x6} 0`};
     display: flex;
@@ -195,6 +215,28 @@ const Styled = {
   MainColumn: styled.div`
     display: grid;
     gap: ${({ theme }) => theme.space.x5};
+  `,
+  ConnectionRequired: styled(Panel)`
+    padding: ${({ theme }) => theme.space.x4};
+    border-color: ${({ theme }) => theme.colors.border.negative};
+    background: ${({ theme }) => theme.colors.background.negativeSubtle};
+    display: grid;
+    gap: ${({ theme }) => theme.space.x2};
+
+    h2,
+    p {
+      margin: 0;
+    }
+
+    button {
+      width: fit-content;
+      justify-self: start;
+    }
+
+    p {
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.compact};
+    }
   `,
   TaskCreateForm: styled(Panel).attrs({ as: "form" })`
     padding: ${({ theme }) => theme.space.x5};
@@ -287,8 +329,18 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
     queryFn: () => taskApi.list(workspace.id),
   });
   const [name, setName] = useState("");
+  const [hasEditedName, setHasEditedName] = useState(false);
   const [description, setDescription] = useState("");
   const [figmaUrl, setFigmaUrl] = useState("");
+  const [projectPath, setProjectPath] = useState("");
+  const pickProjectFolder = useMutation({
+    mutationFn: () => systemApi.pickDirectory(projectPath || undefined),
+    onSuccess: (result) => {
+      if (!result.path) return;
+      setProjectPath(result.path);
+      if (!hasEditedName) setName(folderName(result.path));
+    },
+  });
   const create = useMutation({
     mutationFn: () =>
       projectApi.create({
@@ -296,6 +348,7 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
         name,
         description: description.trim() || undefined,
         figmaUrl: figmaUrl.trim() || undefined,
+        path: projectPath,
       }),
     onSuccess: (project) => {
       void queryClient.invalidateQueries({ queryKey: ["projects", workspace.id] });
@@ -319,11 +372,31 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
             <p>목표와 작업을 한곳에 모아 팀이 같은 맥락에서 일하게 합니다.</p>
           </div>
           <Field>
+            <label>작업 폴더</label>
+            <Input
+              value={projectPath}
+              readOnly
+              placeholder="Claude와 Codex가 작업할 폴더를 선택해 주세요"
+              required
+            />
+            <Button
+              type="button"
+              $variant="secondary"
+              onClick={() => pickProjectFolder.mutate()}
+              disabled={pickProjectFolder.isPending}
+            >
+              {pickProjectFolder.isPending ? "선택기 여는 중" : "폴더 선택"}
+            </Button>
+          </Field>
+          <Field>
             <label>프로젝트 이름</label>
             <Input
               autoFocus
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+                setHasEditedName(true);
+              }}
               placeholder="예: 모바일 앱 리뉴얼"
               required
             />
@@ -360,10 +433,16 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
               />
             </Field>
           </TechnicalDetails>
-          <Button $variant="primary" $fullWidth disabled={!name.trim() || create.isPending}>
+          <Button
+            $variant="primary"
+            $fullWidth
+            disabled={!name.trim() || !projectPath || create.isPending}
+          >
             {create.isPending ? "만드는 중..." : "프로젝트 만들기"}
           </Button>
-          {create.isError && <ErrorBanner>{messageOf(create.error)}</ErrorBanner>}
+          {(create.isError || pickProjectFolder.isError) && (
+            <ErrorBanner>{messageOf(create.error ?? pickProjectFolder.error)}</ErrorBanner>
+          )}
         </Styled.CreateForm>
         <Styled.Board>
           <SectionHeading $compact>
@@ -377,9 +456,13 @@ export function ProjectsPage({ workspace }: { workspace: Workspace }) {
               return (
                 <Styled.Card to={`/projects/${project.id}`} key={project.id}>
                   <div>
-                    <Styled.StatusBadge $status={project.status}>
-                      {projectStatusLabel(project.status)}
-                    </Styled.StatusBadge>
+                    {project.path ? (
+                      <Styled.StatusBadge $status={project.status}>
+                        {projectStatusLabel(project.status)}
+                      </Styled.StatusBadge>
+                    ) : (
+                      <Styled.ConnectionBadge>연결 필요</Styled.ConnectionBadge>
+                    )}
                     {project.figmaUrl && <Styled.FigmaBadge>FIGMA</Styled.FigmaBadge>}
                   </div>
                   <h3>{project.name}</h3>
@@ -431,6 +514,14 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
   const [title, setTitle] = useState("");
   const [result, setResult] = useState("");
   const [priority, setPriority] = useState<NonNullable<Task["priority"]>>("medium");
+  const connectFolder = useMutation({
+    mutationFn: () => systemApi.pickDirectory(projectQuery.data?.path),
+    onSuccess: async (result) => {
+      if (!result.path) return;
+      await projectApi.update(id, { path: result.path });
+      refresh();
+    },
+  });
   useEffect(() => {
     const project = projectQuery.data;
     if (!project) return;
@@ -501,6 +592,20 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
       </Styled.DetailHeading>
       <Styled.DetailLayout>
         <Styled.MainColumn>
+          {!projectQuery.data.path && (
+            <Styled.ConnectionRequired>
+              <h2>작업 폴더 연결 필요</h2>
+              <p>작업 폴더를 연결하면 이 프로젝트에서 에이전트를 실행할 수 있어요</p>
+              <Button
+                type="button"
+                $variant="primary"
+                disabled={connectFolder.isPending}
+                onClick={() => connectFolder.mutate()}
+              >
+                {connectFolder.isPending ? "선택기 여는 중" : "작업 폴더 연결"}
+              </Button>
+            </Styled.ConnectionRequired>
+          )}
           <Styled.TaskCreateForm
             onSubmit={(event) => {
               event.preventDefault();
@@ -519,9 +624,13 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
               priority={priority}
               onPriorityChange={setPriority}
             />
-            <Button $variant="primary" disabled={!title.trim() || createTask.isPending}>
+            <Button
+              $variant="primary"
+              disabled={!title.trim() || !projectQuery.data.path || createTask.isPending}
+            >
               {createTask.isPending ? "만드는 중..." : "작업 만들기"}
             </Button>
+            {!projectQuery.data.path && <small>먼저 작업 폴더를 연결해 주세요</small>}
             {createTask.isError && <ErrorBanner>{messageOf(createTask.error)}</ErrorBanner>}
           </Styled.TaskCreateForm>
           <Styled.TasksSection>
@@ -604,7 +713,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
           <TechnicalDetails>
             <summary>개발자 옵션</summary>
             <Styled.PathNote>
-              {projectQuery.data.path || "연결된 로컬 폴더가 없습니다. 설정에서 연결할 수 있어요."}
+              {projectQuery.data.path || "작업 폴더가 연결되지 않아 에이전트를 실행할 수 없어요"}
             </Styled.PathNote>
           </TechnicalDetails>
           <Button
@@ -626,8 +735,10 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
           >
             프로젝트 삭제
           </Button>
-          {(save.isError || remove.isError) && (
-            <ErrorBanner>{messageOf(save.error ?? remove.error)}</ErrorBanner>
+          {(save.isError || remove.isError || connectFolder.isError) && (
+            <ErrorBanner>
+              {messageOf(save.error ?? remove.error ?? connectFolder.error)}
+            </ErrorBanner>
           )}
         </Styled.ContextForm>
       </Styled.DetailLayout>

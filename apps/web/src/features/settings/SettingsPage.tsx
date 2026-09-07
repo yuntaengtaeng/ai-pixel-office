@@ -5,12 +5,11 @@ import styled from "styled-components";
 import { Button, Field, HelperText, Input, Panel, Select } from "@ai-pixel-office/design-system";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { agentApi } from "../agents/api.ts";
-import { projectApi } from "../projects/api.ts";
 import { systemApi } from "../system/api.ts";
 import { workspaceApi } from "../workspaces/api.ts";
-import { useAlertDialog, useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
+import { useAlertDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
-import { AlertDialog, ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
+import { AlertDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
@@ -43,83 +42,6 @@ const Styled = {
     padding: ${({ theme }) => theme.space.x4};
     display: grid;
     gap: ${({ theme }) => theme.space.x3};
-  `,
-  WorkDirectorySettings: styled(Panel).attrs({ as: "section" })`
-    grid-column: 1 / -1;
-    min-width: 0;
-  `,
-  WorkDirectoryBody: styled.div`
-    padding: ${({ theme }) => theme.space.x4};
-    display: grid;
-    gap: ${({ theme }) => theme.space.x3};
-  `,
-  ProjectAddForm: styled.form`
-    display: grid;
-    grid-template-columns: minmax(180px, 0.7fr) minmax(280px, 1.3fr);
-    gap: ${({ theme }) => theme.space.x2};
-
-    @media ${mediaQuery.md} {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
-  `,
-  ProjectActions: styled.div`
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-end;
-    gap: ${({ theme }) => theme.space.x2};
-
-    @media ${mediaQuery.md} {
-      justify-content: stretch;
-
-      button {
-        flex: 1;
-      }
-    }
-  `,
-  ProjectDirectoryList: styled.div`
-    display: grid;
-    gap: ${({ theme }) => theme.space.x2};
-  `,
-  ProjectRow: styled.article`
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceRaised};
-  `,
-  ProjectSelectButton: styled.div`
-    min-width: 0;
-    padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
-    border: 0;
-    background: transparent;
-    text-align: left;
-    display: grid;
-    gap: ${({ theme }) => theme.space.x1};
-
-    strong {
-      font-size: ${({ theme }) => theme.typography.fontSize.md};
-    }
-
-    span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    }
-  `,
-  ProjectDeleteButton: styled.button`
-    align-self: stretch;
-    padding: ${({ theme }) => `0 ${theme.space.x3}`};
-    border: 0;
-    border-left: 1px dashed ${({ theme }) => theme.colors.shadow.default};
-    background: ${({ theme }) => theme.colors.background.negativeSubtle};
-    color: ${({ theme }) => theme.colors.text.negative};
-    font-size: ${({ theme }) => theme.typography.fontSize.micro};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-    cursor: pointer;
   `,
   ConnectionList: styled.div`
     display: grid;
@@ -254,15 +176,10 @@ const Styled = {
 
 export function SettingsPage({ workspace }: { workspace: Workspace }) {
   const queryClient = useQueryClient();
-  const { confirm, dialogProps } = useConfirmDialog();
   const status = useQuery({
     queryKey: ["system-status"],
     queryFn: systemApi.status,
     refetchOnWindowFocus: false,
-  });
-  const projects = useQuery({
-    queryKey: ["projects", workspace.id],
-    queryFn: () => projectApi.list(workspace.id),
   });
   const agents = useQuery({
     queryKey: ["agents", workspace.id],
@@ -270,8 +187,6 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
   });
   const [workspaceName, setWorkspaceName] = useState(workspace.name);
   const [defaultAgentId, setDefaultAgentId] = useState(workspace.defaultAgentId ?? "");
-  const [projectName, setProjectName] = useState("");
-  const [projectPath, setProjectPath] = useState("");
   useEffect(() => {
     setWorkspaceName(workspace.name);
     setDefaultAgentId(workspace.defaultAgentId ?? "");
@@ -283,25 +198,6 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
         defaultAgentId: defaultAgentId || null,
       }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["workspace"] }),
-  });
-  const addProject = useMutation({
-    mutationFn: () =>
-      projectApi.create({ workspaceId: workspace.id, name: projectName, path: projectPath }),
-    onSuccess: () => {
-      setProjectName("");
-      setProjectPath("");
-      void queryClient.invalidateQueries({ queryKey: ["projects", workspace.id] });
-    },
-  });
-  const removeProject = useMutation({
-    mutationFn: (id: string) => projectApi.remove(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects", workspace.id] }),
-  });
-  const pickProject = useMutation({
-    mutationFn: () => systemApi.pickDirectory(projectPath || undefined),
-    onSuccess: (result) => {
-      if (result.path) setProjectPath(result.path);
-    },
   });
   return (
     <Styled.Layout>
@@ -394,101 +290,6 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
           </Styled.SettingsActions>
           {save.isError && <ErrorBanner>{messageOf(save.error)}</ErrorBanner>}
         </Styled.WorkspaceForm>
-        <Styled.WorkDirectorySettings>
-          <Styled.WorkDirectoryBody>
-            <SectionHeading $compact>
-              <h2>연결된 작업 폴더</h2>
-              <span>{projects.data?.length ?? 0}</span>
-            </SectionHeading>
-            <HelperText>
-              AI 동료가 참고하거나 결과를 저장할 코드·기획·디자인 폴더를 연결하세요. 폴더를 연결하지
-              않아도 일반 작업은 시작할 수 있습니다.
-            </HelperText>
-            <Styled.ProjectAddForm
-              onSubmit={(event) => {
-                event.preventDefault();
-                addProject.mutate();
-              }}
-            >
-              <Field>
-                <label>프로젝트 이름</label>
-                <Input
-                  value={projectName}
-                  onChange={(event) => setProjectName(event.target.value)}
-                  placeholder="예: 쇼핑몰 웹"
-                  required
-                />
-              </Field>
-              <Field $grow>
-                <label>선택한 폴더</label>
-                <Input
-                  value={projectPath}
-                  onChange={(event) => setProjectPath(event.target.value)}
-                  placeholder="폴더 찾아보기를 눌러 주세요"
-                  required
-                />
-              </Field>
-              <Styled.ProjectActions>
-                <Button
-                  type="button"
-                  $variant="secondary"
-                  disabled={pickProject.isPending}
-                  onClick={() => pickProject.mutate()}
-                >
-                  {pickProject.isPending ? "선택기 여는 중" : "폴더 찾아보기…"}
-                </Button>
-                <Button
-                  $variant="primary"
-                  disabled={addProject.isPending || !projectName.trim() || !projectPath.trim()}
-                >
-                  등록
-                </Button>
-              </Styled.ProjectActions>
-            </Styled.ProjectAddForm>
-            <Styled.ProjectDirectoryList>
-              {(projects.data ?? [])
-                .filter((project) => project.path)
-                .map((project) => (
-                  <Styled.ProjectRow key={project.id}>
-                    <Styled.ProjectSelectButton>
-                      <strong>{project.name}</strong>
-                      <span title={project.path}>{project.path}</span>
-                    </Styled.ProjectSelectButton>
-                    <Styled.ProjectDeleteButton
-                      type="button"
-                      disabled={removeProject.isPending && removeProject.variables === project.id}
-                      onClick={async () => {
-                        if (
-                          await confirm({
-                            title: `${project.name} 프로젝트를 목록에서 삭제할까요?`,
-                            description: "실제 폴더나 기존 작업은 삭제되지 않습니다.",
-                            confirmLabel: "목록에서 삭제",
-                            tone: "danger",
-                          })
-                        )
-                          removeProject.mutate(project.id);
-                      }}
-                    >
-                      삭제
-                    </Styled.ProjectDeleteButton>
-                  </Styled.ProjectRow>
-                ))}
-              {!projects.isPending && !(projects.data ?? []).some((project) => project.path) && (
-                <Empty>로컬 폴더가 연결된 프로젝트가 없습니다.</Empty>
-              )}
-            </Styled.ProjectDirectoryList>
-            {(addProject.isError ||
-              removeProject.isError ||
-              pickProject.isError ||
-              save.isError) && (
-              <ErrorBanner>
-                {messageOf(
-                  addProject.error ?? removeProject.error ?? pickProject.error ?? save.error,
-                )}
-              </ErrorBanner>
-            )}
-          </Styled.WorkDirectoryBody>
-        </Styled.WorkDirectorySettings>
         <Styled.OptionalSection>
           <SectionHeading $compact>
             <h2>외부 도구 연결</h2>
@@ -528,7 +329,6 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
           )}
         </Styled.OptionalSection>
       </Styled.Grid>
-      <ConfirmDialog {...dialogProps} />
     </Styled.Layout>
   );
 }

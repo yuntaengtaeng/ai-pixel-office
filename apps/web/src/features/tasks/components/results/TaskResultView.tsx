@@ -98,9 +98,30 @@ export function TaskResultView({
   result: NonNullable<TaskDetail["result"]>;
   size?: "default" | "compact" | "small";
 }) {
+  const pathArtifacts = (result.artifacts ?? []).filter(
+    (artifact): artifact is typeof artifact & { path: string } => Boolean(artifact.path),
+  );
+  const basenameCounts = new Map<string, number>();
+  for (const artifact of pathArtifacts) {
+    const basename = artifact.path.split(/[\\/]/).pop() ?? artifact.name;
+    basenameCounts.set(basename, (basenameCounts.get(basename) ?? 0) + 1);
+  }
+  const artifactPaths = Object.fromEntries(
+    pathArtifacts.flatMap((artifact) => {
+      const basename = artifact.path.split(/[\\/]/).pop() ?? artifact.name;
+      return [
+        [artifact.name, artifact.path],
+        [artifact.path, artifact.path],
+        ...(basenameCounts.get(basename) === 1 ? [[basename, artifact.path]] : []),
+      ];
+    }),
+  );
+
   return (
     <>
-      <MarkdownResult $size={size}>{result.summary}</MarkdownResult>
+      <MarkdownResult $size={size} artifactPaths={artifactPaths}>
+        {result.summary}
+      </MarkdownResult>
       {result.artifacts?.map((artifact) => (
         <Artifact key={artifact.name}>
           <span>▤</span>

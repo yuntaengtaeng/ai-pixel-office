@@ -330,7 +330,7 @@ test("rejects a run reservation when the task project changes after scope resolu
     const secondProject = await repository.createProjectDirectory({
       workspaceId: workspace.id,
       name: "Second",
-      path: process.cwd(),
+      path: tmpdir(),
     });
     const task = await repository.createTask({
       workspaceId: workspace.id,

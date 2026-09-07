@@ -1,4 +1,4 @@
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
@@ -15,7 +15,7 @@ const createBody = z.object({
   description: z.string().optional(),
   status: projectStatus.optional(),
   figmaUrl: z.string().optional(),
-  path: z.string().optional(),
+  path: z.string().min(1),
 });
 
 const updateBody = z.object({
@@ -23,7 +23,7 @@ const updateBody = z.object({
   description: z.string().optional(),
   status: projectStatus.optional(),
   figmaUrl: z.string().optional(),
-  path: z.string().optional(),
+  path: z.string().trim().min(1).optional(),
 });
 
 function resolveProjectDirectory(value: string | undefined): string | undefined {
@@ -35,10 +35,10 @@ function resolveProjectDirectory(value: string | undefined): string | undefined 
   const directory = resolve(trimmed);
   try {
     if (!statSync(directory).isDirectory()) throw new Error("not directory");
+    return realpathSync(directory);
   } catch {
     throw new DomainError("INVALID_DIRECTORY", `폴더를 찾을 수 없습니다: ${directory}`, 422);
   }
-  return directory;
 }
 
 export const projectRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -58,6 +58,9 @@ export const projectRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post("", { schema: { body: createBody } }, async (request, reply) => {
     const body = request.body;
     const directory = resolveProjectDirectory(body.path);
+    if (!directory) {
+      throw new DomainError("INVALID_DIRECTORY", "프로젝트 작업 폴더를 선택해 주세요", 422);
+    }
     return data(
       reply,
       201,
@@ -67,32 +70,28 @@ export const projectRoutes: FastifyPluginAsyncZod = async (app) => {
         ...(body.description?.trim() ? { description: body.description.trim() } : {}),
         ...(body.status ? { status: body.status } : {}),
         ...(body.figmaUrl?.trim() ? { figmaUrl: body.figmaUrl.trim() } : {}),
-        ...(directory ? { path: directory } : {}),
+        path: directory,
       }),
     );
   });
 
-  app.patch(
-    "/:id",
-    { schema: { params: idParams, body: updateBody } },
-    async (request, reply) => {
-      const body = request.body;
-      const directory = body.path === undefined ? undefined : resolveProjectDirectory(body.path);
-      return data(
-        reply,
-        200,
-        await app.repository.updateProject(request.params.id, {
-          ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.description !== undefined
-            ? { description: body.description.trim() || undefined }
-            : {}),
-          ...(body.status ? { status: body.status } : {}),
-          ...(body.figmaUrl !== undefined ? { figmaUrl: body.figmaUrl.trim() || undefined } : {}),
-          ...(body.path !== undefined ? { path: directory } : {}),
-        }),
-      );
-    },
-  );
+  app.patch("/:id", { schema: { params: idParams, body: updateBody } }, async (request, reply) => {
+    const body = request.body;
+    const directory = body.path === undefined ? undefined : resolveProjectDirectory(body.path);
+    return data(
+      reply,
+      200,
+      await app.repository.updateProject(request.params.id, {
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.description !== undefined
+          ? { description: body.description.trim() || undefined }
+          : {}),
+        ...(body.status ? { status: body.status } : {}),
+        ...(body.figmaUrl !== undefined ? { figmaUrl: body.figmaUrl.trim() || undefined } : {}),
+        ...(body.path !== undefined ? { path: directory } : {}),
+      }),
+    );
+  });
 
   app.delete("/:id", { schema: { params: idParams } }, async (request, reply) => {
     await app.repository.deleteProjectDirectory(request.params.id);

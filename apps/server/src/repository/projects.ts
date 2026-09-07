@@ -33,6 +33,18 @@ export async function createProjectDirectory(
     Partial<Pick<Project, "description" | "status" | "figmaUrl" | "path">>,
 ): Promise<Project> {
   requireEntity(await getWorkspace(database, input.workspaceId), "Workspace", input.workspaceId);
+  if (input.path) {
+    const existing = database
+      .prepare("SELECT name FROM projects WHERE workspace_id = ? AND working_directory = ?")
+      .get(input.workspaceId, input.path) as { name: string } | undefined;
+    if (existing) {
+      throw new DomainError(
+        "PROJECT_PATH_IN_USE",
+        `이미 '${existing.name}' 프로젝트에서 사용하는 폴더입니다`,
+        409,
+      );
+    }
+  }
   const createdAt = now();
   const project: Project = {
     id: randomUUID(),
@@ -99,6 +111,20 @@ export async function updateProject(
         throw new DomainError(
           "PROJECT_SCOPE_LOCKED",
           "실행 이력이 있는 프로젝트의 폴더는 변경할 수 없습니다",
+          409,
+        );
+      }
+    }
+    if (input.path && input.path !== current.path) {
+      const existing = database
+        .prepare(
+          "SELECT name FROM projects WHERE workspace_id = ? AND working_directory = ? AND id <> ?",
+        )
+        .get(current.workspaceId, input.path, id) as { name: string } | undefined;
+      if (existing) {
+        throw new DomainError(
+          "PROJECT_PATH_IN_USE",
+          `이미 '${existing.name}' 프로젝트에서 사용하는 폴더입니다`,
           409,
         );
       }

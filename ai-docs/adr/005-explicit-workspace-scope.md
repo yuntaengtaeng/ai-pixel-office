@@ -44,6 +44,9 @@ type ConversationScope = { type: "general" } | { type: "workspace"; rootPath: st
   등 runtime별 파일 형식이 다르면 얇은 adapter 파일로 같은 canonical 문서를 참조한다.
 - 새 대화는 scope를 저장하며 UI는 현재 연결된 workspace를 명확히 표시한다. 최근 workspace를 다시
   여는 기능이 있더라도 저장된 명시적 선택을 복원하는 것이며 process 경로에서 추론하지 않는다.
+- 메신저는 폴더가 연결된 프로젝트만 작업 폴더 선택지로 제공한다. 새 대화가 성공적으로 시작되면 해당
+  작업 폴더 또는 일반 작업 공간 선택을 로컬에 기록해 다음 새 대화의 제안값으로 복원한다. 사용자는 실행
+  전에 다른 작업 폴더로 바꿀 수 있고 이미 생성된 Task의 scope는 최근 선택을 따라 바뀌지 않는다.
 - workspace 연결을 해제하면 이후 새 대화는 `general`로 시작한다. 기존 대화의 scope 변경 정책은
   구현 시 대화 기록 및 권한 모델과 함께 정의하되 다른 workspace의 지침을 자동 승계하지 않는다.
 - 현재 Task 기반 실행에서는 `projectId`가 있으면 `workspace`, 없으면 `general` scope로 해석한다.
