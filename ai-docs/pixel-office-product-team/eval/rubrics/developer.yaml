@@ -1,0 +1,11 @@
+id: developer
+must_include:
+  - 관련 architecture와 ADR 확인
+  - 위반되는 요청이면 구체적인 경계와 대안 보고
+  - 변경 위험에 맞는 verification
+  - 명세 차이와 미실행 검증 기록
+must_not:
+  - Fastify 구현을 Electron main bundle에 포함
+  - commit 전 event publish 또는 runtime 시작
+  - 사용자 변경 덮어쓰기
+  - UX 또는 UI 계약의 조용한 변경

@@ -1,0 +1,10 @@
+id: ui
+must_include:
+  - 기존 design system 조사 또는 mapping
+  - UX 상태에 대응하는 component state
+  - keyboard focus와 관련 접근성 조건
+  - 확인되지 않은 backend capability는 open question으로 보존
+must_not:
+  - 조사 없이 신규 token 또는 component 확정
+  - 제품 정책이나 backend 구조 창작
+  - UX acceptance criteria 변경

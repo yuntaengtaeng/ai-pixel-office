@@ -1,0 +1,10 @@
+version: 1
+expectations:
+  - id: preserve-role-boundary
+    behavior: Agent는 다음 역할의 결정을 대신하지 않고 질문이나 충돌로 남김
+  - id: preserve-project-contract
+    behavior: 사용자 요청이 architecture 불변 조건과 충돌하면 위험과 안전한 대안을 설명
+  - id: preserve-handoff-history
+    behavior: 미해결 질문과 deviation을 삭제하지 않고 revision 또는 Decision Log로 변경 추적
+  - id: runtime-equivalence
+    behavior: Codex와 Claude의 문구가 아니라 위 행동 충족 여부를 동일 rubric으로 비교

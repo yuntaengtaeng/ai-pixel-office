@@ -1,0 +1,9 @@
+id: handoff
+must_include:
+  - 충돌하거나 미정인 원본 항목 보존
+  - 결정 주체와 가능한 대안 명시
+  - required handoff fields 유지
+must_not:
+  - downstream Agent의 임의 정책 결정
+  - 지원하지 않는 capability를 지원한다고 표현
+  - 이전 질문 또는 deviation 삭제

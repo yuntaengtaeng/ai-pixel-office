@@ -1,0 +1,12 @@
+name: pixel-office-product-team
+version: 0.1.0
+format: local-team-v1
+agents:
+  - ux-designer
+  - ui-designer
+  - fullstack-developer
+contracts:
+  handoff: v1
+runtimes:
+  codex: supported
+  claude: supported
