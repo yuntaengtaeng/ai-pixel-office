@@ -1,0 +1,18 @@
+type: usability-session-note
+plan_revision: 1
+persona: ""
+checkpoint: ""
+mode: simulation
+evidence_type: simulated
+task: ""
+outcome: success
+actions: []
+observations: []
+friction_points: []
+positive_signals: []
+trust_change: unchanged
+return_intent: unknown
+created_data: []
+requires_approval: []
+open_questions: []
+

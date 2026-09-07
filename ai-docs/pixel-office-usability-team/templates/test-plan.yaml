@@ -1,0 +1,18 @@
+type: usability-test-plan
+revision: 1
+status: draft
+scope: feature
+target: ""
+duration: 3-days
+mode: simulation
+participants: []
+environment: ""
+data_policy: synthetic-only-no-deletion
+starting_state: ""
+tasks: []
+focus_questions: []
+success_criteria: []
+stop_conditions: []
+assumptions: []
+open_questions: []
+

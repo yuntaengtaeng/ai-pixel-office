@@ -12,6 +12,8 @@
 8. 관련 [`ai-docs/adr/`](ai-docs/adr/) 문서
 9. UX Designer, UI Designer, Full-stack Developer 역할이나 Agent 사이 Handoff 작업이면
    [`ai-docs/pixel-office-product-team/AGENTS.md`](ai-docs/pixel-office-product-team/AGENTS.md)
+10. `pixel-office-usability-team` 사용성 테스트 요청이면
+    [`ai-docs/pixel-office-usability-team/AGENTS.md`](ai-docs/pixel-office-usability-team/AGENTS.md)
 
 공통 사실을 이 파일에 복사하지 않는다. 구조나 실행 계약이 바뀌면 이를 소유한 canonical
 문서도 함께 갱신한다. 기존 사용자 변경을 보존하고 요청이 없으면 commit하지 않는다.

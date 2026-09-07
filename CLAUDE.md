@@ -13,6 +13,8 @@ AI Pixel Office는 Claude와 Codex 기반의 로컬 우선 AI 팀 작업 공간�
 8. 관련 [`ai-docs/adr/`](ai-docs/adr/) 문서
 9. UX Designer, UI Designer, Full-stack Developer 역할이나 Agent 사이 Handoff 작업이면
    [`ai-docs/pixel-office-product-team/CLAUDE.md`](ai-docs/pixel-office-product-team/CLAUDE.md)
+10. `pixel-office-usability-team` 사용성 테스트 요청이면
+    [`ai-docs/pixel-office-usability-team/CLAUDE.md`](ai-docs/pixel-office-usability-team/CLAUDE.md)
 
 `AGENTS.md`와 이 파일은 도구별 진입점일 뿐이다. 공통 사실은 `ai-docs/`에서만 관리한다.
 코드와 문서가 다르면 실제 동작을 확인하고 책임 문서를 갱신한다. 기존 사용자 변경을 보존하고

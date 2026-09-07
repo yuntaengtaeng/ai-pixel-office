@@ -1,0 +1,22 @@
+name: pixel-office-usability-team
+version: 0.1.0
+format: local-team-v1
+coordinator: research-lead
+agents:
+  - junior-frontend-developer
+  - senior-platform-developer
+  - startup-product-manager
+  - enterprise-project-manager
+  - product-designer
+  - qa-engineer
+  - solo-creator
+  - nontechnical-office-worker
+  - accessibility-first-user
+  - career-switching-student
+contracts:
+  study: v1
+  evidence: v1
+runtimes:
+  codex: supported
+  claude: supported
+
