@@ -21,9 +21,9 @@ import { TaskComposerFields } from "../tasks/components/TaskComposerFields.tsx";
 import { projectApi } from "./api.ts";
 import { projectStatusLabel } from "./presentation.ts";
 import { PetPreview } from "../office/PetPreview.tsx";
-import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
+import { useAlertDialog, useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { messageOf } from "../../shared/lib/errors.ts";
-import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
+import { AlertDialog, ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { Empty } from "../../shared/ui/Empty.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { FullScreenMessage } from "../../shared/ui/FullScreenMessage.tsx";
@@ -498,6 +498,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { confirm, dialogProps } = useConfirmDialog();
+  const { alert, dialogProps: alertDialogProps } = useAlertDialog();
   const projectQuery = useQuery({ queryKey: ["project", id], queryFn: () => projectApi.get(id) });
   const tasks = useQuery({
     queryKey: ["tasks", workspace.id],
@@ -722,10 +723,17 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
             $fullWidth
             disabled={remove.isPending}
             onClick={async () => {
+              if (relatedTasks.length > 0) {
+                await alert({
+                  title: "프로젝트를 삭제할 수 없어요",
+                  description: `연결된 작업이 ${relatedTasks.length}개 있어요. 작업을 다른 프로젝트로 옮기거나 삭제한 뒤 다시 시도해 주세요.`,
+                });
+                return;
+              }
               if (
                 await confirm({
                   title: `${projectQuery.data.name} 프로젝트를 삭제할까요?`,
-                  description: "작업은 삭제되지 않고 프로젝트 연결만 해제됩니다.",
+                  description: "삭제하면 되돌릴 수 없습니다.",
                   confirmLabel: "프로젝트 삭제",
                   tone: "danger",
                 })
@@ -743,6 +751,7 @@ export function ProjectDetailPage({ workspace }: { workspace: Workspace }) {
         </Styled.ContextForm>
       </Styled.DetailLayout>
       <ConfirmDialog {...dialogProps} />
+      <AlertDialog {...alertDialogProps} />
     </BaseLayout>
   );
 }

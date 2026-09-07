@@ -7,6 +7,10 @@ Accepted — 2026-09-05
 구현됨 — Task의 `projectId`를 명시적 scope 선택으로 사용하고, project가 없으면 앱 전용 general 실행
 경로를 사용한다. `agent_runs.scope_type`과 `working_directory`가 실행 당시 계약을 보존한다.
 
+2026-09-07 업데이트 — 프로젝트 삭제와 Task 재배정 UI에 아래 결정 항목을 추가로 적용했다
+(`ai-docs/records/project-management-ux-review-2026-09-07.md` 참고). 서버의 `PROJECT_IN_USE`
+계약 자체는 바뀌지 않았다.
+
 ## 맥락
 
 AI Pixel Office는 Electron 설치형 앱이다. 개발 중에는 저장소 루트에서 앱과 Agent runtime을
@@ -54,6 +58,13 @@ type ConversationScope = { type: "general" } | { type: "workspace"; rootPath: st
 - 프로젝트 경로는 절대 경로만 허용하고 실행 시 실제 경로로 정규화한다. 첫 실행 이후 Task의 project와
   Project의 경로를 잠가 같은 논리 세션이 다른 실행 문맥으로 이어지는 것을 막는다. 연결된 Task가 있는
   Project도 삭제하지 않는다.
+- 연결된 Task가 있는 Project의 삭제를 차단하는 서버 계약은 UI에서도 실행 전에 사전 안내해야 한다.
+  삭제 버튼 클릭 시 서버 호출로 실패를 확인시키지 않고, 연결된 Task 수를 먼저 안내한 뒤 Task가 없을
+  때만 파괴적 확인으로 진행한다.
+- "폴더가 연결된 프로젝트만 작업 폴더 선택지로 제공한다"는 원칙은 메신저 새 대화뿐 아니라 Task
+  재배정 선택지에도 동일하게 적용한다. 다만 이미 배정된 Project가 폴더 미연결 상태라도 재배정
+  선택지 목록에서 현재 선택값이 사라지지 않아야 한다 — 필터링이 기존 배정을 사용자 모르게 바꾸는
+  부작용을 만들면 안 된다.
 - general scope는 앱이 관리하는 안정적인 전용 디렉터리에서 실행한다. AI Pixel Office는 별도 메모리
   저장소나 runtime 간 메모리 동기화를 구현하지 않고 Codex/Claude가 해당 실행 경로와 사용자 전역
   설정에서 제공하는 동작을 그대로 사용한다.
