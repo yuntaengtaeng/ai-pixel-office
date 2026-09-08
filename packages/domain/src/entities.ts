@@ -136,6 +136,8 @@ export type AgentRun = {
   modelName?: string;
   reasoningEffort?: ReasoningEffort;
   status: AgentRunStatus;
+  /** 종료된 runtime session을 명시적으로 다시 열어 만든 Run이면 출발 Run을 보존한다. */
+  resumedFromRunId?: string;
   runtimeThreadId?: string;
   startedAt?: string;
   finishedAt?: string;

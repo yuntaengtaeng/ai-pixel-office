@@ -1,9 +1,37 @@
 type: decision-log
-revision: 2
+revision: 4
 status: accepted
 topic: "온보딩 readiness와 완료 경로"
-source_handoff: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff.yaml"
+source_handoff: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff-r3.yaml"
 decisions:
+  - type: decision
+    date: "2026-09-08"
+    topic: "Claude 대화형 승인"
+    raised_by: "Product"
+    decision: "Claude도 Codex와 같은 Task 승인 카드로 도구 요청을 사용자에게 제시한다. Claude runtime은 dontAsk CLI 실행 대신 Agent SDK의 canUseTool callback을 사용하며, 읽기 도구는 자동 허용하고 Bash·파일 변경 등 나머지 도구 요청은 runtime-protocol approval event로 전이한다."
+    reason: "provider에 따라 사용자가 작업 중단 원인과 승인 권한을 다르게 경험하지 않게 한다."
+    alternatives:
+      - "Claude를 dontAsk 모드로 유지하고 승인 필요 도구를 즉시 거절"
+      - "Claude CLI의 터미널 prompt를 앱 UI와 별도로 표시"
+    impact:
+      - "Claude의 승인 요청도 Task를 needs_input으로 전이하고 activity metadata에 근거를 보존한다."
+      - "세션 허용은 SDK가 제공한 permission suggestion을 session 범위로만 적용하며 사용자·프로젝트 설정을 영속 변경하지 않는다."
+      - "Claude SDK와 CLI 버전의 compatibility 회귀 검증이 필요하다."
+    requires_adr: false
+  - type: decision
+    date: "2026-09-08"
+    topic: "Task 상세과 메신저의 작업 세션 역할"
+    raised_by: "Product"
+    decision: "Task 상세과 Chat은 route를 통합하지 않는다. Chat은 Claude·Codex App에 익숙한 사용자를 위한 대화 중심 진입점으로, Task 상세은 결과 검토와 업무 관리 중심 진입점으로 유지한다. 두 표면은 동일 Task session의 실행 상태와 이력을 표시한다."
+    reason: "대화형 사용 습관을 지키면서도 두 표면이 같은 실행 이력을 서로 다르게 해석하지 않게 한다."
+    alternatives:
+      - "모든 Chat task를 /tasks/:id로 redirect"
+      - "Task 상세의 실행·검토 기능을 Chat으로 이동"
+    impact:
+      - "task.origin에 따른 기존 deep link와 Chat 목록 경험을 보존한다."
+      - "needs_review의 Task 수정 요청은 review history를 남기는 별도 행동으로 유지한다."
+      - "현재 runtime은 blocked 상태를 만들지 않으므로, 해당 상태의 사용자 행동을 추가하기 전에 상태 생산 계약을 먼저 결정한다."
+    requires_adr: false
   - type: decision
     date: "2026-09-08"
     topic: "업무 의도 중심 onboarding과 첫 Task activation"

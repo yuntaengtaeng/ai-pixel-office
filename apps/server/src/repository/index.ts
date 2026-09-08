@@ -288,6 +288,7 @@ export class Repository {
       | "modelPolicy"
       | "modelName"
       | "reasoningEffort"
+      | "resumedFromRunId"
       | "request"
       | "scopeType"
       | "scopeProjectId"

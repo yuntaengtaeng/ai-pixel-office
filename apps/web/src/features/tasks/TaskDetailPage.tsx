@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BackButton, Button, Select } from "@ai-pixel-office/design-system";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
+import type { ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import { activityApi } from "../activity/api.ts";
 import { agentApi } from "../agents/api.ts";
 import { skillApi } from "../skills/api.ts";
@@ -23,6 +24,7 @@ import { StatusPill } from "../../shared/ui/StatusPill.tsx";
 import { ProjectSelect } from "../projects/ProjectSelect.tsx";
 import { recordApi } from "../records/api.ts";
 import { TaskResultView } from "./components/results/TaskResultView.tsx";
+import { RunHistory } from "./components/results/RunHistory.tsx";
 import { WorkInProgress } from "./components/execution/WorkInProgress.tsx";
 import { RunProgress } from "./components/execution/RunProgress.tsx";
 import { FailureState as ExecutionFailureState } from "./components/execution/FailureState.tsx";
@@ -333,6 +335,8 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     queryFn: () => recordApi.list(workspace.id),
   });
   const [feedback, setFeedback] = useState("");
+  const [resumeMessage, setResumeMessage] = useState("");
+  const [resumeSourceRunId, setResumeSourceRunId] = useState<string>();
   const [taskBrief, setTaskBrief] = useState("");
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   useEffect(() => {
@@ -370,6 +374,14 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
       refresh();
     },
   });
+  const resumeSession = useMutation({
+    mutationFn: () => taskApi.resumeSession(id, resumeSourceRunId!, resumeMessage),
+    onSuccess: () => {
+      setResumeMessage("");
+      setResumeSourceRunId(undefined);
+      refresh();
+    },
+  });
   const cancel = useMutation({
     mutationFn: (runId: string) => taskApi.cancelRun(runId),
     onSuccess: refresh,
@@ -382,7 +394,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     }: {
       runId: string;
       requestId: string;
-      decision: "accept" | "cancel";
+      decision: ApprovalDecision;
     }) => taskApi.resolveApproval(runId, requestId, decision),
     onSuccess: refresh,
   });
@@ -477,6 +489,11 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     },
   });
   const latestRun = item?.runs[0];
+  const resumableRun = item?.runs.find(
+    (entry) =>
+      Boolean(entry.runtimeThreadId) &&
+      ["completed", "cancelled"].includes(entry.status),
+  );
   const runActivities = (activities.data ?? []).filter(
     (activity) => activity.runId === latestRun?.id,
   );
@@ -502,6 +519,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
     continueSession.error ??
     approve.error ??
     changes.error ??
+    resumeSession.error ??
     cancel.error ??
     resolveApproval.error ??
     repairPermissions.error ??
@@ -637,9 +655,23 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                       latestRun?.status === "running" ||
                       latestRun?.status === "waiting"
                         ? latestRun.status
-                        : undefined
+                      : undefined
                     }
                   />
+                  {pendingApproval && (
+                    <ExecutionRuntimeApproval
+                      activity={pendingApproval}
+                      agent={agent}
+                      pending={resolveApproval.isPending}
+                      onDecision={(decision) =>
+                        resolveApproval.mutate({
+                          runId: latestRun!.id,
+                          requestId: String(pendingApproval.metadata?.requestId),
+                          decision,
+                        })
+                      }
+                    />
+                  )}
                   {active && <RunProgress events={item.progress} />}
                 </>
               ) : sessionLimitReason ? (
@@ -693,8 +725,39 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                 </Styled.ReviewFinish>
               </Styled.ReviewBox>
             )}
+            {item.status === "done" && resumableRun && (
+              <Styled.ReviewBox>
+                {resumeSourceRunId ? (
+                  <TaskSessionComposer
+                    id="resume-session"
+                    title="이전 맥락으로 무엇을 이어갈까요?"
+                    description="선택한 실행의 Codex 또는 Claude 세션을 그대로 다시 엽니다."
+                    value={resumeMessage}
+                    placeholder="이어서 맡길 일을 입력해 주세요"
+                    submitLabel="세션 다시 열기"
+                    submittingLabel="세션을 여는 중"
+                    pending={resumeSession.isPending}
+                    disabled={!resumeMessage.trim()}
+                    helper="실행 환경은 현재 Project 설정을 기준으로 다시 확인합니다."
+                    onChange={setResumeMessage}
+                    onSubmit={() => resumeSession.mutate()}
+                  />
+                ) : (
+                  <Styled.ReviewFinish>
+                    <span>이전 대화의 맥락을 유지한 채 작업을 더 이어갈 수 있어요.</span>
+                    <Button
+                      $variant="secondary"
+                      onClick={() => setResumeSourceRunId(resumableRun.id)}
+                    >
+                      세션 다시 열기
+                    </Button>
+                  </Styled.ReviewFinish>
+                )}
+              </Styled.ReviewBox>
+            )}
             {actionError && <ErrorBanner>{messageOf(actionError)}</ErrorBanner>}
           </Styled.ResultPanel>
+          <RunHistory runs={item.runs} progressByRun={item.progressByRun} />
         </Styled.DetailMain>
         <Styled.TaskMeta>
           <h2>작업 정보</h2>
@@ -807,19 +870,6 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                 기본 업무 모드로 전환
               </Button>
             </Styled.PermissionWarning>
-          )}
-          {pendingApproval && (
-            <ExecutionRuntimeApproval
-              activity={pendingApproval}
-              pending={resolveApproval.isPending}
-              onDecision={(decision) =>
-                resolveApproval.mutate({
-                  runId: latestRun!.id,
-                  requestId: String(pendingApproval.metadata?.requestId),
-                  decision,
-                })
-              }
-            />
           )}
           <dl>
             <div>

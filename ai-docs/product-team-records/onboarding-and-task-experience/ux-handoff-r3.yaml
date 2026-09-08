@@ -66,7 +66,10 @@ open_questions:
     question: "코드 외 작업까지 공통으로 제공 가능한 구조화된 변경 목록과 verification 신호는 무엇인가?"
   - id: OQ-08
     owner: "Product / UI Designer / Full-stack Developer"
-    question: "Task 상세과 Chat을 한 route로 통합할지 동일 session을 공유하는 두 표면으로 유지할지?"
+    question: "해결됨: Task 상세과 Chat은 서로 다른 사용자 습관을 지원하는 두 표면으로 유지한다. 같은 Task의 실행 상태와 대화 이력은 동일한 server session을 사용한다."
+  - id: OQ-12
+    owner: "Runtime Integrator / Product Architect"
+    question: "blocked는 domain 상태와 UI에는 존재하지만 현재 orchestrator가 생산하지 않는다. runtime이 사용자 입력으로 해소 가능한 차단을 명시적으로 보고할 계약을 추가할지, 아니면 상태와 UI 지원을 제거하고 failed 또는 needs_input으로 수렴할지 결정한다."
   - id: OQ-09
     owner: "Product Architect / Security Reviewer"
     question: "로컬 파일과 붙여넣은 이미지는 원본 참조, 앱 저장소 복사, run snapshot 중 어떤 정책을 사용하며 runtime에 어떻게 전달하는가?"

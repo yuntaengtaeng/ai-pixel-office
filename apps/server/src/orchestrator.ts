@@ -49,6 +49,7 @@ type RunReservationOptions = {
   expectedTaskStatus?: Task["status"];
   expectedAssigneeAgentId?: string;
   resetFailedWorkflowStep?: boolean;
+  resumedFromRunId?: string;
   review?: Parameters<Repository["createReview"]>[0];
   activities?: Array<Parameters<Repository["createActivity"]>[0]>;
 };
@@ -375,7 +376,15 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
       throw new DomainError("TASK_NOT_STARTED", "대화를 먼저 시작해 주세요", 409);
     }
     const agent = await this.requireRuntimeAgent(task);
-    return this.queueRun(task, agent, trimmed, previousRun.runtimeThreadId, undefined, undefined, trimmed);
+    return this.queueRun(
+      task,
+      agent,
+      trimmed,
+      previousRun.runtimeThreadId,
+      undefined,
+      undefined,
+      trimmed,
+    );
   }
 
   async continueTask(taskId: string): Promise<AgentRun> {
@@ -472,6 +481,51 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
       undefined,
       sessionBudget,
       "같은 작업 세션의 한도를 늘려 계속",
+    );
+  }
+
+  async resumeTaskSession(taskId: string, sourceRunId: string, message: string): Promise<AgentRun> {
+    const request = message.trim();
+    if (!request) throw new DomainError("INVALID_MESSAGE", "A continuation request is required");
+    const task = await this.repository.getTask(taskId);
+    if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
+    if (task.status !== "done" && task.status !== "todo") {
+      throw new DomainError(
+        "TASK_NOT_RESUMABLE",
+        "Only completed or cancelled tasks can resume a session",
+        409,
+      );
+    }
+    const sourceRun = await this.repository.getRun(sourceRunId);
+    if (
+      !sourceRun ||
+      sourceRun.taskId !== task.id ||
+      !["completed", "cancelled"].includes(sourceRun.status) ||
+      !sourceRun.runtimeThreadId
+    ) {
+      throw new DomainError(
+        "SESSION_NOT_RESUMABLE",
+        "The selected run cannot resume a session",
+        409,
+      );
+    }
+    const agent = await this.requireRuntimeAgent(task);
+    if (agent.model !== sourceRun.runtime) {
+      throw new DomainError(
+        "SESSION_RUNTIME_CHANGED",
+        "Reconnect the runtime used by the selected session",
+        409,
+      );
+    }
+    return this.queueRun(
+      task,
+      agent,
+      request,
+      sourceRun.runtimeThreadId,
+      undefined,
+      undefined,
+      request,
+      { resumedFromRunId: sourceRun.id },
     );
   }
 
@@ -582,6 +636,7 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
         modelPolicy: modelSelection.policy,
         modelName: modelSelection.modelName,
         reasoningEffort: modelSelection.reasoningEffort,
+        resumedFromRunId: reservationOptions.resumedFromRunId,
         request,
         scopeType: executionScope.type,
         scopeProjectId: executionScope.projectId,

@@ -7,7 +7,7 @@ const transitions: Record<TaskStatus, readonly TaskStatus[]> = {
   needs_review: ["done", "working"],
   needs_input: ["working", "todo", "blocked", "failed"],
   blocked: ["todo", "working", "failed"],
-  done: [],
+  done: ["working"],
   failed: ["todo"],
 };
 

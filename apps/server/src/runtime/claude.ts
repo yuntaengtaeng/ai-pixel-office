@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline";
 import { resolve } from "node:path";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import { DomainError } from "@ai-pixel-office/domain";
 import {
   BoundedJsonlWriter,
@@ -99,6 +100,10 @@ export function normalizeClaudeMessage(
 
 export class ClaudeRuntimeAdapter implements RuntimeAdapter {
   private readonly active = new Map<string, ActiveClaudeRun>();
+  private readonly approvalResolvers = new Map<
+    string,
+    Map<string, (decision: ApprovalDecision) => void>
+  >();
   private readonly logDirectory: string;
 
   constructor(logDirectory = ".runtime-logs") {
@@ -113,6 +118,108 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
       throw new DomainError("INVALID_CLAUDE_SESSION", "Claude session ID is invalid", 422);
     }
 
+    return this.runWithSdk(input, callbacks);
+  }
+
+  private async runWithSdk(
+    input: RuntimeRunInput,
+    callbacks: RuntimeCallbacks,
+  ): Promise<RuntimeRunResult> {
+    const controller = new AbortController();
+    const events: AgentEvent[] = [];
+    const state = createClaudeNormalizationState();
+    const approvals = new Map<string, (decision: ApprovalDecision) => void>();
+    const logDirectory = resolve(this.logDirectory);
+    pruneRuntimeLogs(logDirectory);
+    const logWriter = new BoundedJsonlWriter(logDirectory, input.runId);
+    let sessionId = input.resumeThreadId ?? "";
+    let timedOut = false;
+    let cancelled = false;
+    const emit = (event: AgentEvent) => {
+      events.push(event);
+      callbacks.onEvent(event);
+    };
+    const cancel = () => {
+      cancelled = true;
+      controller.abort();
+    };
+    this.active.set(input.runId, { cancel });
+    this.approvalResolvers.set(input.runId, approvals);
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, input.limits.maxDurationMs);
+    try {
+      const stream = query({
+        prompt: input.prompt,
+        options: {
+          cwd: input.cwd,
+          model: input.modelName,
+          resume: input.resumeThreadId,
+          maxTurns: Math.max(1, input.limits.maxTurns),
+          tools: allowedTools(input),
+          permissionMode: "default",
+          abortController: controller,
+          canUseTool: async (toolName, toolInput, options) => {
+            if (["Read", "Glob", "Grep"].includes(toolName)) return { behavior: "allow" };
+            const requestId = options.requestId;
+            const decision = await new Promise<ApprovalDecision>((resolveDecision) => {
+              approvals.set(requestId, resolveDecision);
+              emit({
+                type: "permission_requested",
+                permission: claudePermissionName(toolName),
+                requestId,
+                details: {
+                  reason: options.title ?? options.decisionReason,
+                  command: typeof toolInput.command === "string" ? toolInput.command : undefined,
+                  path: options.blockedPath ?? claudePath(toolInput),
+                  toolName,
+                },
+              });
+            });
+            approvals.delete(requestId);
+            if (decision === "cancel") controller.abort();
+            if (decision === "acceptForSession") {
+              return { behavior: "allow", updatedPermissions: options.suggestions };
+            }
+            return decision === "accept"
+              ? { behavior: "allow" }
+              : { behavior: "deny", message: "User declined this tool request." };
+          },
+        },
+      });
+      for await (const message of stream) {
+        const raw = message as unknown as ClaudeMessage;
+        logWriter.write({ timestamp: new Date().toISOString(), message: raw });
+        const messageSessionId = stringValue(raw.session_id);
+        if (messageSessionId) sessionId = messageSessionId;
+        for (const event of normalizeClaudeMessage(raw, state)) emit(event);
+      }
+      if (!events.some((event) => ["completed", "failed", "cancelled"].includes(event.type))) {
+        emit(
+          timedOut
+            ? { type: "failed", error: `Claude execution exceeded ${input.limits.maxDurationMs}ms.` }
+            : cancelled
+              ? { type: "cancelled", cleanupPolicy: "preserve" }
+              : { type: "failed", error: "Claude ended without a result." },
+        );
+      }
+      return { runId: input.runId, threadId: sessionId, turnId: input.runId, eventLogRef: logWriter.path, events };
+    } catch (error) {
+      if (controller.signal.aborted && cancelled) emit({ type: "cancelled", cleanupPolicy: "preserve" });
+      else emit({ type: "failed", error: claudeSpawnError(error) });
+      return { runId: input.runId, threadId: sessionId, turnId: input.runId, eventLogRef: logWriter.path, events };
+    } finally {
+      clearTimeout(timeout);
+      for (const resolveApproval of approvals.values()) resolveApproval("cancel");
+      this.approvalResolvers.delete(input.runId);
+      this.active.delete(input.runId);
+      await logWriter.close();
+    }
+  }
+
+  /* Legacy stream-json implementation retained below temporarily for normalization compatibility. */
+  private async runWithLegacyCli(input: RuntimeRunInput, callbacks: RuntimeCallbacks): Promise<RuntimeRunResult> {
     const args = [
       "-p",
       "--output-format",
@@ -219,13 +326,34 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
   cancel(runId: string): boolean {
     const run = this.active.get(runId);
     if (!run) return false;
+    for (const resolveApproval of this.approvalResolvers.get(runId)?.values() ?? []) {
+      resolveApproval("cancel");
+    }
     run.cancel();
     return true;
   }
 
-  resolveApproval(_runId: string, _requestId: string, _decision: ApprovalDecision): boolean {
-    return false;
+  resolveApproval(runId: string, requestId: string, decision: ApprovalDecision): boolean {
+    const approvals = this.approvalResolvers.get(runId);
+    const resolveApproval = approvals?.get(requestId);
+    if (!resolveApproval) return false;
+    approvals?.delete(requestId);
+    resolveApproval(decision);
+    return true;
   }
+}
+
+function claudePermissionName(toolName: string): string {
+  if (toolName === "Bash") return "terminal";
+  if (["Edit", "Write", "NotebookEdit"].includes(toolName)) return "file_write";
+  return toolName;
+}
+
+function claudePath(input: Record<string, unknown>): string | undefined {
+  for (const key of ["file_path", "path", "notebook_path"]) {
+    if (typeof input[key] === "string") return input[key];
+  }
+  return undefined;
 }
 
 function allowedTools(input: RuntimeRunInput): string[] {

@@ -41,6 +41,7 @@ type CreateRunInput = Pick<
   | "modelPolicy"
   | "modelName"
   | "reasoningEffort"
+  | "resumedFromRunId"
   | "request"
   | "scopeType"
   | "scopeProjectId"
@@ -70,8 +71,8 @@ function createRunSync(database: AppDatabase, input: CreateRunInput): AgentRun {
     .prepare(
       `INSERT INTO agent_runs
       (id, task_id, agent_id, runtime, model_policy, model_name, reasoning_effort, status,
-       request_text, scope_type, scope_project_id, working_directory, cleanup_policy, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       resumed_from_run_id, request_text, scope_type, scope_project_id, working_directory, cleanup_policy, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       run.id,
@@ -82,6 +83,7 @@ function createRunSync(database: AppDatabase, input: CreateRunInput): AgentRun {
       run.modelName ?? null,
       run.reasoningEffort ?? null,
       run.status,
+      run.resumedFromRunId ?? null,
       run.request ?? null,
       run.scopeType,
       run.scopeProjectId ?? null,

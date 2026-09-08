@@ -26,6 +26,8 @@ test/                  domain/API/orchestrator 통합 테스트
 
 ## Runtime 지도
 
+Claude의 대화형 승인 요청은 headless CLI prompt가 아니라 Claude Agent SDK의 `canUseTool` callback으로 받는다. callback은 normalized `permission_requested` event로 변환되어 Task를 `needs_input`으로 전이시키고, 사용자의 allow/deny/cancel 응답을 같은 callback에 반환한다. Codex App Server approval과 Claude callback은 renderer에 직접 노출하지 않고 `runtime-protocol`과 approval activity metadata를 거친다.
+
 ```text
 Installed desktop
 Electron main
@@ -48,7 +50,8 @@ Task는 Electron `userData/general`(개발 server는 별도의 임시 general �
 `userData/runtime-logs` 절대경로에 저장한다. 개발 server는 general 폴더 아래 `.runtime-logs`를 사용한다.
 `task`/`agent`/`workspace`의 기존 `workingDirectory`는 호환 데이터일 뿐 실행 fallback으로 사용하지 않으며,
 새 API와 UI에서도 더 이상 받지 않는다. 각 `agent_runs` 행은 실행 당시의 `scopeType`(`general` 또는
-`project`), project ID와 실제 작업 디렉터리를 기록한다. 첫 run 이후 이 세 값이 달라지면 retry, 변경
+`project`), project ID와 실제 작업 디렉터리를 기록한다. 종료된 runtime session을 명시적으로 재개한
+Run은 `resumedFromRunId`로 출발 Run도 보존한다. 첫 run 이후 이 세 값이 달라지면 retry, 변경
 요청, 세션 연장, workflow 후속 단계를 거부한다. 프로젝트 경로는 절대 경로만 등록하며 실행 시
 `realpath`로 정규화해 symlink 또는 junction 대상 변경도 기존 run snapshot과 다르면 차단한다. 이 CWD
 계약은 프로젝트 지침과 기본 작업 문맥을 격리하지만 CWD 밖 파일 접근을 강제하는 sandbox는 아니다.

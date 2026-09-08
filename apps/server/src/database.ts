@@ -146,6 +146,7 @@ function migrate(database: AppDatabase): void {
       model_name TEXT,
       reasoning_effort TEXT CHECK(reasoning_effort IN ('low', 'medium', 'high', 'xhigh')),
       status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'waiting', 'completed', 'failed', 'cancelled')),
+      resumed_from_run_id TEXT REFERENCES agent_runs(id) ON DELETE SET NULL,
       runtime_thread_id TEXT,
       started_at TEXT,
       finished_at TEXT,
@@ -319,6 +320,10 @@ function migrate(database: AppDatabase): void {
   if (!runColumns.some((column) => column.name === "scope_project_id")) {
     database.exec("ALTER TABLE agent_runs ADD COLUMN scope_project_id TEXT");
   }
+  if (!runColumns.some((column) => column.name === "resumed_from_run_id")) {
+    database.exec("ALTER TABLE agent_runs ADD COLUMN resumed_from_run_id TEXT REFERENCES agent_runs(id)");
+  }
+  database.exec("CREATE INDEX IF NOT EXISTS runs_resumed_from_idx ON agent_runs(resumed_from_run_id)");
   database.exec(`INSERT OR IGNORE INTO projects
     (id, workspace_id, name, status, working_directory, created_at, updated_at)
     SELECT id, workspace_id, name, 'active', path, created_at, created_at FROM project_directories`);

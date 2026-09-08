@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mediaQuery } from "@ai-pixel-office/design-system";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
+import type { ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import styled from "styled-components";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
@@ -11,6 +12,7 @@ import { messageOf } from "../../shared/lib/errors.ts";
 import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { agentApi } from "../agents/api.ts";
+import { activityApi } from "../activity/api.ts";
 import { projectApi } from "../projects/api.ts";
 import { taskApi } from "../tasks/api.ts";
 import { chatApi } from "./api.ts";
@@ -56,6 +58,11 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["projects", workspace.id],
     queryFn: () => projectApi.list(workspace.id),
   });
+  const activities = useQuery({
+    queryKey: ["activities", workspace.id],
+    queryFn: () => activityApi.list(workspace.id),
+    refetchInterval: taskId ? 1500 : false,
+  });
   const task = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => taskApi.get(taskId as string),
@@ -98,12 +105,35 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     mutationFn: () => taskApi.approve(taskId as string),
     onSuccess: invalidate,
   });
+  const resumeSession = useMutation({
+    mutationFn: (message: string) => {
+      const sourceRun = task.data?.runs.find(
+        (run) =>
+          Boolean(run.runtimeThreadId) && ["completed", "cancelled"].includes(run.status),
+      );
+      if (!sourceRun) throw new Error("다시 열 수 있는 이전 세션이 없습니다.");
+      return taskApi.resumeSession(taskId as string, sourceRun.id, message);
+    },
+    onSuccess: invalidate,
+  });
   const deleteChat = useMutation({
     mutationFn: () => taskApi.remove(taskId as string),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
       navigate("/chat");
     },
+  });
+  const resolveApproval = useMutation({
+    mutationFn: ({
+      runId,
+      requestId,
+      decision,
+    }: {
+      runId: string;
+      requestId: string;
+      decision: ApprovalDecision;
+    }) => taskApi.resolveApproval(runId, requestId, decision),
+    onSuccess: invalidate,
   });
 
   if (agents.isPending || chats.isPending || projects.isPending)
@@ -112,6 +142,26 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     return <FullScreenMessage error>{messageOf(agents.error ?? projects.error)}</FullScreenMessage>;
 
   const activeAgent = agents.data?.find((agent) => agent.id === task.data?.assigneeAgentId);
+  const latestRun = task.data?.runs[0];
+  const runActivities = (activities.data ?? []).filter((activity) => activity.runId === latestRun?.id);
+  const pendingApproval =
+    latestRun?.status === "waiting"
+      ? runActivities.find((activity) => {
+          if (activity.type !== "approval_requested") return false;
+          const requestId = String(activity.metadata?.requestId ?? "");
+          return !runActivities.some(
+            (candidate) =>
+              candidate.type === "approval_resolved" &&
+              String(candidate.metadata?.requestId ?? "") === requestId &&
+              candidate.createdAt > activity.createdAt,
+          );
+        })
+      : undefined;
+  const resumableRun = task.data?.runs.find(
+    (run) => Boolean(run.runtimeThreadId) && ["completed", "cancelled"].includes(run.status),
+  );
+  const canResumeSession =
+    Boolean(resumableRun) && ["done", "todo"].includes(task.data?.status ?? "");
   const projectsWithFolders = (projects.data ?? []).filter((project) => project.path);
   const recentProject = recentProjectId(workspace.id);
   const latestProject = projectsWithFolders.reduce<
@@ -149,11 +199,24 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
               agent={activeAgent}
               onSendMessage={(message) => sendMessage.mutate(message)}
               sending={sendMessage.isPending}
-              sendError={sendMessage.error}
+              sendError={sendMessage.error ?? resumeSession.error}
               onRetry={() => retry.mutate()}
               onContinueSession={() => continueSession.mutate()}
               onExtendSession={() => extendSession.mutate()}
               sessionActionPending={continueSession.isPending || extendSession.isPending}
+              pendingApproval={pendingApproval}
+              approvalPending={resolveApproval.isPending}
+              onApprovalDecision={(decision) => {
+                if (!latestRun || !pendingApproval) return;
+                resolveApproval.mutate({
+                  runId: latestRun.id,
+                  requestId: String(pendingApproval.metadata?.requestId),
+                  decision,
+                });
+              }}
+              canResumeSession={canResumeSession}
+              onResumeSession={(message) => resumeSession.mutate(message)}
+              resumePending={resumeSession.isPending}
               onEndChat={() => endChat.mutate()}
               endPending={endChat.isPending}
               onDelete={async () => {

@@ -142,6 +142,7 @@ export function runFrom(row: Row): AgentRun {
     modelName: optional(row.model_name),
     reasoningEffort: optional(row.reasoning_effort) as AgentRun["reasoningEffort"],
     status: row.status as AgentRunStatus,
+    resumedFromRunId: optional(row.resumed_from_run_id),
     runtimeThreadId: optional(row.runtime_thread_id),
     startedAt: optional(row.started_at),
     finishedAt: optional(row.finished_at),

@@ -22,6 +22,7 @@ const listQuery = z.object({
 const workflowBody = z.object({ agentIds: z.array(z.string()) });
 const feedbackBody = z.object({ feedback: z.string() });
 const messageBody = z.object({ message: z.string() });
+const resumeBody = z.object({ sourceRunId: z.string(), message: z.string().min(1) });
 
 export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get("", { schema: { querystring: listQuery } }, async (request, reply) =>
@@ -65,6 +66,21 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post("/:id/extend-session", { schema: { params: idParams } }, async (request, reply) =>
     data(reply, 202, await app.orchestrator.extendTaskSession(request.params.id)),
+  );
+
+  app.post(
+    "/:id/resume",
+    { schema: { params: idParams, body: resumeBody } },
+    async (request, reply) =>
+      data(
+        reply,
+        202,
+        await app.orchestrator.resumeTaskSession(
+          request.params.id,
+          request.body.sourceRunId,
+          request.body.message,
+        ),
+      ),
   );
 
   app.post("/:id/approve", { schema: { params: idParams } }, async (request, reply) =>

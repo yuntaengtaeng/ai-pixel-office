@@ -6,6 +6,7 @@ import type {
   TaskReview,
   TaskWorkflowStep,
 } from "@ai-pixel-office/domain/entities";
+import type { ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import { post, request } from "../../shared/api/client.ts";
 
 export type TaskDetail = Task & {
@@ -56,12 +57,14 @@ export const taskApi = {
   retry: (id: string) => post<AgentRun>(`/api/tasks/${id}/retry`, {}),
   continue: (id: string) => post<AgentRun>(`/api/tasks/${id}/continue`, {}),
   extendSession: (id: string) => post<AgentRun>(`/api/tasks/${id}/extend-session`, {}),
+  resumeSession: (id: string, sourceRunId: string, message: string) =>
+    post<AgentRun>(`/api/tasks/${id}/resume`, { sourceRunId, message }),
   approve: (id: string) => post<Task>(`/api/tasks/${id}/approve`, {}),
   requestChanges: (id: string, feedback: string) =>
     post<AgentRun>(`/api/tasks/${id}/request-changes`, { feedback }),
   sendMessage: (id: string, message: string) =>
     post<AgentRun>(`/api/tasks/${id}/messages`, { message }),
   cancelRun: (id: string) => post<AgentRun>(`/api/runs/${id}/cancel`, {}),
-  resolveApproval: (runId: string, requestId: string, decision: "accept" | "cancel") =>
+  resolveApproval: (runId: string, requestId: string, decision: ApprovalDecision) =>
     post<AgentRun>(`/api/runs/${runId}/approvals/${requestId}`, { decision }),
 };

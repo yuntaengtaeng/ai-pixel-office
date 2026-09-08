@@ -183,6 +183,58 @@ test("runs task through approval, review, and approval persistence", async () =>
   }
 });
 
+test("reopens a completed Task from the selected Run and preserves its origin", async () => {
+  const repository = new Repository(openDatabase(":memory:"));
+  const resumedThreadIds: Array<string | undefined> = [];
+  const runtime: RuntimeAdapter = {
+    async run(input, callbacks) {
+      resumedThreadIds.push(input.resumeThreadId);
+      const threadId = input.resumeThreadId ?? "original-session";
+      const completed = { type: "completed", result: { summary: input.prompt } } as const;
+      callbacks.onEvent({ type: "started", threadId });
+      callbacks.onEvent(completed);
+      return { runId: input.runId, threadId, turnId: input.runId, events: [completed] };
+    },
+    cancel: () => false,
+    resolveApproval: () => false,
+  };
+  try {
+    const workspace = await repository.createWorkspace({ name: "Studio" });
+    const agent = await repository.createAgent({
+      workspaceId: workspace.id,
+      name: "Assistant",
+      role: "Help",
+      model: "claude",
+      skillIds: [],
+      permissions: { fileRead: true, terminal: true },
+    });
+    const task = await repository.createTask({
+      workspaceId: workspace.id,
+      title: "Morning greeting",
+      assigneeAgentId: agent.id,
+    });
+    const orchestrator = new Orchestrator(repository, runtime, new EventBus(), {
+      generalWorkingDirectory,
+    });
+
+    const originalRun = await orchestrator.startTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await orchestrator.approveTask(task.id);
+
+    const resumedRun = await orchestrator.resumeTaskSession(
+      task.id,
+      originalRun.id,
+      "아까 뭐라고 했게?",
+    );
+    assert.equal(resumedRun.resumedFromRunId, originalRun.id);
+    assert.equal((await repository.getRun(resumedRun.id))?.resumedFromRunId, originalRun.id);
+    assert.deepEqual(resumedThreadIds, [undefined, "original-session"]);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+  } finally {
+    repository.close();
+  }
+});
+
 test("retries a failed task without creating a replacement task", async () => {
   const repository = new Repository(openDatabase(":memory:"));
   try {
