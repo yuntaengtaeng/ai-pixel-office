@@ -1,0 +1,533 @@
+type: ui-handoff
+revision: 1
+status: ready
+title: "온보딩과 Task 경험 개선 프로그램 UI 명세"
+source_ux_handoff: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff-r2.yaml"
+decision_log: "ai-docs/product-team-records/onboarding-and-task-experience/decision-log.yaml"
+
+scope_strategy:
+  principle: "각 slice는 사용자가 끝까지 완료할 수 있는 vertical slice이며 뒤 slice의 미확정 runtime·저장 계약을 앞 slice가 가정하지 않는다."
+  slices:
+    - id: slice-1-first-success
+      priority: P0
+      implementation_status: ready
+      includes:
+        - "Pet 출근 splash와 workspace/readiness 분기"
+        - "AI 연결, 동료 생성, 선택적 Project 연결의 fullscreen onboarding"
+        - "제가 직접 구성할래요 확인과 dashboard 이동"
+        - "dashboard 첫 Task 진입점의 inline readiness 복구와 draft 복원"
+      excludes:
+        - "Task 자동 생성"
+        - "새 runtime permission 매핑"
+        - "첨부·통합 timeline·구조화 결과 계약"
+      completion: "AC-01~10과 AC-22 중 splash/onboarding/inline 복구의 keyboard·비색상 조건을 충족한다."
+    - id: slice-2-safe-decision
+      priority: P1
+      implementation_status: blocked_by_contract
+      includes: ["승인 3단계", "거절·취소 terminal result", "작업 모드와 고급 permission"]
+      blockers: ["OQ-05", "OQ-06"]
+    - id: slice-3-result-and-session
+      priority: P1
+      implementation_status: blocked_by_contract
+      includes: ["구조화 결과 요약", "Task session timeline", "Task 상세과 Chat의 일관된 사건 표현"]
+      blockers: ["OQ-07", "OQ-08"]
+    - id: slice-4-references
+      priority: P2
+      implementation_status: blocked_by_contract
+      includes: ["붙여넣기 이미지", "파일 선택·드롭", "웹 링크", "자료 snapshot·재사용 표현"]
+      blockers: ["OQ-09", "OQ-10"]
+    - id: slice-5-resource-visibility
+      priority: deferred
+      implementation_status: research_required
+      includes: ["runtime이 신뢰 가능하게 제공하는 범위의 시간·사용량·한도 표시"]
+      blockers: ["OQ-11"]
+
+screen_hierarchy:
+  - id: app-entry
+    shell: "App shell 바깥의 전체 viewport gate"
+    children:
+      - "CommuteSplash"
+      - "WorkspaceErrorScreen"
+      - "OnboardingFlow"
+      - "기존 AppShell과 dashboard"
+    rule: "workspace 성공 전 Sidebar와 route content를 노출하지 않는다. readiness 성공 후 ready면 AppShell, not-ready면 OnboardingFlow를 렌더링한다."
+  - id: commute-splash
+    purpose: "실제 준비 상태를 기다리는 동안 Pet들이 출근해 오피스가 열리는 맥락과 현재 시스템 상태를 함께 전달한다."
+    regions:
+      - "브랜드명과 화면 제목 '오피스 문을 여는 중'"
+      - "PetCommuteScene"
+      - "aria-live 상태 텍스트: workspace 열기 또는 실행 준비 확인"
+      - "장기 확인 시에만 진단/재확인 행동"
+    timing: "minimum dwell time은 없다. 실제 workspace/readiness 판정이 끝나는 즉시 다음 화면으로 전환한다. 장식 animation 완료를 기다리지 않는다."
+  - id: workspace-error
+    purpose: "사용자 설정 부족이 아니라 workspace 조회 실패임을 명확히 한다."
+    regions:
+      - "정적 Pet 장면 또는 기존 오류 표식"
+      - "제목 '오피스를 열지 못했어요'"
+      - "오류 요약과 '기존 데이터는 삭제되지 않았어요'"
+      - "다시 시도 primary action"
+      - "TechnicalDetails 기반 오류 상세"
+    prohibited: "onboarding 시작 또는 dashboard 이동 행동을 제공하지 않는다."
+  - id: onboarding-flow
+    shell: "Sidebar가 없는 fullscreen form flow"
+    regions:
+      - "OnboardingHeader: 브랜드, 제목, 완료/현재/남은 단계 텍스트"
+      - "StepProgress: AI 연결 → AI 동료 → 작업 폴더 → 완료"
+      - "StepPanel: 현재 목적, 기존 form composition, 완료 조건, 오류"
+      - "StepActions: 이전, 다음 또는 완료"
+      - "EscapeAction: 밑줄 텍스트 버튼 '제가 직접 구성할래요'"
+    steps:
+      - id: runtime
+        title: "함께 일할 AI를 연결해요"
+        description: "AI 동료가 요청을 실행하려면 설치와 로그인이 확인되어야 해요."
+        composition: "SettingsPage의 ConnectionCard 두 개를 onboarding용 RuntimeConnectionStep에서 재사용"
+        completion_ui: "runtime별 설치됨/로그인됨 텍스트 상태와 호환 가능 여부; 인증 성공 전 다음 비활성"
+      - id: colleague
+        title: "첫 AI 동료를 맞이해요"
+        description: "이름과 맡길 일을 정하고, 원하는 결과에 가까운 작업 모드를 선택하세요."
+        composition: "AgentsPage create form의 PetChoice, name, role, 선택 설명과 AgentAdvancedOptions를 재사용"
+        first_slice_mode: "OQ-06 해결 전 작업 모드가 permission을 바꾸는 제어처럼 보이면 안 된다. 첫 slice에서는 기존 Agent 기본 계약으로 저장하고, 모드 선택은 UI에 노출하지 않거나 '기본 설정' 단일 읽기 전용 요약으로 둔다."
+        completion_ui: "이름과 맡길 일 필수, 저장 성공 뒤 생성된 Pet·이름·runtime 요약"
+      - id: project
+        title: "자료를 다룰 작업 폴더가 있나요?"
+        description: "폴더를 연결하면 AI 동료가 그 안의 자료를 살펴보고 파일 작업을 할 수 있어요. 일반 대화는 연결 없이 시작할 수 있어요."
+        composition: "ProjectsPage의 folder picker, Project name/description form을 ProjectChoiceStep에 재사용"
+        choices:
+          - "작업 폴더 연결: 기존 directory picker 후 Project 저장"
+          - "지금은 대화부터 시작: Project를 만들지 않고 명시적 선택으로 완료"
+      - id: complete
+        title: "출근 준비가 끝났어요"
+        description: "연결된 AI와 첫 동료, 선택한 작업 범위를 텍스트로 요약한다."
+        primary_action: "대시보드로 가기"
+        note: "Task는 만들지 않는다."
+  - id: direct-config-confirmation
+    presentation: "기존 Dialog primitive의 확인 dialog"
+    title: "온보딩을 나갈까요?"
+    body: "저장 완료된 설정은 유지됩니다. 현재 단계의 저장하지 않은 입력은 유지되지 않으며, 대시보드에서 언제든 이어서 설정할 수 있어요."
+    actions: ["계속 설정하기", "대시보드로 가기"]
+    note: "draft 영속 계약이 추가로 확정되면 body의 입력 유지 문구를 실제 동작에 맞게 갱신한다. 현재는 보존을 약속하지 않는다."
+  - id: dashboard-after-skip
+    shell: "기존 TodayPage와 AppShell"
+    additions:
+      - "첫 Task 영역 위 ReadinessNotice: 현재 가능한 일, 첫 미완료 조건, '설정 이어하기'"
+      - "TaskComposer 진입 후 요청 의도에 필요한 조건이 없을 때 InlineReadinessBlocker"
+    rule: "notice는 일반 대화를 막지 않는다. file/project 범위가 필요한 시점에만 blocker를 표시한다."
+  - id: task-session-future
+    implementation_slice: "slice-2 이후"
+    regions:
+      - "Task header와 실행 범위"
+      - "SessionTimeline: 요청, 참고 자료, 진행, 승인, terminal result, 후속 요청"
+      - "공통 SessionComposer"
+    route_variants:
+      task_detail: "기존 Task 상세의 assignment/context 제어와 timeline을 함께 표시"
+      chat: "같은 timeline data를 대화 중심 밀도로 표시"
+      unresolved: "OQ-08 해결 전 route 통합을 전제로 컴포넌트를 배치하지 않는다."
+
+component_hierarchy:
+  - id: CommuteSplash
+    owns: ["PetCommuteScene", "SplashStatus", "LongWaitActions"]
+    data_inputs: ["workspace query state", "readiness query state", "prefers-reduced-motion"]
+  - id: PetCommuteScene
+    owns: ["기존 Pet visual asset instance", "오피스 출입구/책상 배경 장식"]
+    rule: "업무 상태를 표현하지 않는 장식이다. 텍스트 상태와 분기 로직은 별도 DOM에 둔다."
+  - id: OnboardingFlow
+    owns:
+      [
+        "OnboardingHeader",
+        "StepProgress",
+        "RuntimeConnectionStep",
+        "ColleagueStep",
+        "ProjectChoiceStep",
+        "CompletionStep",
+        "OnboardingActions",
+        "DirectConfigDialog",
+      ]
+  - id: RuntimeConnectionStep
+    reuses: ["ConnectionCard composition", "Button", "ErrorBanner", "Empty"]
+    extraction: "SettingsPage 안의 ConnectionCard를 settings feature와 onboarding 양쪽이 쓰는 feature component로 최소 추출"
+  - id: ColleagueStep
+    reuses:
+      ["useAgentForm behavior", "PetChoice", "AgentAdvancedOptions", "Field", "Input", "TextArea"]
+    extraction: "AgentsPage의 create field set을 AgentCreateFields composition으로 추출하되 API mutation ownership은 각 화면에 유지"
+  - id: ProjectChoiceStep
+    reuses:
+      [
+        "systemApi.pickDirectory를 사용하는 folder picker composition",
+        "Project create fields",
+        "Button",
+        "Field",
+        "Input",
+        "TextArea",
+        "TechnicalDetails",
+      ]
+    extraction: "ProjectsPage의 folder 선택·표시 UI를 ProjectFolderField로 추출; Project mutation은 onboarding flow가 기존 projectApi 계약으로 호출"
+  - id: ReadinessNotice
+    owns: ["텍스트 상태 목록", "설정 이어하기 link/button"]
+    placement: "TodayPage 첫 Task 영역 직전"
+  - id: InlineReadinessBlocker
+    owns:
+      [
+        "정확한 미충족 조건",
+        "필요 이유",
+        "inline 해결 action",
+        "onboarding 재개 action",
+        "취소 action",
+      ]
+    preservation: "TaskComposer draft와 선택한 project scope는 blocker 표시·해결 round trip 동안 유지"
+  - id: ApprovalDecisionCard
+    implementation_slice: "slice-2"
+    owns: ["DecisionSummary", "ImpactList", "TechnicalDetails", "DecisionActions"]
+  - id: WorkModeField
+    implementation_slice: "slice-2"
+    owns: ["세 mode 선택 카드", "결과·영향 설명", "고급 permission disclosure"]
+  - id: TerminalResultCard
+    implementation_slice: "slice-2"
+    owns: ["상태 제목", "주체·시점", "완료/중단 범위", "부분 결과 보존", "지원되는 다음 행동"]
+  - id: ResultSummary
+    implementation_slice: "slice-3"
+    owns: ["수행", "변경", "검증", "남은 일·위험", "ArtifactsAndEvidence"]
+  - id: SessionTimeline
+    implementation_slice: "slice-3"
+    owns: ["RequestEvent", "RunEvent", "ApprovalEvent", "TerminalResultEvent", "FollowUpEvent"]
+  - id: ReferenceComposer
+    implementation_slice: "slice-4"
+    extends: ["TaskSessionComposer", "MessageComposer"]
+    owns:
+      ["paste/drop target", "file picker action", "link action", "ReferenceQueue", "send action"]
+
+component_states:
+  - component: CommuteSplash
+    states:
+      - id: workspace-loading
+        copy: "오피스 문을 여는 중..."
+        visual: "1~3개의 Pet이 입구에서 책상 방향으로 걷는 짧은 순환 장면"
+      - id: readiness-checking
+        copy: "AI 동료가 출근할 준비를 확인하는 중..."
+        visual: "도착한 Pet이 책상 앞에 멈추고 다른 Pet이 들어오는 장면"
+      - id: long-wait
+        trigger: "제품이 정한 비정상 지연 threshold 이후; threshold 값은 UI가 결정하지 않음"
+        copy: "확인이 평소보다 오래 걸리고 있어요."
+        actions: ["상태 다시 확인", "진단 보기"]
+      - id: reduced-motion
+        copy: "workspace/readiness 상태와 동일"
+        visual: "책상에 도착한 정적 Pet 1~3개와 정적 배경"
+      - id: error
+        copy: "오피스를 열지 못했어요"
+        actions: ["다시 시도", "오류 상세 보기"]
+  - component: OnboardingStep
+    states:
+      - id: incomplete
+        behavior: "첫 미완료 field 또는 단계 제목에 초기 focus"
+      - id: valid-unsaved
+        behavior: "다음 활성; Enter는 다중행 textarea가 아닌 경우에만 submit"
+      - id: saving
+        behavior: "다음 버튼 label을 '연결하는 중...' 또는 '만드는 중...'으로 변경하고 중복 submit 차단"
+      - id: success
+        behavior: "저장 결과를 재조회한 뒤에만 step 완료 표시와 다음 단계 이동"
+      - id: error
+        behavior: "입력을 유지하고 ErrorBanner를 action 앞에 표시; error summary로 focus 이동"
+      - id: resumed
+        behavior: "완료된 entity를 다시 만들지 않고 첫 미완료 단계에서 시작"
+  - component: StepProgress
+    states:
+      - "완료: 번호와 '완료' 텍스트"
+      - "현재: aria-current=step과 '현재 단계' 텍스트"
+      - "예정: 단계명과 '남음' 텍스트"
+    prohibited: "색, Pet 위치 또는 check icon만으로 상태를 구분하지 않는다."
+  - component: InlineReadinessBlocker
+    states:
+      - id: runtime-missing
+        message: "이 요청을 실행할 AI 연결이 필요해요."
+        action: "AI 연결하기"
+      - id: compatible-agent-missing
+        message: "연결한 AI로 실행할 동료가 필요해요."
+        action: "AI 동료 만들기"
+      - id: project-missing
+        message: "로컬 자료나 파일을 다루려면 작업 폴더를 연결해야 해요."
+        action: "작업 폴더 연결"
+      - id: project-unavailable
+        message: "연결한 작업 폴더를 열 수 없어요. 위치와 접근 권한을 확인해 주세요."
+        action: "다시 연결하기"
+      - id: resolving
+        message: "준비 상태를 다시 확인하는 중..."
+      - id: resolve-error
+        message: "설정을 완료하지 못했어요. 작성한 작업은 그대로 두었어요."
+        actions: ["다시 시도", "설정 이어하기", "작성 취소"]
+      - id: resolved
+        behavior: "blocker 제거, 이전 draft·focus context 복원"
+  - component: ApprovalDecisionCard
+    states:
+      - id: waiting-complete
+        behavior: "level 1과 level 2를 펼친 상태로 표시; level 3만 TechnicalDetails"
+      - id: waiting-missing-info
+        behavior: "누락 필드는 '확인 불가'로 표시하고 추측 문구를 만들지 않음"
+      - id: resolving
+        behavior: "두 결정 버튼 비활성, 선택한 결정과 처리 중 텍스트 표시"
+      - id: accepted
+        behavior: "결정 기록으로 축약되고 같은 run 진행 사건과 연결"
+      - id: denied
+        behavior: "TerminalResultCard로 전환; 원 승인 요청은 timeline에 보존"
+      - id: resolve-error
+        behavior: "승인 요청과 사용자 선택을 보존하고 retry 제공"
+  - component: TerminalResultCard
+    states:
+      - "denied: 거절된 요청, 결정 주체·시점, 중단 범위, 다음 행동"
+      - "cancelled-known: 완료 범위와 부분 결과 보존 상태"
+      - "cancelled-unknown: 보존 여부 '확인 불가'와 원시 로그 행동"
+      - "race-resolved: 서버가 확정한 terminal 상태 하나만 primary state로 표시"
+  - component: ResultSummary
+    states:
+      - "complete: 확인된 수행·변경·검증·남은 일"
+      - "partial: 완료와 미완료를 분리하고 partial label 텍스트 표시"
+      - "no-change: 구조화 신호가 확인한 경우에만 '변경 없음'"
+      - "legacy-or-unknown: '이전 실행 기록이라 상세가 제한돼요'와 기존 Markdown summary"
+  - component: ReferenceQueue
+    states:
+      - "processing: 항목별 progress text와 제거"
+      - "ready-included: 이름·종류·포함됨·제거"
+      - "ready-excluded: 이름·종류·제외됨·다시 포함"
+      - "failed: 오류 원인·다시 시도·제거; 다른 draft와 자료는 유지"
+      - "image-ready: thumbnail과 접근 가능한 파일명"
+      - "sending-with-processing: 기다리기 또는 처리 중 항목 제외 확인"
+
+interaction_states:
+  - trigger: "앱 launch"
+    transition: "workspace-loading → readiness-checking → ready dashboard 또는 첫 미완료 onboarding step"
+    guard: "motion 종료가 transition guard가 아니다."
+  - trigger: "workspace query error"
+    transition: "workspace-error 유지; retry 성공 때만 readiness-checking"
+  - trigger: "onboarding 다음"
+    transition: "valid-unsaved → saving → 성공 시 다음 미완료 step"
+    guard: "mutation retry와 재진입은 동일 entity를 중복 생성하지 않아야 한다. 구현 계약 미충족 시 slice-1 개발 blocker로 보고한다."
+  - trigger: "제가 직접 구성할래요"
+    transition: "DirectConfigDialog → dashboard-after-skip 또는 현재 step"
+    focus: "취소 시 escape button, dashboard 이동 시 TodayPage h1에 focus"
+  - trigger: "Task 의도가 미완료 조건 요구"
+    transition: "composer → inline blocker → 해결 composition → composer"
+    preservation: "title, description, priority, project 선택과 focus 대상 복원"
+  - trigger: "승인 상세 토글"
+    transition: "level 1·2 유지 + level 3 expand/collapse"
+  - trigger: "승인/거절"
+    transition: "waiting → resolving → accepted progress 또는 denied terminal result"
+  - trigger: "취소"
+    transition: "running → cancellation terminal result; 재시도는 새 run 사건"
+  - trigger: "Task 상세 ↔ Chat 이동"
+    transition: "동일 Task session, 사건 순서, draft/마지막 읽은 위치를 가능한 범위에서 복원"
+    unresolved: "정확한 route 구조는 OQ-08"
+  - trigger: "composer paste/drop/select/link"
+    transition: "ReferenceQueue item processing → ready 또는 failed"
+    guard: "ready 항목만 전송; 실패 하나가 전체 draft를 지우지 않음"
+
+responsive_behavior:
+  - viewport: "> 1100px"
+    behavior: "onboarding content 최대 폭 1040px; progress는 왼쪽 고정 column, step panel은 오른쪽 flexible column. splash 장면은 상태 텍스트 위의 제한된 canvas/DOM stage."
+  - viewport: "761px~1100px"
+    behavior: "onboarding을 단일 column으로 바꾸고 progress를 상단 horizontal scroll 없는 압축 목록으로 표시. runtime 카드와 mode 카드는 가능한 경우 2열."
+  - viewport: "<= 760px 또는 작은 Electron window"
+    behavior: "fullscreen은 min-height: 100dvh이고 문서 자체가 세로 scroll된다. progress는 현재 단계 요약 + 전체 순서 ordered list로 세로 표시. 모든 form/control은 1열, action은 primary를 먼저 읽되 DOM 순서는 이전→다음→escape로 유지."
+  - viewport: "<= 425px"
+    behavior: "좌우 padding을 4px grid 안에서 축소하고 primary/secondary form action은 full width. Pet 장면 높이를 줄이되 상태 텍스트·오류·행동은 접거나 숨기지 않는다."
+  - viewport: "height < 640px"
+    behavior: "Pet 장면을 축소 또는 숨김 가능한 장식으로 처리하고 header/progress는 sticky로 만들지 않는다. 현재 field와 action까지 keyboard scroll이 가능해야 한다."
+  - all: "고정 pixel width/height로 form을 잠그지 않으며 320 CSS px 폭에서 수평 page scroll이 없어야 한다. 기술 명령과 긴 경로만 내부 overflow를 허용한다."
+
+accessibility_constraints:
+  - "splash의 상태 문구 container는 role=status, aria-live=polite, aria-atomic=true를 사용한다. 같은 문구를 animation frame마다 갱신하지 않는다."
+  - "workspace error는 h1과 role=alert 오류 요약을 제공하며 화면 진입 시 h1 또는 오류 요약으로 focus를 이동한다."
+  - "prefers-reduced-motion: reduce에서는 Pet 이동, bobbing, 반복 출근 animation을 제거하고 정적 도착 장면을 쓴다. 분기 시간과 상태 문구는 동일하다."
+  - "일반 motion에서도 반복 장면은 준비가 끝날 때까지만 재생하며 flashing, 빠른 camera 이동, 정보 전달 전용 motion을 사용하지 않는다."
+  - "StepProgress는 ol, 현재 단계는 aria-current=step, 완료 여부는 visible text로 제공한다. 완료 step을 click navigation으로 만들지 않는다."
+  - "각 step은 하나의 h1, 목적 설명, form landmark와 명시적 label을 가진다. 저장 실패 후 error summary에 focus하고 field 오류는 aria-describedby로 연결한다."
+  - "'제가 직접 구성할래요'는 anchor처럼 보이는 실제 button이다. underline과 명확한 focus-visible outline을 유지하고 화면 하단에 있어도 tab order에서 action 뒤에 접근 가능하다."
+  - "Dialog는 기존 native Dialog의 focus trap/복원 계약을 재사용하며 Escape는 취소로 동작한다. destructive 의미가 아니므로 dashboard 이동에 danger 색을 사용하지 않는다."
+  - "Pet, status light, 색, icon, animation은 텍스트 상태의 대체물이 아니다. Pet 이미지에는 맥락에 필요한 경우 이름 alt, 순수 장식이면 빈 alt/aria-hidden을 적용한다."
+  - "모든 button과 입력은 기존 40px 이상 Button 높이와 focus token을 유지한다. drag/drop과 clipboard는 file picker 및 keyboard link action을 대안으로 제공한다."
+  - "approval은 제목에서 대상 Task를 식별하고 허용·거절 결과를 버튼 주변 설명으로 제공한다. 기술 상세 disclosure는 summary button semantics를 유지한다."
+  - "timeline은 ol 또는 동등한 list semantics를 사용하고 시간 순서를 DOM 순서와 일치시킨다. 새 사건 announce는 사용자의 읽기 위치를 강제로 이동시키지 않는다."
+  - "thumbnail은 파일명을 accessible name으로 갖고 remove/retry button은 항목명을 포함한 label을 사용한다."
+
+design_system_mapping:
+  - need: "색상, 간격, typography, radius, shadow, breakpoint, motion"
+    reuse: "officeTheme와 packages/design-token의 기존 semantic token만 사용"
+    extension: "첫 slice token 추가 없음. splash scene의 pixel content 색은 packages/pet asset 원색 허용, UI chrome은 theme token 사용."
+  - need: "primary/secondary/danger action"
+    reuse: "Button"
+    extension: "underline text button은 apps/web onboarding feature 전용 styled.button composition; 공용 Button variant를 추가하지 않음"
+  - need: "입력과 form label"
+    reuse: "Input, TextArea, Select, Field, Fieldset, Legend, HelperText"
+  - need: "오류와 빈/확인 중 상태"
+    reuse: "ErrorBanner, Empty, FullScreenMessage의 문구·layout 원칙"
+    extension: "CommuteSplash와 WorkspaceErrorScreen은 Pet 장면과 retry가 필요해 FullScreenMessage 자체를 과도하게 확장하지 않고 onboarding feature composition으로 작성"
+  - need: "skip 확인과 기존 확인 dialog"
+    reuse: "Dialog, useDialogIds, FeedbackDialogs의 action/focus pattern"
+  - need: "기술 상세"
+    reuse: "TechnicalDetails"
+  - need: "runtime 연결"
+    reuse: "SettingsPage ConnectionCard의 상태, 설치, 로그인, 재확인 behavior"
+    minimal_change: "ConnectionCard를 feature component로 추출하고 context별 heading level/action callback만 props로 허용"
+  - need: "Agent 만들기"
+    reuse: "AgentsPage create fields, useAgentForm, PetChoice, AgentAdvancedOptions"
+    minimal_change: "field composition을 추출; permission contract와 mutation payload는 변경하지 않음"
+  - need: "Project 연결"
+    reuse: "ProjectsPage folder picker와 create fields"
+    minimal_change: "ProjectFolderField 추출; browser에서 desktop picker 불가 상태 문구 보존"
+  - need: "readiness notice와 inline blocker"
+    reuse: "Panel, SectionHeading, ErrorBanner의 semantic colors"
+    extension: "shared primitive가 아니라 onboarding/dashboard feature composition으로 시작; 3개 이상 실제 consumer가 생길 때 shared/ui 승격 검토"
+  - need: "approval hierarchy"
+    reuse: "기존 RuntimeApproval container concept, Button, TechnicalDetails"
+    minimal_change: "raw command 기본 노출을 level 3로 이동하고 level 1·2 slots 추가. OQ-05 누락값은 '확인 불가'."
+  - need: "result and timeline"
+    reuse: "TaskConversationThread, MessageThread, TaskResultView, RunHistory, StatusPill, MarkdownContent"
+    minimal_change: "공통 event view-model이 확정된 뒤 presentation composition을 공유; 현재 두 thread를 조기에 합치지 않음"
+  - need: "attachment composer"
+    reuse: "TaskSessionComposer, MessageComposer, Button, IconButton, Input"
+    extension: "ReferenceQueue와 visually-defined drop target는 slice-4 feature component; 저장 정책 확정 전 design-system primitive 추가 없음"
+  - need: "전문 설정 설명"
+    reuse: "AgentAdvancedOptions, ModelPolicyFields, TechnicalDetails, HelperText"
+    copy_rules:
+      model: "연결 상태와 확인된 기능 차이만 설명"
+      reasoning_effort: "속도·검토 깊이 경향과 시간·사용량 증가 가능성, 품질 보장 금지"
+      skill: "작업 방법과 필요한 접근 범위"
+      workflow: "동료 또는 단계의 수행·검토 순서"
+
+visual_language:
+  splash_scene:
+    composition: "따뜻한 canvas 배경, 단순한 오피스 입구와 2~3개 책상, 기존 Pet sprite/preview를 전경에 둔다. UI 카드보다 장면이 우세하되 상태 텍스트 대비를 해치지 않는다."
+    motion_sequence:
+      - "Pet이 화면 가장자리의 출입구에서 짧은 거리로 입장"
+      - "서로 겹치지 않는 lane을 따라 책상 근처까지 이동"
+      - "도착 뒤 정지/idle; readiness가 계속되면 새 정보를 암시하지 않는 저강도 idle만 반복"
+    state_relationship: "workspace-loading과 readiness-checking에 다른 텍스트를 쓰되 Pet의 수나 위치로 성공·실패를 암호화하지 않는다."
+    exit: "cross-fade나 base duration 이하의 단순 fade만 허용; 준비 완료 후 장식 exit를 기다리지 않음"
+  onboarding:
+    tone: "Pixel Office의 '출근 준비' 은유는 heading과 Pet preview에 제한하고 설치·인증·권한·폴더 설명은 직접적인 업무 언어로 쓴다."
+    density: "한 화면에 한 결정. 고급 technical field는 disclosure 아래 둔다."
+  status_style: "positive/warning/negative semantic token + 상태 텍스트 + icon 형태를 함께 사용한다."
+
+assets:
+  - id: splash-pets
+    first_slice: "packages/pet의 기존 catalog와 PetPreview 또는 기존 render path를 재사용"
+    new_asset_required: false
+    fallback: "기존 PetPreview 2~3개를 CSS transform으로 이동; sprite animation capability가 불확실하면 프레임 자체를 새로 만들지 않음"
+  - id: splash-office-background
+    first_slice: "CSS box/line과 theme token으로 구성하는 단순 pixel stage 또는 기존 office 배경 조각 재사용"
+    new_asset_required: false
+    constraint: "새 bitmap 생성은 별도 Pixel Asset Artist 작업과 asset acceptance가 있을 때만 진행"
+  - id: status-icons
+    first_slice: "텍스트 기호 또는 기존 icon system 사용"
+    new_asset_required: false
+
+dependencies:
+  slice_1:
+    required:
+      - "workspace 조회 상태와 retry"
+      - "인증 runtime과 호환 Agent 쌍을 반환하거나 조합할 수 있는 readiness source"
+      - "기존 runtime install/login/status refresh"
+      - "기존 Agent create와 Project create/directory picker"
+      - "중복 생성 방지를 위한 재조회 또는 idempotency behavior"
+      - "TaskComposer draft를 inline 해결 왕복 동안 보존할 화면 상태 ownership"
+    not_assumed:
+      ["attachment persistence", "새 permission presets", "structured result", "route 통합"]
+  slice_2: ["OQ-05 승인 metadata contract", "OQ-06 work mode-permission policy"]
+  slice_3:
+    [
+      "OQ-07 structured result/verification contract",
+      "OQ-08 route decision 또는 shared session view-model",
+    ]
+  slice_4: ["OQ-09 local/image persistence policy", "OQ-10 link fetch/approval policy"]
+  slice_5: ["OQ-11 reliable resource data"]
+
+unknown_handling:
+  - question_id: OQ-05
+    ui_behavior: "purpose, 영향 유형·대상, 되돌림, CWD 각각을 독립적으로 '확인 불가' 처리한다. command가 있더라도 purpose를 추론하지 않는다."
+    implementation_gate: "실제 metadata mapping과 승인 유효 범위 표현"
+  - question_id: OQ-06
+    ui_behavior: "후보 작업 모드 copy와 layout은 명세하되 permission을 변경하는 interactive mode selection은 비활성/미노출. 기존 개별 permission은 고급 설정에서 현행 계약 유지."
+    implementation_gate: "slice-2 WorkModeField"
+  - question_id: OQ-07
+    ui_behavior: "구조화 신호가 없는 결과는 기존 Markdown과 '상세를 자동으로 구분할 수 없어요'를 사용. 변경 없음을 추론하지 않음."
+    implementation_gate: "slice-3 자동 ResultSummary"
+  - question_id: OQ-08
+    ui_behavior: "Task 상세과 Chat 양쪽에 동일 event order를 적용할 수 있게 명세하되 route 통합, redirect, 화면 제거는 하지 않음."
+    implementation_gate: "navigation IA 변경"
+  - question_id: OQ-09
+    ui_behavior: "첨부 전달·복사·보존 설명 영역을 예약하되 정책 문구를 확정하지 않음."
+    implementation_gate: "slice-4 file/image attach"
+  - question_id: OQ-10
+    ui_behavior: "link chip UI는 예약 가능하나 fetch됨/보존됨을 표시하지 않음."
+    implementation_gate: "slice-4 link attach"
+  - question_id: OQ-11
+    ui_behavior: "신뢰 가능한 값이 없으면 비용·token 추정치를 숨기고 '사용량 정보 제공 안 됨'만 상태로 표시할 수 있음."
+    implementation_gate: "slice-5"
+  - question_id: OQ-12
+    resolution: "기존 Pet을 짧은 lane 이동 후 idle시키고, 실제 준비 이상 지연하지 않으며, reduced-motion은 정적 도착 장면과 동일 상태 텍스트로 대체한다. workspace error는 별도 정적 오류 화면이다."
+
+open_questions:
+  - id: OQ-05
+    owner: "Runtime Integrator / Full-stack Developer"
+    question: "각 runtime 승인 event가 목적, 영향 유형·대상, 되돌림 가능성, 명령과 작업 폴더를 어느 수준까지 안정적으로 제공하는가?"
+    status: unknown
+  - id: OQ-06
+    owner: "Product Architect / Security Reviewer"
+    question: "작업 모드별 permission 기본값과 추가 승인 정책은 무엇이며 Claude/Codex capability 차이를 어떻게 사용자 기대와 일치시킬 것인가?"
+    status: blocking_slice_2
+  - id: OQ-07
+    owner: "Runtime Integrator"
+    question: "코드 외 작업까지 공통으로 제공 가능한 구조화된 변경 목록과 verification 신호는 무엇인가?"
+    status: blocking_slice_3
+  - id: OQ-08
+    owner: "Product / UI Designer / Full-stack Developer"
+    question: "Task 상세과 Chat을 한 route로 통합할지 동일 session을 공유하는 두 표면으로 유지할지?"
+    status: blocking_navigation_ia
+  - id: OQ-09
+    owner: "Product Architect / Security Reviewer"
+    question: "로컬 파일과 붙여넣은 이미지는 원본 참조, 앱 저장소 복사, run snapshot 중 어떤 정책을 사용하며 runtime에 어떻게 전달하는가?"
+    status: blocking_slice_4
+  - id: OQ-10
+    owner: "Product / Security Reviewer"
+    question: "웹 링크는 URL 텍스트, 실행 시 fetch 대상, snapshot 중 무엇이며 외부 통신 승인을 언제 받는가?"
+    status: blocking_slice_4
+  - id: OQ-11
+    owner: "Runtime Integrator / Product"
+    question: "Codex와 Claude가 토큰, 비용, 시간, session limit을 어떤 정확도와 단위로 제공하며 비교 가능한가?"
+    status: deferred
+  - id: OQ-12
+    owner: "UI Designer"
+    question: "Pet 출근 splash의 motion, reduced-motion 대체, 긴 확인과 오류 상태를 pixel visual language로 어떻게 표현할 것인가?"
+    status: resolved_in_this_handoff
+
+developer_handoff:
+  first_implementation_slice: "slice-1-first-success만 구현한다."
+  suggested_ownership:
+    - "App entry: workspace/readiness gate와 splash/onboarding/AppShell 분기"
+    - "onboarding feature: flow state, step compositions, resume/skip"
+    - "settings/agents/projects: 재사용 가능한 form composition 최소 추출"
+    - "dashboard: ReadinessNotice, InlineReadinessBlocker, composer draft ownership"
+  explicit_non_goals:
+    - "permission preset을 임의 매핑하지 않음"
+    - "Task와 Chat route를 합치지 않음"
+    - "attachment 저장/API를 만들지 않음"
+    - "비용 추정치를 표시하지 않음"
+    - "새 splash bitmap/sprite를 필수로 만들지 않음"
+
+handoff_validation:
+  required_fields:
+    type: present
+    revision: present
+    status: present
+    source_ux_handoff: present
+    screen_hierarchy: present
+    component_hierarchy: present
+    component_states: present
+    interaction_states: present
+    responsive_behavior: present
+    accessibility_constraints: present
+    design_system_mapping: present
+    assets: present
+    open_questions: present
+  source_status: "ux-handoff-r2.yaml is ready"
+  role_boundary: "화면 계층, 시각 상태, interaction, responsive/accessibility, 재사용 mapping만 결정했다. readiness/API/permission/attachment 저장 구조는 dependencies와 unknown으로 남겼다."
+  question_preservation: "OQ-05~12를 모두 보존했고 OQ-12만 UI Designer 책임 범위에서 해결했다. OQ-05~11은 unknown UI 또는 slice blocker로 명시했다."
+  first_slice_boundary: "첫 개발 slice는 splash, readiness 분기, fullscreen onboarding, 직접 구성, dashboard inline recovery에 한정한다."
+  validation_result: pass

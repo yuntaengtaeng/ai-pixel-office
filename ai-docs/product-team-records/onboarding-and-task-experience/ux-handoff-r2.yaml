@@ -1,0 +1,398 @@
+type: ux-handoff
+revision: 2
+status: ready
+title: "온보딩과 Task 경험 개선 프로그램"
+supersedes: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff.yaml"
+decision_log: "ai-docs/product-team-records/onboarding-and-task-experience/decision-log.yaml"
+
+revision_summary:
+  preserved:
+    - "revision 1의 승인 정보 계층, 취소·거절 결과, 작업 모드, 결과 요약, Task session timeline, 참고 자료와 전문 설정 범위"
+    - "revision 1의 runtime·권한·결과·첨부·비용·시각 표현 관련 미해결 질문"
+  resolved:
+    - "dashboard 직행 readiness와 workspace 조회 오류의 분리"
+    - "Project 연결의 선택성"
+    - "첫 Task를 dashboard 첫 성공 행동으로 배치"
+    - "직접 구성의 dashboard 목적지와 이후 inline 복구"
+
+scope:
+  included:
+    - "Pet 출근 맥락의 splash 동안 workspace와 readiness 확인"
+    - "미준비 사용자의 전체 화면 단계형 onboarding"
+    - "dashboard에서의 첫 Task 성공과 미완료 조건 inline 해결"
+    - "승인 요청의 목적·영향·기술 상세 3단 정보 계층"
+    - "취소·거절을 포함한 실행 결과와 단일 Task session timeline"
+    - "범용 작업 모드와 전문 설정의 결과 중심 설명"
+    - "변경·검증 결과 요약"
+    - "이미지 붙여넣기, 파일 선택·드롭, 링크 참고 자료"
+  deferred:
+    - "비용·자원 가시성은 runtime별 신뢰 가능한 데이터 조사 후 결정"
+  excluded:
+    - "시각 스타일, sprite, motion curve와 component 구현"
+    - "runtime permission 매핑, 첨부 저장 및 API·database 아키텍처"
+
+evidence:
+  usability_source:
+    path: "ai-docs/usability-records/full-journey-2026-09-08.md"
+    limitation: "실제 사용자 조사가 아닌 코드 기반 시뮬레이션"
+  canonical_sources:
+    - "ai-docs/adr/009-ui-ux-information-architecture.md"
+    - "ai-docs/adr/010-ui-ux-improvement-log.md"
+  verified_current_behavior:
+    - "App은 workspace 조회 중 전체 화면 메시지를 표시하지만 readiness 분기와 onboarding은 없다."
+    - "Settings에는 runtime 설치·인증 상태와 기존 설치·로그인 행동이 있다."
+    - "Task 상세과 Chat은 run 기반 메시지와 후속 요청을 각각 제공하지만 표현과 route가 나뉜다."
+    - "Task에는 Knowledge Document 선택이 있으나 로컬 파일·클립보드 이미지·드롭 첨부는 없다."
+    - "서버는 cancelled run과 부분 산출물 보존 activity를 남기지만 UI 결과 요약은 불완전하다."
+    - "승인 UI는 reason과 command를 표시하지만 영향 범위와 거절 이후를 충분히 설명하지 않는다."
+    - "Agent 고급 설정은 개별 permission과 reasoning effort를 사용하며 fileRead·terminal은 실행 필수다."
+
+problem: >-
+  신규 또는 설정이 불완전한 사용자는 앱의 실행 준비 상태를 알기 전에 Task 진입점을 만나며, 실행 전에는
+  승인과 권한의 영향을, 실행 후에는 변경·검증·취소·거절 결과를 업무 언어로 판단하기 어렵다. 요청,
+  참고 자료, 승인, 결과와 후속 요청도 Task 상세과 Chat에서 하나의 지속되는 작업 맥락으로 충분히 연결되지 않는다.
+
+user_goal: >-
+  사용자는 앱 시작 시 준비 확인 결과를 이해하고, 필요한 설정을 단계별로 완료하거나 직접 구성으로 건너뛴 뒤
+  dashboard에서 첫 Task를 시작한다. 이후 한 Task 안에서 참고 자료, 승인, 결과와 후속 요청의 전체 이력을
+  쉬운 요약과 필요할 때의 기술 근거로 확인한다.
+
+readiness_contract:
+  workspace_gate:
+    success: "workspace를 조회하거나 정상 생성한 뒤 readiness를 판정한다."
+    failure: "onboarding으로 보내지 않고 별도 splash error를 표시한다."
+  ready_when:
+    - "지원 runtime 중 하나 이상이 인증되어 있다."
+    - "인증된 runtime 중 하나로 실행 가능한 Agent가 하나 이상 있다."
+  not_required:
+    - "Project 연결"
+    - "기존 Task 또는 첫 Task 생성"
+    - "지원하는 모든 runtime의 인증"
+  matching_rule: "인증된 runtime과 실행 가능한 Agent가 서로 호환되는 한 쌍이어야 하며 독립된 두 조건의 단순 존재만으로 ready 처리하지 않는다."
+
+primary_flow:
+  - id: launch
+    user_action: "앱을 실행한다."
+    system_response: "Pet 출근 맥락의 splash에서 workspace 조회와 준비 확인 상태를 텍스트로 알린다."
+    completion: "workspace 조회 실패면 splash error, 성공하면 readiness 분기로 이동한다."
+  - id: ready-dashboard
+    precondition: "인증된 runtime과 호환되는 실행 가능 Agent가 하나 이상 있음"
+    user_action: "추가 행동 없음"
+    system_response: "onboarding을 반복하지 않고 dashboard로 이동한다."
+    completion: "첫 Task 또는 기존 업무에 접근한다."
+  - id: not-ready-onboarding
+    precondition: "workspace 조회는 성공했으나 readiness 조건이 미충족"
+    user_action: "첫 미완료 단계와 전체 순서를 확인한다."
+    system_response: "완료 단계는 건너뛰고 기존 UI 계약을 단계 맥락에서 제공한다."
+    completion: "현재 단계의 목적, 입력, 완료 조건과 직접 구성 행동을 이해한다."
+  - id: connect-runtime
+    user_action: "AI를 선택해 기존 설치·로그인을 완료하고 다음을 누른다."
+    system_response: "인증 상태를 다시 확인하고 성공할 때만 완료 처리한다."
+    completion: "인증된 runtime이 하나 이상 있다."
+  - id: create-colleague
+    user_action: "AI 동료의 이름, 맡길 일과 작업 모드를 정하고 다음을 누른다."
+    system_response: "기존 Agent 계약으로 저장하고 선택 결과와 영향 범위를 요약한다."
+    completion: "인증된 runtime과 호환되는 실행 가능 Agent가 존재한다."
+  - id: guide-project
+    user_action: "로컬 자료를 다룰 계획이면 작업 폴더를 연결하고, 아니면 '지금은 대화부터 시작'을 선택한다."
+    system_response: "폴더 연결은 기존 Project 계약으로 저장한다. 대화부터 시작하면 파일 작업에는 나중에 연결이 필요함을 설명한다."
+    completion: "Project 생성 또는 명시적 대화 시작 선택"
+  - id: finish-onboarding
+    user_action: "완료 요약에서 dashboard로 이동한다."
+    system_response: "Task를 자동 생성하지 않고 dashboard의 첫 작업 행동을 제시한다."
+    completion: "사용자가 dashboard에서 첫 Task를 시작할 수 있다."
+  - id: configure-directly
+    user_action: "어느 단계에서든 '제가 직접 구성할래요'를 선택하고 결과를 확인한다."
+    system_response: "완료 데이터는 유지하고 dashboard로 이동하며 onboarding 재개 진입점을 제공한다."
+    completion: "관련 Task 진입점은 미완료 조건과 inline 해결 행동을 표시한다."
+  - id: first-task
+    user_action: "dashboard에서 첫 Task를 작성한다."
+    system_response: "일반 대화는 Project 없이 진행하고, 로컬 자료·파일 작업에는 Project 연결 필요와 inline 해결 행동을 보여준다."
+    completion: "조건 충족 시 첫 Task를 생성하며 해결 화면을 다녀온 경우 작성 내용을 복원한다."
+  - id: compose-with-reference
+    user_action: "Task 또는 Chat에서 텍스트와 이미지 붙여넣기, 파일 선택·드롭 또는 링크를 추가해 보낸다."
+    system_response: "자료별 처리·포함 상태를 보여주고 요청과 같은 Task 사건으로 기록한다."
+    completion: "요청과 사용 자료의 관계가 timeline에 남는다."
+  - id: decide-approval
+    user_action: "승인 목적, 영향과 기술 상세를 확인하고 허용 또는 거절한다."
+    system_response: "결정을 중복 처리하지 않고 동일 Task timeline에 결과를 기록한다."
+    completion: "승인 시 같은 run이 계속되고 거절 시 terminal result와 다음 행동이 남는다."
+  - id: review-and-follow-up
+    user_action: "수행·변경·검증·남은 일 요약을 확인하고 후속 요청을 보낸다."
+    system_response: "Task 상세과 Chat에 동일한 사건 순서로 새 요청과 run을 추가한다."
+    completion: "사용자가 화면을 바꿔도 같은 Task 맥락을 이어간다."
+
+work_modes:
+  intent: "permission 이름보다 사용자가 기대하는 결과와 영향 범위를 먼저 설명한다."
+  candidates:
+    - id: discuss
+      label: "대화하고 정리하기"
+      outcome: "아이디어, 문서 내용이나 계획에 답하고 요약·초안을 만든다."
+      expected_impact: "사용자 자료를 바꾸지 않는 기대를 먼저 설명한다."
+    - id: inspect
+      label: "자료를 살펴보고 제안하기"
+      outcome: "연결한 자료와 작업 폴더를 조사해 문제와 개선안을 제안한다."
+      expected_impact: "조사 범위와 외부 접근 가능성을 실행 전에 확인한다."
+    - id: change
+      label: "자료를 만들고 변경하기"
+      outcome: "파일이나 프로젝트에 결과를 만들거나 수정하고 검증한다."
+      expected_impact: "변경 범위와 추가 승인이 필요한 행동을 설명한다."
+  constraint: "label은 사용자 언어 검증 전 working copy이며 실제 permission보다 강한 안전 보장을 해서는 안 된다."
+  advanced_access: "개별 permission은 고급 설정에서 확인·조정 가능한 기술 근거로 유지한다."
+
+approval_contract:
+  level_1:
+    name: "결정 요약"
+    content: ["왜 필요한지", "허용하면 무엇이 계속되는지", "거절하면 이번 실행이 어떻게 되는지"]
+  level_2:
+    name: "영향"
+    content: ["영향 유형", "대상 또는 범위", "승인 유효 범위", "되돌림 가능 또는 확인 불가"]
+  level_3:
+    name: "기술 근거"
+    content: ["원시 명령/runtime 상세", "작업 폴더", "요청·실행 ID와 로그"]
+  missing_information: "runtime이 제공하지 않은 정보를 추측하지 않고 확인 불가로 표시한다."
+
+result_contract:
+  universal_sections:
+    - "무엇을 했는지"
+    - "무엇이 생성·수정·삭제되었는지 또는 변경 없음"
+    - "어떻게 검증했고 무엇을 확인하지 못했는지"
+    - "남은 일, 위험과 사용자 결정 사항"
+    - "제공 가능한 diff, 파일, 산출물 또는 원시 로그"
+  cancelled_or_denied:
+    - "취소와 거절을 terminal result로 기록한다."
+    - "결정 주체·시점, 중단 전 완료 범위와 부분 결과 보존 여부를 표시한다."
+    - "보존 여부를 모르면 확인 불가로 표시한다."
+    - "재시도, 요청 수정, 설정 변경 중 실제 가능한 다음 행동을 제공한다."
+
+timeline_contract:
+  canonical_unit: "Task session"
+  ordered_events:
+    [
+      "최초 요청·참고 자료",
+      "실행·진행",
+      "승인 요청·결정",
+      "성공·실패·취소·거절 결과",
+      "후속 요청·새 run",
+    ]
+  consistency: "Task 상세과 /chat/:taskId는 같은 Task session을 열며 사건 내용·순서·참고 자료 관계가 일치한다."
+  navigation: "표면을 바꿔도 가능한 범위에서 draft, 마지막 읽은 위치와 선택 맥락을 보존한다. route 통합 여부는 후속 역할이 결정한다."
+
+attachment_contract:
+  inputs: ["클립보드 이미지 붙여넣기", "파일 선택", "파일 드롭", "웹 링크"]
+  before_send:
+    - "자료별 이름, 종류, 처리 상태, 포함 여부와 제거 행동을 표시한다."
+    - "이미지는 구분 가능한 이름과 미리보기를 제공한다."
+    - "실패 자료만 다시 시도하거나 제거할 수 있고 다른 입력은 유지한다."
+    - "지원하지 않는 형식·크기·접근 실패를 전송 전에 설명한다."
+  after_send:
+    - "요청과 run이 사용한 자료 version 또는 snapshot 관계를 확인한다."
+    - "후속 요청에서 기존 자료 재사용 여부를 확인·변경한다."
+    - "첨부 전 로컬 자료의 전달·복사·보존 범위를 알린다."
+
+expert_setting_explanations:
+  model: "사용 AI와 연결 상태, 확인된 기능·결과 차이"
+  reasoning_effort: "속도와 검토 깊이의 경향 및 시간·사용량 증가 가능성; 품질 보장 금지"
+  skill: "특정 일을 수행할 때 따를 작업 방법과 필요한 접근 범위"
+  workflow: "여러 동료 또는 단계의 수행·검토 순서"
+
+states:
+  - id: splash-workspace-loading
+    visible_information: "workspace를 여는 중이라는 실제 상태"
+    actions: "비정상적으로 길어지면 상태 설명"
+    next: "성공 시 splash-readiness-checking, 실패 시 splash-workspace-error"
+  - id: splash-workspace-error
+    visible_information: "workspace를 열지 못한 원인과 기존 데이터가 삭제되지 않았음"
+    actions: "다시 시도, 오류 상세 보기"
+    next: "재시도 성공 전 onboarding이나 dashboard로 오인 이동하지 않음"
+  - id: splash-readiness-checking
+    visible_information: "runtime과 Agent 실행 가능 조합 확인 상태"
+    actions: "비정상적으로 길어지면 재확인 또는 진단"
+    next: "ready면 dashboard, not-ready면 onboarding"
+  - id: splash-reduced-motion
+    visible_information: "정적인 Pet 장면과 동일한 상태 텍스트"
+    actions: "각 splash 상태와 동일"
+    next: "기능 분기는 motion 설정과 무관"
+  - id: onboarding-step
+    visible_information: "전체 순서, 완료 단계, 현재 목적·값·완료 조건"
+    actions: "입력, 이전, 다음, 제가 직접 구성할래요"
+    next: "저장 성공 뒤 다음 단계"
+  - id: onboarding-saving
+    visible_information: "현재 생성·연결 중인 항목"
+    actions: "중복 제출 불가"
+    next: "성공 시 다음 단계, 실패 시 onboarding-error"
+  - id: onboarding-error
+    visible_information: "실패 원인과 유지된 입력"
+    actions: "재시도, 수정, 이전, 직접 구성"
+    next: "성공 전 현재 단계 유지"
+  - id: onboarding-project-choice
+    visible_information: "폴더 연결 시 가능한 파일 작업과 Project 없이 가능한 일반 대화의 차이"
+    actions: "작업 폴더 연결, 지금은 대화부터 시작"
+    next: "두 선택 모두 onboarding 완료 가능"
+  - id: dashboard-after-skip
+    visible_information: "현재 가능한 일과 onboarding 재개 진입점"
+    actions: "Task 작성, onboarding 재개"
+    next: "Task 의도에 따라 inline readiness 확인"
+  - id: task-inline-blocker
+    visible_information: "현재 요청을 막는 정확한 조건과 이유"
+    actions: "해당 조건 inline 해결, onboarding 재개, 작성 취소"
+    next: "해결 뒤 작성 내용과 Task 맥락으로 복귀"
+  - id: attachment-processing
+    visible_information: "자료별 처리 중·성공·실패와 포함 상태"
+    actions: "제거, 실패 항목 재시도"
+    next: "ready 자료만 전송 가능; 제외 결과 명시"
+  - id: approval-waiting
+    visible_information: "승인 3단 정보 계층과 대상 Task"
+    actions: "허용하고 계속, 허용하지 않기, 기술 상세"
+    next: "approval-resolving"
+  - id: approval-resolving
+    visible_information: "선택한 결정 처리 중"
+    actions: "중복 결정 불가"
+    next: "승인 시 running, 거절 시 denied-result, 오류 시 요청 보존"
+  - id: denied-result
+    visible_information: "거절 내용, 중단 범위, 영향받지 않은 범위와 다음 행동"
+    actions: "요청 수정, 설정 검토, 지원되는 재시도"
+    next: "새 행동은 기존 결정을 덮지 않고 새 사건 생성"
+  - id: cancellation-result
+    visible_information: "취소 주체·시점, 완료 범위, 부분 결과 보존 상태"
+    actions: "부분 결과 보기, 요청 수정, 새 run으로 재시도"
+    next: "새 run임을 명시"
+  - id: result-complete-or-partial
+    visible_information: "확인된 결과와 확인 불가 항목을 분리한 result contract"
+    actions: "근거 보기, 후속 요청"
+    next: "동일 Task에 새 요청과 run 추가"
+
+edge_cases:
+  - "workspace 조회 실패는 readiness 미충족이나 onboarding 필요로 표시하지 않는다."
+  - "한 runtime만 인증되어도 그 runtime과 호환되는 Agent가 있으면 ready이며 다른 runtime 미인증은 방해하지 않는다."
+  - "인증 runtime과 Agent가 각각 존재해도 서로 호환되지 않으면 not-ready다."
+  - "기존 인증이 만료되면 데이터는 유지하고 onboarding 재연결 또는 dashboard 직접 구성 경로를 제공한다."
+  - "onboarding 재진입은 완료 단계를 중복 생성하지 않고 첫 미완료 단계에서 이어진다."
+  - "다음 반복 입력으로 Agent나 Project가 중복 생성되지 않는다."
+  - "직접 구성 확인 전에 저장하지 않은 입력의 유지·폐기 결과를 알린다."
+  - "Project 없이 일반 대화를 시작한 뒤 파일 작업을 요청하면 draft를 유지한 채 폴더 연결을 해결한다."
+  - "연결된 Project 폴더가 이동·삭제·접근 거부되면 파일 작업 진입에서 다시 해결을 요구한다."
+  - "승인 purpose, command 또는 영향 정보가 없으면 추측한 번역을 만들지 않는다."
+  - "여러 승인 요청은 대상과 결정 상태를 구분하며 한 결정이 다른 요청에 적용된 것처럼 보이지 않는다."
+  - "승인과 취소가 경쟁하면 서버가 확정한 terminal 상태를 한 번만 표시한다."
+  - "취소·거절 뒤 부분 파일 가능성이 있으면 변경 없음으로 표현하지 않는다."
+  - "과거 run snapshot이 없으면 이전 버전 기록이라 상세가 제한됨을 표시한다."
+  - "중복·대용량·빈 파일, 손상·미지원 형식과 접근 불가 첨부를 항목별 처리한다."
+  - "첨부 처리 중 전송 시 포함되지 않을 항목을 알려 기다리기 또는 제외를 선택하게 한다."
+  - "동일 Task를 여러 표면에서 열어도 후속 요청 중복 전송과 timeline 순서 충돌을 방지한다."
+  - "keyboard만으로 onboarding, 직접 구성, inline 해결, 첨부, 승인과 후속 요청을 완료한다."
+
+acceptance_criteria:
+  - id: AC-01
+    criterion: "workspace 조회 중, 조회 오류, readiness 확인 중 상태가 서로 구분되며 workspace 조회 오류는 onboarding으로 전환되지 않는다."
+  - id: AC-02
+    criterion: "인증된 runtime과 그 runtime으로 실행 가능한 Agent 한 쌍이 있으면 Project와 Task 유무에 관계없이 dashboard로 직행한다."
+  - id: AC-03
+    criterion: "호환되는 runtime-Agent 쌍이 없으면 전체 화면 onboarding의 첫 미완료 단계로 이동한다."
+  - id: AC-04
+    criterion: "onboarding 저장 실패 시 입력을 유지하고 이동하지 않으며, 재시작해도 완료 Agent·Project를 중복 생성하지 않는다."
+  - id: AC-05
+    criterion: "Project 단계는 작업 폴더 연결과 '지금은 대화부터 시작'을 제공하고 두 경로 모두 onboarding을 완료할 수 있다."
+  - id: AC-06
+    criterion: "onboarding 완료는 Task를 생성하지 않으며 dashboard에서 첫 Task가 별도 첫 성공 행동으로 제시된다."
+  - id: AC-07
+    criterion: "'제가 직접 구성할래요' 확인 후 dashboard로 이동하고 onboarding 재개 진입점을 확인할 수 있다."
+  - id: AC-08
+    criterion: "직접 구성 뒤 미완료 조건은 관련 Task 진입점에서 이유와 inline 해결 행동으로 표시되고 해결 뒤 draft가 복원된다."
+  - id: AC-09
+    criterion: "Project 없는 일반 대화는 시작 가능하고 로컬 자료·파일 작업에만 Project 연결 필요가 표시된다."
+  - id: AC-10
+    criterion: "reduced motion 환경에서도 readiness 텍스트와 분기 정보가 동일하며 불필요한 출근 motion은 제거된다."
+  - id: AC-11
+    criterion: "작업 모드는 범용 결과와 예상 영향 차이를 설명하며 개별 permission은 고급 상세에서 확인 가능하다."
+  - id: AC-12
+    criterion: "승인 상세를 열지 않아도 목적, 영향 대상·유형과 허용·거절 결과를 판단하고 원시 근거도 확인할 수 있다."
+  - id: AC-13
+    criterion: "runtime 미제공 승인 정보는 확인 불가로 표시하며 승인·거절·취소는 중복 처리되지 않고 timeline에 남는다."
+  - id: AC-14
+    criterion: "취소·거절 결과는 결정 주체·시점, 중단 전 완료 범위, 부분 결과 보존 여부와 실제 다음 행동을 보여준다."
+  - id: AC-15
+    criterion: "완료·부분 결과는 수행 내용, 생성·수정·삭제 또는 변경 없음, 검증, 미완료·위험과 제공 가능한 근거를 구분한다."
+  - id: AC-16
+    criterion: "Task 상세과 /chat/:taskId에서 동일 Task의 요청, 참고 자료, 승인, 결과와 후속 요청 내용·순서가 일치한다."
+  - id: AC-17
+    criterion: "어느 진입점의 후속 요청도 동일 Task에 새 사건과 run으로 연결되고 별도 Task를 암묵적으로 만들지 않는다."
+  - id: AC-18
+    criterion: "composer는 이미지 붙여넣기, 파일 선택·드롭과 링크를 지원하고 전송 전 자료별 처리·포함·제거 상태를 보여준다."
+  - id: AC-19
+    criterion: "첨부 하나가 실패해도 다른 입력은 유지되며 실패 항목만 재시도·제거할 수 있다."
+  - id: AC-20
+    criterion: "전송 후 어느 요청과 run이 어떤 참고 자료를 사용했는지와 후속 요청의 재사용 여부를 확인한다."
+  - id: AC-21
+    criterion: "전문 설정은 예상 결과·시간·범위를 설명하되 확인되지 않은 비용이나 품질을 보장하지 않는다."
+  - id: AC-22
+    criterion: "핵심 흐름은 keyboard로 완료되며 상태가 색상이나 motion에만 의존하지 않는다."
+  - id: AC-23
+    criterion: "신뢰 가능한 runtime 데이터 계약이 정해지기 전 비용·자원 추정값을 제품 사실처럼 표시하지 않는다."
+
+resolved_questions:
+  - id: OQ-01
+    resolution: "인증 runtime과 호환되는 실행 가능 Agent 한 쌍을 readiness로 확정; workspace 조회 실패는 별도 splash error"
+  - id: OQ-02
+    resolution: "Project는 안내 단계지만 일반 대화의 필수 조건이 아니며 대화부터 시작 허용"
+  - id: OQ-03
+    resolution: "첫 Task는 onboarding 밖 dashboard의 첫 성공 행동"
+  - id: OQ-04
+    resolution: "직접 구성 확인 후 dashboard 이동; Task 진입점 inline 해결과 onboarding 재개 제공"
+
+open_questions:
+  - id: OQ-05
+    owner: "Runtime Integrator / Full-stack Developer"
+    question: "각 runtime 승인 event가 목적, 영향 유형·대상, 되돌림 가능성, 명령과 작업 폴더를 어느 수준까지 안정적으로 제공하는가?"
+    blocking_stage: "Developer contract; UI는 missing-information 상태를 우선 설계 가능"
+  - id: OQ-06
+    owner: "Product Architect / Security Reviewer"
+    question: "작업 모드별 permission 기본값과 추가 승인 정책은 무엇이며 Claude/Codex capability 차이를 어떻게 사용자 기대와 일치시킬 것인가?"
+    blocking_stage: "작업 모드 구현 전"
+  - id: OQ-07
+    owner: "Runtime Integrator"
+    question: "코드 외 작업까지 공통으로 제공 가능한 구조화된 변경 목록과 verification 신호는 무엇인가?"
+    blocking_stage: "자동 결과 요약 구현 전"
+  - id: OQ-08
+    owner: "Product / UI Designer / Full-stack Developer"
+    question: "Task 상세과 Chat을 한 route로 통합할지 동일 session을 공유하는 두 표면으로 유지할지?"
+    blocking_stage: "UI 정보 구조 확정 전; session 일관성 계약은 확정"
+  - id: OQ-09
+    owner: "Product Architect / Security Reviewer"
+    question: "로컬 파일과 붙여넣은 이미지는 원본 참조, 앱 저장소 복사, run snapshot 중 어떤 정책을 사용하며 runtime에 어떻게 전달하는가?"
+    blocking_stage: "첨부 구현 전"
+  - id: OQ-10
+    owner: "Product / Security Reviewer"
+    question: "웹 링크는 URL 텍스트, 실행 시 fetch 대상, snapshot 중 무엇이며 외부 통신 승인을 언제 받는가?"
+    blocking_stage: "링크 첨부 구현 전"
+  - id: OQ-11
+    owner: "Runtime Integrator / Product"
+    question: "Codex와 Claude가 토큰, 비용, 시간, session limit을 어떤 정확도와 단위로 제공하며 비교 가능한가?"
+    blocking_stage: "비용·자원 범위 결정 전; 현재 deferred"
+  - id: OQ-12
+    owner: "UI Designer"
+    question: "Pet 출근 splash의 motion, reduced-motion 대체, 긴 확인과 오류 상태를 pixel visual language로 어떻게 표현할 것인가?"
+    blocking_stage: "UI Handoff"
+
+handoff_validation:
+  required_fields:
+    type: present
+    revision: present
+    status: present
+    problem: present
+    user_goal: present
+    primary_flow: present
+    states: present
+    edge_cases: present
+    acceptance_criteria: present
+    open_questions: present
+  role_boundary: "UX 흐름과 관찰 가능한 결과만 결정했으며 시각 스타일, API, database와 runtime 매핑은 결정하지 않았다."
+  question_preservation: "revision 1의 OQ-01~04는 resolved_questions와 decision-log에 보존했고 OQ-05~12는 owner와 blocking stage를 유지했다."
+  readiness_assessment: "제품 흐름을 막던 OQ-01~04가 해결되어 UI Designer가 상태·화면 명세를 시작할 수 있다. 남은 질문은 UI에서 unknown 상태를 정의하거나 해당 구현 전에 해결 가능하므로 status를 ready로 판단한다."
+
+next_handoff:
+  target_role: "UI Designer"
+  requested_output: "revision 2를 기반으로 splash, onboarding, dashboard inline blocker, Task timeline·approval·attachment의 화면 계층과 component states를 정의한다."
+  constraints:
+    - "OQ-05의 정보 누락 상태와 OQ-12 reduced motion을 반드시 포함한다."
+    - "OQ-06~10의 기술 capability를 UI 사실로 가정하지 않는다."

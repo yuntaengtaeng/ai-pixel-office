@@ -10,6 +10,8 @@ import { Orchestrator } from "./orchestrator.ts";
 import { Repository } from "./repository/index.ts";
 import { KnowledgeDocumentStore } from "./knowledge-documents.ts";
 import type { SkillDraft } from "./skill-draft.ts";
+import type { ColleagueFit } from "./colleague-fit.ts";
+import type { AgentModel } from "@ai-pixel-office/domain";
 import { activityRoutes } from "./routes/activities.ts";
 import { agentRoutes } from "./routes/agents.ts";
 import "./routes/app-types.ts";
@@ -33,6 +35,7 @@ export type AppDependencies = {
   corsOrigin?: string;
   staticRoot?: string;
   skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
+  colleagueFitGenerator?: (intent: string, runtime: AgentModel) => Promise<ColleagueFit>;
 };
 
 export function createHttpServer(dependencies: AppDependencies): FastifyInstance {
@@ -58,6 +61,8 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   if (dependencies.skillDraftGenerator) {
     app.decorate("skillDraftGenerator", dependencies.skillDraftGenerator);
   }
+  if (dependencies.colleagueFitGenerator)
+    app.decorate("colleagueFitGenerator", dependencies.colleagueFitGenerator);
 
   void app.register(cors, {
     origin: corsOrigin,

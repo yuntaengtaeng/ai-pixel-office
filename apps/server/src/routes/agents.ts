@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
 import { parseCreateAgent, parseUpdateAgent } from "@ai-pixel-office/domain";
 import { data, notFound } from "./app-types.ts";
+import { generateColleagueFit } from "../colleague-fit.ts";
 
 const idParams = z.object({ id: z.string() });
 const templateParams = z.object({ id: z.string(), templateId: z.string() });
@@ -10,6 +11,10 @@ const createTemplateBody = z.object({
   title: z.string().trim().min(1),
   description: z.string().optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
+});
+const fitBody = z.object({
+  intent: z.string().trim().min(1).max(4000),
+  runtime: z.enum(["codex", "claude"]),
 });
 
 export const agentRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -20,6 +25,14 @@ export const agentRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post("", async (request, reply) =>
     data(reply, 201, await app.repository.createAgent(parseCreateAgent(request.body))),
   );
+
+  app.post("/fit-preview", { schema: { body: fitBody } }, async (request, reply) => {
+    const generator =
+      app.colleagueFitGenerator ??
+      ((intent: string, runtime: "codex" | "claude") =>
+        generateColleagueFit(intent, runtime, app.generalWorkingDirectory));
+    return data(reply, 200, await generator(request.body.intent, request.body.runtime));
+  });
 
   app.get("/:id", { schema: { params: idParams } }, async (request, reply) =>
     data(
@@ -42,10 +55,8 @@ export const agentRoutes: FastifyPluginAsyncZod = async (app) => {
     return reply.status(204).send();
   });
 
-  app.get(
-    "/:id/task-templates",
-    { schema: { params: idParams } },
-    async (request, reply) => data(reply, 200, await app.repository.listAgentTaskTemplates(request.params.id)),
+  app.get("/:id/task-templates", { schema: { params: idParams } }, async (request, reply) =>
+    data(reply, 200, await app.repository.listAgentTaskTemplates(request.params.id)),
   );
 
   app.post(

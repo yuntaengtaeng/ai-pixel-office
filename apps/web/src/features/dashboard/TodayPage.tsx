@@ -28,6 +28,7 @@ import { ErrorBanner } from "../../shared/ui/ErrorBanner.tsx";
 import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
+import { FilterBar } from "../../shared/ui/FilterBar.tsx";
 import { LiveBadge, OfficeCard, OfficeLoading } from "../office/OfficeCard.tsx";
 import { OFFICE_STATUS_GROUP_META } from "../office/utils/agentOfficeState.ts";
 import { TaskComposer } from "./components/TaskComposer.tsx";
@@ -41,6 +42,39 @@ const PixelOffice = lazy(async () => {
 const Styled = {
   OnboardingPanel: styled(Panel).attrs({ as: "section" })`
     padding: ${({ theme }) => theme.space.x6};
+  `,
+  ReadinessNotice: styled.section`
+    margin-bottom: ${({ theme }) => theme.space.x5};
+    padding: ${({ theme }) => `${theme.space.x2} 0 ${theme.space.x4}`};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.space.x4};
+
+    div {
+      display: grid;
+      gap: ${({ theme }) => theme.space.x1};
+    }
+
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h2 {
+      font-size: ${({ theme }) => theme.typography.fontSize.headingSm};
+    }
+
+    p {
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    }
+
+    @media ${mediaQuery.md} {
+      align-items: stretch;
+      flex-direction: column;
+    }
   `,
   DialogContent: styled(Dialog)`
     .dialog-content {
@@ -178,34 +212,6 @@ const Styled = {
       cursor: pointer;
     }
   `,
-  StatusFilterList: styled.div`
-    display: flex;
-    gap: ${({ theme }) => theme.space.x1};
-    overflow-x: auto;
-    padding: ${({ theme }) => `${theme.space.x1} 0 ${theme.space.x1}`};
-
-    button {
-      flex: 0 0 auto;
-      padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x2}`};
-      border: 1px solid ${({ theme }) => theme.colors.shadow.default};
-      background: ${({ theme }) => theme.colors.background.surfaceMuted};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-size: ${({ theme }) => theme.typography.fontSize.micro};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.black};
-      cursor: pointer;
-
-      &.selected {
-        border-color: ${({ theme }) => theme.colors.border.positive};
-        background: ${({ theme }) => theme.colors.brand.primary};
-        color: ${({ theme }) => theme.colors.background.surface};
-      }
-    }
-
-    b {
-      margin-left: ${({ theme }) => theme.space.x1};
-      font-family: monospace;
-    }
-  `,
   TodayGrid: styled.div<{ $columns: number }>`
     display: grid;
     grid-template-columns: repeat(${({ $columns }) => $columns}, minmax(0, 1fr));
@@ -317,7 +323,13 @@ const Styled = {
   `,
 };
 
-export function TodayPage({ workspace }: { workspace: Workspace }) {
+export function TodayPage({
+  workspace,
+  readiness,
+}: {
+  workspace: Workspace;
+  readiness?: { ready: boolean; showSetupNotice: boolean; onResumeOnboarding: () => void };
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const agents = useQuery({
@@ -450,8 +462,23 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
               <CloseIcon size={16} />
             </Styled.DialogClose>
           </header>
-          <TaskComposer workspace={workspace} onDone={() => setShowComposer(false)} />
+          <TaskComposer
+            workspace={workspace}
+            readiness={readiness}
+            onDone={() => setShowComposer(false)}
+          />
         </Styled.DialogContent>
+        {readiness?.showSetupNotice && (
+          <Styled.ReadinessNotice>
+            <div>
+              <h2>출근 준비를 이어갈 수 있어요</h2>
+              <p>AI를 연결하고 함께 일할 동료를 만들면 작업을 시작할 수 있어요</p>
+            </div>
+            <Button $variant="secondary" onClick={readiness.onResumeOnboarding}>
+              설정 이어하기
+            </Button>
+          </Styled.ReadinessNotice>
+        )}
         {(agents.isError || tasks.isError) && (
           <ErrorBanner>{messageOf(agents.error ?? tasks.error)}</ErrorBanner>
         )}
@@ -473,9 +500,11 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                 </Styled.RuntimeLegend>
               )}
               <Styled.RuntimeLegend aria-label="에이전트 상태 범례">
-                {(Object.entries(OFFICE_STATUS_GROUP_META) as Array<
-                  [string, { label: string; color: string }]
-                >).map(([group, meta]) => (
+                {(
+                  Object.entries(OFFICE_STATUS_GROUP_META) as Array<
+                    [string, { label: string; color: string }]
+                  >
+                ).map(([group, meta]) => (
                   <Styled.RuntimeLegendChip key={group}>
                     <Styled.RuntimeLegendDot style={{ background: meta.color }} />
                     {meta.label}
@@ -537,9 +566,9 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                   </button>
                 )}
               </Styled.Search>
-              <Styled.StatusFilterList>
+              <FilterBar>
                 <button
-                  className={statusFilter === "all" ? "selected" : ""}
+                  aria-pressed={statusFilter === "all"}
                   onClick={() => setStatusFilter("all")}
                 >
                   전체 <b>{taskList.length}</b>
@@ -549,14 +578,14 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                   .map((status) => (
                     <button
                       key={status}
-                      className={statusFilter === status ? "selected" : ""}
+                      aria-pressed={statusFilter === status}
                       onClick={() => setStatusFilter(status)}
                     >
                       {STATUS[status].label}{" "}
                       <b>{taskList.filter((task) => task.status === status).length}</b>
                     </button>
                   ))}
-              </Styled.StatusFilterList>
+              </FilterBar>
             </Styled.Toolbar>
             <Styled.TodayGrid $columns={Math.min(boardStatuses.length, 3)}>
               {boardStatuses.map((status) => (
@@ -568,7 +597,9 @@ export function TodayPage({ workspace }: { workspace: Workspace }) {
                   onDelete={deleteTask}
                   deletingId={removeTask.isPending ? removeTask.variables : undefined}
                   onCreate={
-                    status === "todo" && !taskSearch.trim() ? () => setShowComposer(true) : undefined
+                    status === "todo" && !taskSearch.trim()
+                      ? () => setShowComposer(true)
+                      : undefined
                   }
                 />
               ))}

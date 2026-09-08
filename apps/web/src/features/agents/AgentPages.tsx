@@ -1,5 +1,5 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styled from "styled-components";
@@ -15,7 +15,7 @@ import {
   TextArea,
   TrashIcon,
 } from "@ai-pixel-office/design-system";
-import type { Task, Workspace } from "@ai-pixel-office/domain/entities";
+import type { AgentModel, Task, Workspace } from "@ai-pixel-office/domain/entities";
 import { taskApi } from "../tasks/api.ts";
 import { skillApi } from "../skills/api.ts";
 import { agentApi } from "./api.ts";
@@ -36,6 +36,9 @@ import { useAgentForm } from "./hooks/useAgentForm.ts";
 import { PetChoice } from "./components/PetChoice.tsx";
 import { AgentSkillsField } from "./components/AgentSkillsField.tsx";
 import { AgentAdvancedOptions } from "./components/AgentAdvancedOptions.tsx";
+import { EmployeeBadge } from "./components/EmployeeBadge.tsx";
+import { systemApi } from "../system/api.ts";
+import { defaultManualModel } from "./model-options.ts";
 
 const Styled = {
   SubmitButton: styled(Button)`
@@ -368,6 +371,14 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["pet-unlocks", workspace.id],
     queryFn: () => petUnlockApi.progress(workspace.id),
   });
+  const runtimeStatus = useQuery({
+    queryKey: ["system-status"],
+    queryFn: systemApi.status,
+    refetchOnWindowFocus: false,
+  });
+  const availableModels = (["codex", "claude"] as const).filter(
+    (runtime) => runtimeStatus.data?.[runtime].authenticated,
+  );
   const {
     name,
     setName,
@@ -389,6 +400,12 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
     toggleSkill,
     reset: resetForm,
   } = useAgentForm();
+  useEffect(() => {
+    if (availableModels.length && !availableModels.includes(model)) {
+      setModel(availableModels[0]!);
+      setModelName(defaultManualModel(availableModels[0]!));
+    }
+  }, [availableModels, model, setModel, setModelName]);
   const mutation = useMutation({
     mutationFn: () =>
       agentApi.create({
@@ -427,14 +444,12 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
             mutation.mutate();
           }}
         >
-          <Styled.SelectedPet>
-            <PetPreview petId={avatarId} size={92} />
-            <div>
-              <span>{selectedPet.species.toUpperCase()}</span>
-              <strong>{selectedPet.name}</strong>
-              <small>{selectedPet.breed}</small>
-            </div>
-          </Styled.SelectedPet>
+          <EmployeeBadge
+            petId={avatarId}
+            name={selectedPet.name}
+            role={selectedPet.breed}
+            status={selectedPet.species.toUpperCase()}
+          />
           <Field>
             <label>이름</label>
             <Input
@@ -469,14 +484,20 @@ export function AgentsPage({ workspace }: { workspace: Workspace }) {
             setReasoningEffort={setReasoningEffort}
             permissions={permissions}
             setPermissions={setPermissions}
+            availableModels={[...availableModels]}
           />
           <Styled.SubmitButton
             $variant="primary"
             $fullWidth
-            disabled={mutation.isPending || !name.trim() || !role.trim()}
+            disabled={
+              mutation.isPending || !name.trim() || !role.trim() || availableModels.length === 0
+            }
           >
             에이전트 만들기
           </Styled.SubmitButton>
+          {runtimeStatus.data && availableModels.length === 0 && (
+            <HelperText>AI를 연결해야 실행 가능한 에이전트를 만들 수 있습니다.</HelperText>
+          )}
           {mutation.isError && <ErrorBanner>{messageOf(mutation.error)}</ErrorBanner>}
         </Styled.BuilderForm>
         <Styled.AvatarLibrary>
@@ -606,6 +627,11 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
     queryKey: ["pet-unlocks", workspace.id],
     queryFn: () => petUnlockApi.progress(workspace.id),
   });
+  const runtimeStatus = useQuery({
+    queryKey: ["system-status"],
+    queryFn: systemApi.status,
+    refetchOnWindowFocus: false,
+  });
   const templates = useQuery({
     queryKey: ["agent-task-templates", id],
     queryFn: () => agentApi.listTaskTemplates(id),
@@ -633,6 +659,9 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
     setPermissions,
     toggleSkill: toggleAgentSkill,
   } = useAgentForm(agentQuery.data);
+  const availableModels = (["codex", "claude"] as const).filter(
+    (runtime) => runtimeStatus.data?.[runtime].authenticated || runtime === model,
+  ) satisfies AgentModel[];
   const [templateTitle, setTemplateTitle] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const save = useMutation({
@@ -772,6 +801,7 @@ export function AgentDetailPage({ workspace }: { workspace: Workspace }) {
             setReasoningEffort={setReasoningEffort}
             permissions={permissions}
             setPermissions={setPermissions}
+            availableModels={[...availableModels]}
           />
           <Button
             $variant="primary"

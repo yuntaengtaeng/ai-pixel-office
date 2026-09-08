@@ -1,0 +1,309 @@
+type: ui-handoff
+revision: 2
+status: ready_with_contract_followup
+title: "온보딩 UI Revision 2"
+source_ux_handoff: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff-r2.yaml"
+supersedes: "ai-docs/product-team-records/onboarding-and-task-experience/ui-handoff.yaml"
+
+revision_reason:
+  - "AI 연결 화면이 임시 관리 카드처럼 보이고 Settings의 실제 연결 상태를 충분히 반영하지 못함"
+  - "Pet 목록을 앞의 10개로 자르면서 강아지만 노출됨"
+  - "좌우 분할에서 단계별 우측 높이 변화와 좌측 선택 강조가 서로 충돌함"
+  - "프로젝트 목표, 단순한 완료 행동, 생성 프로젝트의 다음 Task 기본 선택 요구 반영"
+  - "직접 구성, 실제 준비 완료, 진행 중 이탈을 서로 다른 상태로 표현할 필요"
+
+layout_decision:
+  selected: "단일 중앙 컬럼의 앱 설정형 흐름"
+  rationale:
+    - "단계 안내와 입력을 좌우 두 덩어리로 경쟁시키지 않고 사용자의 시선을 현재 결정 하나에 집중시킴"
+    - "단계마다 콘텐츠 양이 달라도 외곽 두 패널의 높이 차이가 발생하지 않음"
+    - "고정 높이와 내부 스크롤로 증상을 숨기지 않고 문서 흐름에 따라 자연스럽게 viewport가 스크롤됨"
+    - "기존 Sidebar를 복제하지 않고 Sidebar와 같은 색·타이포·선·선택 상태 문법만 재사용함"
+  rejected:
+    - option: "좌측 progress + 우측 form 분할 유지"
+      reason: "선택 강조와 콘텐츠 높이 변화가 큰 별도 제품처럼 보이고 좁은 desktop에서 유효 폭을 낭비함"
+    - option: "고정 외곽 높이 + 우측 내부 스크롤"
+      reason: "단계 차이를 가리지만 중첩 스크롤, 하단 action 발견성, keyboard focus 추적을 악화함"
+
+screen_hierarchy:
+  - id: onboarding
+    shell: "AppShell/Sidebar 바깥의 전체 화면, 단색 canvas 배경"
+    max_content_width: "720px 안팎의 중앙 컬럼; 리터럴 확정은 기존 token 조합으로 구현자가 조정"
+    regions:
+      - id: quiet_brand_bar
+        content: "작은 AI Pixel Office wordmark와 닫기 없는 현재 흐름 맥락"
+        visual: "장식 패턴, 픽셀 타일, 단계 badge 없음"
+      - id: intro
+        title: "출근 준비"
+        description: "새 동료와 첫 업무를 시작하기 전에 필요한 것만 준비해요"
+      - id: progress
+        pattern: "Sidebar navigation과 같은 한 줄 선택 문법의 3개 단계 목록"
+        labels: ["AI 연결", "AI 동료", "프로젝트"]
+        rule: "숫자를 문장 앞에 붙이지 않음. 현재 단계는 좌측 brand accent bar와 굵은 label, 완료 단계는 check icon과 '완료' 접근성 텍스트로 구분"
+      - id: step_surface
+        pattern: "하나의 surface 안에 StepHeader, body, feedback, footer 순서"
+        scrolling: "화면 전체 자연 스크롤. step body에 독립 스크롤을 만들지 않음"
+      - id: escape_action
+        content: "제가 직접 구성할래요"
+        placement: "step surface 밖, 중앙 정렬된 underline text button"
+    note: "CommuteSplash는 독립 splash feature이며 이번 revision에서 시각·동작 변경하지 않음"
+
+component_hierarchy:
+  - id: OnboardingFlow
+    owns: ["OnboardingIntro", "OnboardingProgress", "OnboardingStepSurface", "DirectConfigureAction"]
+  - id: OnboardingProgress
+    reuse_direction: "Sidebar item의 spacing, selection bar, typography와 focus 문법 재사용"
+    semantics: "ol 안의 li. 완료된 과거 단계는 button으로 이전 단계 이동 가능, 미래 단계는 비활성 텍스트"
+  - id: OnboardingStepSurface
+    owns: ["StepHeader", "StepBody", "InlineFeedback", "StepFooter"]
+    transition: "height animation 없음. 콘텐츠 교체 시 짧은 opacity 전환만 허용하고 reduced-motion에서는 즉시 교체"
+  - id: RuntimeConnectionStep
+    owns: ["RuntimeChoiceList", "RuntimeChoice", "ConnectionAction", "ConnectionFeedback"]
+    relationship: "SettingsPage ConnectionCard의 상태 계산과 action copy를 공유하는 onboarding composition"
+  - id: ColleagueStep
+    owns: ["AgentIdentityFields", "RuntimeSelect", "PetSpeciesFilter", "PetChoiceGrid", "StepFooter"]
+  - id: ProjectStep
+    owns: ["ProjectFolderPicker", "ProjectNameField", "ProjectGoalField", "StepFooter"]
+  - id: ReadinessNotice
+    placement: "dashboard의 주요 첫 작업 영역 위 배경 위 텍스트 + 작은 secondary action; 독립 Card 금지"
+  - id: TaskComposerReadiness
+    placement: "composer submit action 가까운 inline helper row"
+    rule: "ErrorBanner/Card처럼 표현하지 않고 실제 부족 조건과 해결 action만 노출"
+
+component_states:
+  - component: RuntimeChoice
+    shared_state_model: ["not_installed", "installed_signed_out", "connecting", "connected", "error"]
+    visual_structure:
+      leading: "Codex 또는 Claude 이름/mark"
+      middle: "한 줄 상태 문구와 필요한 경우 짧은 다음 행동 설명"
+      trailing: "상태에 맞는 단일 action 또는 연결됨 check"
+    states:
+      not_installed:
+        status: "준비되지 않음"
+        action: "AI 준비하기"
+      installed_signed_out:
+        status: "로그인이 필요해요"
+        action: "로그인하고 연결하기"
+      connecting:
+        status: "로그인 상태를 확인하고 있어요"
+        action: "disabled progress action"
+      connected:
+        status: "연결됨"
+        action: "없음"
+      error:
+        status: "연결하지 못했어요"
+        action: "다시 시도"
+        detail: "해당 runtime row 아래에 원인 텍스트"
+    selection_rule: "최소 한 개 연결되면 연결된 runtime이 선택됨. 둘 다 연결되면 사용자가 radio semantics로 기본 runtime을 고름"
+    prohibited:
+      - "동일 높이의 큰 Panel 카드 두 개"
+      - "원시 detail만 상태 설명으로 노출"
+      - "설치와 로그인을 하나의 모호한 '설치 및 로그인' action으로 합치기"
+      - "온보딩 기본 화면에 터미널 명령 노출"
+  - component: PetChoiceGrid
+    source: "packages/pet의 unlock 없는 PETS"
+    species_filter:
+      options: ["전체", "강아지", "고양이"]
+      initial: "전체"
+      note: "현재 즉시 선택 가능한 종은 dog/cat이다. rabbit/capybara/quokka의 unlock 정책을 우회하지 않음"
+    initial_order: "강아지와 고양이를 교차 배치하여 첫 viewport에서도 두 종이 함께 보임"
+    choice_content: "PetPreview + 이름 + 품종; 선택 시 border, check, aria-checked 모두 변경"
+    density: "desktop 4열, compact 3열, mobile 2열. 상단의 중복된 대형 PetBadge는 제거"
+    empty_state: "필터 결과가 없으면 종 선택을 전체로 되돌리는 text action"
+  - component: ProjectStep
+    fields:
+      - id: folder
+        label: "프로젝트 폴더 · 선택 사항"
+        state_without_value: "빈 read-only input 대신 '폴더 선택' action과 '프로젝트 없이도 완료할 수 있어요' helper"
+        state_with_value: "선택 경로 요약 + '다시 선택' action"
+      - id: name
+        label: "프로젝트 이름"
+        visibility: "폴더 선택 뒤 표시"
+        required_when_visible: true
+        default: "선택한 폴더명, 사용자가 수정 가능"
+      - id: goal
+        label: "프로젝트 목표 · 선택 사항"
+        visibility: "폴더 선택 뒤 표시"
+        control: "TextArea"
+        persistence: "Project.description에 trim 후 빈 값이면 undefined"
+        helper: "정확하지 않아도 괜찮아요. 나중에 언제든 바꿀 수 있어요"
+    actions:
+      previous: "이전"
+      primary: "완료"
+      completion_without_folder: "Project를 만들지 않고 onboarding 완료"
+      completion_with_folder: "Project 생성 성공 후 onboarding 완료"
+      prohibited: ["지금은 대화부터 시작", "연결하고 완료", "별도 건너뛰기 버튼"]
+  - component: DirectConfigureAction
+    states:
+      idle: "밑줄 text button"
+      confirm: "저장된 항목과 현재 미저장 입력 손실 여부를 명시하는 기존 Dialog"
+    outcomes:
+      confirm_exit: "onboardingSkipped 상태로 dashboard의 사무실 route 이동"
+      continue: "현재 단계와 입력으로 복귀"
+    distinction: "skip은 ready나 onboarding-complete로 기록하지 않음"
+  - component: ReadinessNotice
+    states:
+      in_progress: "출근 준비를 이어갈 수 있어요 + 현재 남은 첫 조건 + 설정 이어하기"
+      skipped_not_ready: "직접 설정 중이에요 + 실제 부족 조건 + 설정에서 준비하기"
+      ready_but_flow_incomplete: "실행 준비는 끝났어요 + 남은 선택 단계 이어가기 또는 notice 닫기"
+      complete: "미노출"
+  - component: TaskComposerReadiness
+    states:
+      runtime_missing: "AI를 연결하면 이 작업을 시작할 수 있어요"
+      compatible_agent_missing: "연결된 AI로 일할 동료를 만들면 시작할 수 있어요"
+      ready: "미노출"
+    secondary_copy: "작성한 내용은 이 앱을 닫기 전까지 보관돼요"
+    action: "준비 이어하기"
+
+interaction_states:
+  - id: runtime-next
+    rule: "연결된 runtime이 없으면 다음 disabled. 연결 성공과 기본 runtime 선택 후 다음 enabled"
+  - id: colleague-submit
+    idle_action: "다음"
+    pending_action: "동료 만드는 중…"
+    success: "생성된 agent를 유지하고 프로젝트 단계로 이동"
+    failure: "입력 유지, 첫 invalid/error field로 focus"
+  - id: project-complete
+    without_folder: "완료 즉시 onboarding 완료"
+    with_folder: "name 검증 → Project 생성 → 생성 성공 project.id를 마지막 선택 프로젝트로 기록 → onboarding 완료"
+    pending_action: "프로젝트 만드는 중…"
+    failure: "onboarding에 머물고 모든 입력 유지"
+  - id: recent-project
+    observable_result: "온보딩에서 생성한 프로젝트가 첫 Task composer와 Chat의 프로젝트 기본값"
+    overwrite_rule: "실제 Task 생성 성공 뒤에는 기존 rememberProject 계약대로 마지막 사용 프로젝트가 갱신됨"
+  - id: backward-navigation
+    rule: "이전 단계로 이동해도 이미 저장된 runtime/agent를 다시 생성하지 않음. 저장 전 project 입력은 온보딩 session 동안 유지"
+  - id: progress-navigation
+    rule: "완료된 단계만 클릭 가능. 이동 후 첫 heading에 programmatic focus"
+
+responsive_behavior:
+  - viewport: "desktop/lg 이상"
+    behavior: "720px 안팎 단일 중앙 컬럼, progress는 intro 아래 가로 3항목, document scroll"
+  - viewport: "tablet/md"
+    behavior: "좌우 여백을 줄이고 동일 단일 컬럼 유지; runtime row와 footer는 가능한 한 한 줄"
+  - viewport: "mobile/md 미만"
+    behavior: "progress label은 유지하되 보조 완료 문구는 visually hidden; RuntimeChoice trailing action은 다음 줄 full width; footer의 이전/완료는 동일 행을 우선하고 좁으면 2열; Pet 2열"
+  - invariant: "어떤 viewport에서도 onboarding body 내부에 별도 vertical scrollbar를 만들지 않음"
+
+accessibility_constraints:
+  - "각 단계 전환 시 h1에 tabindex=-1로 focus 이동하고 title 변경을 screen reader가 인지 가능하게 함"
+  - "Runtime 선택은 radio group, Pet 선택은 radiogroup 또는 단일 선택 listbox 중 하나로 일관되게 구현"
+  - "연결·완료·오류는 색뿐 아니라 텍스트와 icon shape로 표현"
+  - "async 상태 영역은 aria-live=polite, 즉시 조치가 필요한 오류는 role=alert"
+  - "disabled action 옆 helper 또는 연결 상태로 disabled 이유를 읽을 수 있어야 함"
+  - "PetPreview의 장식 픽셀은 alt 비움, 선택 control의 accessible name은 '치즈, 고양이, 치즈태비' 형식"
+  - "StepFooter는 DOM상 body 뒤에 위치하고 sticky로 가리지 않음"
+  - "prefers-reduced-motion에서 step opacity 전환 제거"
+  - "EscapeAction은 링크 모양이어도 button semantics를 유지"
+
+copy_direction:
+  persistent_intro:
+    title: "출근 준비"
+    body: "새 동료와 첫 업무를 시작하기 전에 필요한 것만 준비해요"
+  runtime:
+    title: "사용할 AI를 연결해요"
+    body: "AI 동료가 일을 시작하려면 Codex 또는 Claude 연결이 필요해요"
+  colleague:
+    title: "첫 AI 동료를 만들어요"
+    body: "이름과 맡길 일을 정하고, 오피스에서 함께할 Pet을 골라 주세요"
+  project:
+    title: "첫 프로젝트를 연결할까요?"
+    body: "폴더를 연결하면 동료가 그 안의 자료를 읽고 작업할 수 있어요. 프로젝트 없이도 시작할 수 있어요"
+  tone_rules:
+    - "설치, 인증, runtime 같은 내부 용어는 세부 상태에서만 사용"
+    - "준비되지 않은 상태를 오류나 사용자 잘못으로 표현하지 않음"
+    - "'작업 폴더'와 '프로젝트'를 별도 개념처럼 병치하지 않고 폴더는 프로젝트의 선택 범위로 설명"
+
+design_system_mapping:
+  reuse:
+    - "Button primary/secondary, Input, TextArea, Select, Field"
+    - "surface와 inline feedback에 colors.background.*, border.*, text.*, semantic.* token"
+    - "Sidebar의 선택 bar, spacing, typography 문법은 shared composition으로 추출 가능 여부를 먼저 확인"
+    - "Settings ConnectionCard의 상태 derivation과 action copy는 view model로 공유하고 온보딩 markup은 별도 composition"
+    - "PetChoice와 PetPreview는 접근성 label과 species ordering을 확장해 재사용"
+    - "직접 구성 확인에는 기존 Dialog/FeedbackDialogs 사용"
+  avoid:
+    - "새 장식 pattern, gradient, 임의 shadow, 임의 brand color"
+    - "Panel을 모든 안내문과 runtime option에 중첩"
+    - "단계 숫자 badge와 오른쪽 상단 '1단계/AI 연결' tag"
+    - "설정 화면 ConnectionCard DOM의 무조건 복사"
+  minimal_extension_candidates:
+    - "RuntimeConnectionRow: Settings와 onboarding이 공유하는 state/action view model을 소비하는 앱 전용 component"
+    - "SelectionNavItem: Sidebar와 onboarding progress가 공유 가능한 경우에만 shared/ui로 추출"
+
+assets:
+  reuse:
+    - "packages/pet PETS catalog와 PetPreview"
+    - "현재 승인된 CommuteSplash 장면"
+  new_assets: []
+  constraints:
+    - "잠금 Pet을 onboarding에서 해제된 것처럼 표시하지 않음"
+    - "AI provider logo가 현재 asset에 없으면 텍스트 wordmark로 진행하고 임의 logo를 제작하지 않음"
+
+implementation_acceptance:
+  - id: UI-R2-01
+    criterion: "온보딩은 좌우 분할이 아닌 단일 중앙 컬럼이며 step별 외곽 panel 높이 맞춤이나 내부 vertical scroll이 없음"
+  - id: UI-R2-02
+    criterion: "progress에 숫자 badge와 단계 tag가 없고 Sidebar와 같은 선택 bar/타이포 문법을 사용"
+  - id: UI-R2-03
+    criterion: "AI 연결은 Settings와 동일한 5개 상태와 설치/로그인 action copy를 표시하고 최소 한 개 연결 전 다음이 비활성"
+  - id: UI-R2-04
+    criterion: "첫 Pet viewport에 강아지와 고양이가 함께 보이며 전체/강아지/고양이 필터로 선택 가능"
+  - id: UI-R2-05
+    criterion: "프로젝트 폴더 선택 뒤 이름과 선택 목표를 편집할 수 있고 목표는 Project.description에 저장"
+  - id: UI-R2-06
+    criterion: "프로젝트 footer에는 이전/완료만 존재하며 폴더 없음은 생성 없이, 폴더 있음은 생성 성공 뒤 완료"
+  - id: UI-R2-07
+    criterion: "생성 프로젝트가 첫 Task composer와 Chat의 기본 프로젝트로 선택됨"
+  - id: UI-R2-08
+    criterion: "skip, in-progress, ready, complete가 별도 상태이며 프로젝트 단계 이탈 뒤 dashboard에서 재개 경로가 노출"
+  - id: UI-R2-09
+    criterion: "Task composer 준비 안내는 Card/ErrorBanner가 아니며 실제 부족 조건과 한 개의 해결 action을 표시"
+  - id: UI-R2-10
+    criterion: "keyboard만으로 runtime/Pet/이전/완료/직접 구성 조작 가능하고 단계 전환 focus와 async announcement가 동작"
+  - id: UI-R2-11
+    criterion: "CommuteSplash의 feature 위치와 승인된 visual은 변경하지 않음"
+
+ux_conflicts_and_contract_followup:
+  - id: CONTRACT-01
+    issue: "shared/lib/recentProject는 현재 '실제 Task 생성에 성공한 뒤'에만 쓰도록 주석과 동작이 정의됨"
+    requested_revision: "온보딩 Project 생성 성공도 명시적 프로젝트 선택 사건으로 인정하여 같은 workspace key를 갱신"
+    owner: "UX Designer / Full-stack Developer"
+    blocking: "UI-R2-07 구현 전 관찰 가능한 저장 계약 갱신 필요"
+  - id: CONTRACT-02
+    issue: "UX handoff revision 2의 프로젝트 선택지는 별도 '대화부터 시작' action을 명시하지만 최신 사용자 요구는 이전/완료 두 action"
+    requested_revision: "완료가 폴더 유무에 따라 분기하도록 UX Handoff와 decision log에 반영"
+    owner: "UX Designer"
+    blocking: "문구/flow 문서 정합성; 최신 사용자 결정으로 UI 명세는 진행 가능"
+  - id: CONTRACT-03
+    issue: "잠금 없는 catalog에는 dog/cat만 있고 rabbit/capybara/quokka는 unlock 조건이 있음"
+    requested_revision: "이번 revision은 dog/cat 다양성만 보장. 다른 종을 첫 온보딩에서 선택 가능하게 하려면 unlock product rule 별도 결정"
+    owner: "Product / UX Designer"
+    blocking: false
+
+open_questions:
+  - id: OQ-UI-R2-01
+    owner: "UX Designer / Full-stack Developer"
+    question: "ready지만 project 선택 단계를 끝내지 않은 사용자가 dashboard notice를 닫으면 onboarding-complete로 볼지, 단순 dismiss 상태를 둘지"
+    blocking_stage: "dashboard notice 구현 전"
+  - id: OQ-UI-R2-02
+    owner: "Full-stack Developer"
+    question: "Settings와 onboarding의 runtime state/action을 어느 앱 전용 component 또는 hook에서 공유할지"
+    blocking_stage: "구현 구조 결정; UI behavior는 확정"
+
+handoff_validation:
+  required_fields:
+    type: present
+    revision: present
+    status: present
+    source_ux_handoff: present
+    screen_hierarchy: present
+    component_hierarchy: present
+    component_states: present
+    interaction_states: present
+    responsive_behavior: present
+    accessibility_constraints: present
+    design_system_mapping: present
+    assets: present
+    open_questions: present
+  role_boundary: "UI 구조와 표현을 결정했으며 recentProject 의미와 unlock 정책의 제품 계약 변경은 follow-up으로 분리함"

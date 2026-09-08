@@ -76,11 +76,13 @@ export function PetChoice({
   selected,
   onSelect,
   unlock,
+  radio = false,
 }: {
   pet: (typeof PETS)[number];
   selected: boolean;
   onSelect: (id: string) => void;
   unlock?: PetUnlockProgress;
+  radio?: boolean;
 }) {
   const isMissionPet = pet.unlock !== undefined;
   const locked = isMissionPet && unlock?.unlocked !== true;
@@ -93,6 +95,13 @@ export function PetChoice({
   return (
     <Styled.PetChoice
       type="button"
+      role={radio ? "radio" : undefined}
+      aria-checked={radio ? selected : undefined}
+      aria-label={
+        radio
+          ? `${pet.name}, ${pet.species === "dog" ? "강아지" : pet.species === "cat" ? "고양이" : pet.species}, ${pet.breed}`
+          : undefined
+      }
       $selected={selected}
       $locked={locked}
       aria-disabled={locked}

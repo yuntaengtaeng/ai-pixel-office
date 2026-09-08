@@ -40,6 +40,16 @@ ADR 009에서 결정한 UI/UX 개선을 실제 화면에 적용하면서, 무엇
 
 첫 구현은 Today의 최초 실행 체크리스트다. 완료한 단계는 재방문 시 반복 노출하지 않고 축약 상태로 보여주며, 각 단계는 실제 해결 화면으로 이동하는 CTA를 제공한다. 이후 실행 버튼의 비활성화 원인과 해결 CTA를 Task Composer 및 Task 상세에 연결한다.
 
+### 2026-09-08 — 첫 성공 splash·readiness·onboarding slice
+
+- 앱 진입을 workspace 조회와 readiness 확인으로 나눴다. 두 상태는 Pet 출근 splash의 텍스트로 구분하며, 조회 오류는 onboarding으로 오인 분기하지 않고 retry 가능한 별도 오류 상태로 남긴다.
+- readiness의 단일 판정은 `인증된 runtime + 같은 runtime을 사용하며 fileRead·terminal 권한이 있는 Agent` 조합이다. Project와 기존 Task는 준비 조건이 아니다.
+- 준비된 사용자는 기존 dashboard로 바로 이동하고, 미준비 사용자는 AI 연결 → AI 동료 생성 → 선택적 작업 폴더 연결의 fullscreen onboarding을 거친다. 저장은 기존 preload/runtime 및 Agent·Project API 계약을 사용한다.
+- 모든 단계에서 직접 구성으로 dashboard에 갈 수 있고, 이 선택은 workspace별 localStorage preference로 앱 재시작 뒤에도 유지한다. readiness가 충족되면 preference와 관계없이 정상 dashboard를 표시하며, dashboard의 설정 재개 notice는 preference를 지우고 onboarding을 다시 연다.
+- dashboard에는 Task composer inline blocker가 남는다. Task draft의 title·description·priority는 sessionStorage로 현재 앱 세션의 해결 왕복 중 보존한다.
+- frontend typecheck, 대상 ESLint, web production build가 통과했다. 실제 OAuth와 native directory picker를 포함한 desktop 수동 acceptance는 수행하지 않았다.
+- DirectConfigDialog, 건너뛰기 전 미저장 입력 안내, composer 자동 재개/focus, 기존 form component 추출은 아직 UI Handoff와 차이가 있으며 implementation report의 deviation으로 기록했다.
+
 ### 2026-09-06 — Today 최초 실행 체크리스트 (보류)
 
 - 초기 구현한 체크리스트는 완료 여부를 안내하는 수준이라 사용자에게 노출하지 않기로 했다.

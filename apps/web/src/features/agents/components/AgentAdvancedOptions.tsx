@@ -56,6 +56,7 @@ export function AgentAdvancedOptions({
   setReasoningEffort,
   permissions,
   setPermissions,
+  availableModels,
 }: {
   model: AgentModel;
   setModel: (model: AgentModel) => void;
@@ -67,6 +68,7 @@ export function AgentAdvancedOptions({
   setReasoningEffort: (effort: ReasoningEffort) => void;
   permissions: AgentPermissions;
   setPermissions: (permissions: AgentPermissions) => void;
+  availableModels: AgentModel[];
 }) {
   const selectEngine = (nextModel: AgentModel) => {
     setModel(nextModel);
@@ -78,22 +80,22 @@ export function AgentAdvancedOptions({
       <Styled.Body>
         <Field>
           <label>실행 엔진</label>
-          <Styled.EnginePicker>
-            <button
-              type="button"
-              className={model === "codex" ? "selected" : ""}
-              onClick={() => selectEngine("codex")}
-            >
-              Codex <small>로컬 CLI</small>
-            </button>
-            <button
-              type="button"
-              className={model === "claude" ? "selected" : ""}
-              onClick={() => selectEngine("claude")}
-            >
-              Claude <small>로컬 CLI</small>
-            </button>
-          </Styled.EnginePicker>
+          {availableModels.length ? (
+            <Styled.EnginePicker>
+              {availableModels.map((runtime) => (
+                <button
+                  key={runtime}
+                  type="button"
+                  className={model === runtime ? "selected" : ""}
+                  onClick={() => selectEngine(runtime)}
+                >
+                  {runtime === "codex" ? "Codex" : "Claude"} <small>연결됨</small>
+                </button>
+              ))}
+            </Styled.EnginePicker>
+          ) : (
+            <small>연결된 AI가 없습니다. 설정에서 Codex 또는 Claude를 먼저 연결해 주세요.</small>
+          )}
         </Field>
         <ModelPolicyFields
           runtime={model}

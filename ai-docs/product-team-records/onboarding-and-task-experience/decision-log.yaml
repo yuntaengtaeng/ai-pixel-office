@@ -1,0 +1,61 @@
+type: decision-log
+revision: 1
+status: accepted
+topic: "온보딩 readiness와 완료 경로"
+source_handoff: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff.yaml"
+decisions:
+  - type: decision
+    date: "2026-09-08"
+    topic: "dashboard 직행 readiness"
+    raised_by: "Product"
+    decision: "인증된 runtime이 하나 이상 있고 그 runtime으로 실행 가능한 Agent가 하나 이상이면 dashboard로 직행한다. workspace 조회 실패는 미준비 onboarding이 아니라 별도 splash error로 처리한다."
+    reason: "실제 Task 실행 가능성을 기준으로 준비 상태를 설명하고, 데이터 조회 실패를 사용자 설정 부족으로 오인하지 않게 한다."
+    alternatives:
+      - "runtime 인증만으로 ready 처리"
+      - "Project와 첫 Task까지 있어야 ready 처리"
+      - "workspace 조회 실패를 onboarding으로 처리"
+    impact:
+      - "splash는 workspace 조회 오류와 정상 readiness 미충족을 서로 다른 상태로 보여야 한다."
+      - "ready 판정은 runtime과 Agent의 실행 가능 조합을 확인해야 한다."
+      - "Project와 기존 Task 유무는 dashboard 직행 조건이 아니다."
+    requires_adr: unknown
+  - type: decision
+    date: "2026-09-08"
+    topic: "Project 단계의 선택성"
+    raised_by: "Product"
+    decision: "Project 연결은 onboarding에서 안내하지만 일반 대화를 시작하기 위한 필수 조건으로 두지 않는다. 사용자는 '지금은 대화부터 시작'을 선택할 수 있고, 로컬 자료 또는 파일 작업에 진입할 때 Project 연결 필요를 설명한다."
+    reason: "현재 general scope 계약을 보존하면서 파일 작업에만 필요한 선행 조건을 요청 맥락에서 안내한다."
+    alternatives:
+      - "Project 연결을 모든 onboarding 완료의 필수 조건으로 지정"
+      - "Project 단계를 onboarding에서 제거"
+    impact:
+      - "Project 단계에는 폴더 연결과 대화부터 시작이라는 두 완료 경로가 필요하다."
+      - "파일 작업 진입점은 Project 미연결 원인과 inline 해결 행동을 제공해야 한다."
+    requires_adr: unknown
+  - type: decision
+    date: "2026-09-08"
+    topic: "첫 Task 생성 위치"
+    raised_by: "Product"
+    decision: "첫 Task 생성은 onboarding 내부에 포함하지 않고 dashboard 진입 후 첫 성공 행동으로 둔다."
+    reason: "설정 완료와 실제 업무 시작을 구분하고, dashboard의 제품 가치를 첫 작업의 정상 진입점에서 경험하게 한다."
+    alternatives:
+      - "onboarding 마지막 단계에서 첫 Task를 생성"
+    impact:
+      - "onboarding 완료 조건에 Task 존재 여부를 포함하지 않는다."
+      - "dashboard의 첫 Task 진입점은 readiness와 작업 범위 조건을 맥락 안에서 설명해야 한다."
+    requires_adr: unknown
+  - type: decision
+    date: "2026-09-08"
+    topic: "직접 구성 escape hatch"
+    raised_by: "Product"
+    decision: "'제가 직접 구성할래요'를 선택하면 결과를 확인한 뒤 dashboard로 이동한다. 미완료 조건은 관련 Task 진입점에서 inline 해결 행동과 함께 보여주고 onboarding 재개 진입점을 제공한다."
+    reason: "온보딩을 원하지 않는 사용자의 선택을 존중하면서도 이후 실행 실패가 막다른 길이 되지 않게 한다."
+    alternatives:
+      - "Settings로 즉시 이동"
+      - "확인 없이 dashboard로 즉시 이동"
+      - "필수 준비가 끝날 때까지 건너뛰기 금지"
+    impact:
+      - "dashboard는 미준비 상태에서도 접근 가능하다."
+      - "Task 작성 내용은 해결 행동을 다녀온 뒤 복원되어야 한다."
+      - "dashboard 또는 Task 진입점에 onboarding 재개 경로가 필요하다."
+    requires_adr: unknown

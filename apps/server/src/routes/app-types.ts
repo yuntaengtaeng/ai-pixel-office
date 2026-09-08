@@ -5,6 +5,8 @@ import type { Orchestrator } from "../orchestrator.ts";
 import type { Repository } from "../repository/index.ts";
 import type { SkillDraft } from "../skill-draft.ts";
 import type { KnowledgeDocumentStore } from "../knowledge-documents.ts";
+import type { ColleagueFit } from "../colleague-fit.ts";
+import type { AgentModel } from "@ai-pixel-office/domain";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -15,6 +17,7 @@ declare module "fastify" {
     knowledgeDocuments: KnowledgeDocumentStore;
     corsOrigin: string;
     skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
+    colleagueFitGenerator?: (intent: string, runtime: AgentModel) => Promise<ColleagueFit>;
   }
 }
 

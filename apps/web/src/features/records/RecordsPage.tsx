@@ -15,6 +15,7 @@ import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
 import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 import { MarkdownContent } from "../../shared/ui/MarkdownContent.tsx";
 import { useSelectedDocumentId } from "./hooks/useSelectedDocumentId.ts";
+import { SegmentedControl } from "../../shared/ui/SegmentedControl.tsx";
 
 const Styled = {
   Toolbar: styled.div`
@@ -67,28 +68,6 @@ const Styled = {
     textarea {
       min-height: 360px;
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-    }
-  `,
-  ViewMode: styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 3px;
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceMuted};
-
-    button {
-      padding: ${({ theme }) => theme.space.x2};
-      border: 0;
-      background: transparent;
-      color: ${({ theme }) => theme.colors.text.muted};
-      font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-      cursor: pointer;
-    }
-
-    button.selected {
-      background: ${({ theme }) => theme.colors.background.surfaceRaised};
-      color: ${({ theme }) => theme.colors.text.primary};
-      box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.shadow.default};
     }
   `,
   Preview: styled(MarkdownContent)`
@@ -350,10 +329,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
         eyebrow="OFFICE ARCHIVE"
         title="자료실"
         action={
-          <Button
-            $variant="primary"
-            onClick={() => select(undefined)}
-          >
+          <Button $variant="primary" onClick={() => select(undefined)}>
             + 새 문서
           </Button>
         }
@@ -438,7 +414,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
             readOnly={viewMode === "preview"}
             required
           />
-          <Styled.ViewMode aria-label="문서 보기 방식">
+          <SegmentedControl aria-label="문서 보기 방식">
             <button
               type="button"
               className={viewMode === "preview" ? "selected" : ""}
@@ -453,7 +429,7 @@ export function RecordsPage({ workspace }: { workspace: Workspace }) {
             >
               편집
             </button>
-          </Styled.ViewMode>
+          </SegmentedControl>
           {viewMode === "preview" ? (
             <Styled.Preview>{content.trim() || "_아직 작성된 내용이 없습니다._"}</Styled.Preview>
           ) : (

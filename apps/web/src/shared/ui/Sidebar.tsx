@@ -1,65 +1,11 @@
 import { mediaQuery } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
-import { Link, NavLink } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import type { AgentModel, Workspace } from "@ai-pixel-office/domain/entities";
 import type { SystemStatus } from "../../features/system/api.ts";
+import { OfficeBrand, OfficeSidebar } from "./OfficeSidebar.tsx";
 
 const Styled = {
-  Aside: styled.aside`
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: 228px;
-    padding: ${({ theme }) => `${theme.space.x6} ${theme.space.x5}`};
-    background: ${({ theme }) => theme.colors.brand.primaryDark};
-    color: ${({ theme }) => theme.colors.text.inverse};
-    border-right: 4px solid ${({ theme }) => theme.colors.brand.primary};
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    z-index: ${({ theme }) => theme.zIndex.navigation};
-
-    @media ${mediaQuery.md} {
-      position: sticky;
-      width: 100%;
-      height: auto;
-      padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
-      border: 0;
-      border-bottom: 4px solid ${({ theme }) => theme.colors.brand.primary};
-      flex-direction: row;
-      align-items: center;
-      overflow-y: visible;
-    }
-  `,
-  Brand: styled(Link)`
-    display: flex;
-    align-items: center;
-    gap: ${({ theme }) => theme.space.x3};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
-    letter-spacing: -0.02em;
-
-    > span:last-child {
-      @media ${mediaQuery.md} {
-        display: none;
-      }
-    }
-  `,
-  BrandMark: styled.span`
-    display: grid;
-    place-items: center;
-    width: 42px;
-    height: 42px;
-    background: ${({ theme }) => theme.colors.semantic.warning};
-    color: ${({ theme }) => theme.colors.text.primary};
-    border: 2px solid ${({ theme }) => theme.colors.border.strong};
-    box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
-    font-family: ${({ theme }) => theme.typography.fontFamily.mono};
-    font-size: ${({ theme }) => theme.typography.fontSize.title};
-
-    @media ${mediaQuery.md} {
-      width: 36px;
-      height: 36px;
-    }
-  `,
   RuntimeList: styled.div`
     margin-top: ${({ theme }) => theme.space.x4};
     display: grid;
@@ -218,11 +164,8 @@ export function Sidebar({
   runtimeStatus?: SystemStatus;
 }) {
   return (
-    <Styled.Aside>
-      <Styled.Brand to="/">
-        <Styled.BrandMark>AO</Styled.BrandMark>
-        <span>AI Pixel Office</span>
-      </Styled.Brand>
+    <OfficeSidebar>
+      <OfficeBrand to="/" />
       <Styled.RuntimeList aria-label="실행 엔진 연결 상태">
         <Styled.RuntimeBadge
           $runtime="codex"
@@ -285,6 +228,6 @@ export function Sidebar({
         <strong>LOCAL FIRST</strong>
         <span>내 컴퓨터에서 안전하게 실행됩니다.</span>
       </Styled.Note>
-    </Styled.Aside>
+    </OfficeSidebar>
   );
 }

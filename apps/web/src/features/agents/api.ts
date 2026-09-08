@@ -2,6 +2,11 @@ import type { Agent, AgentPermissions, AgentTaskTemplate } from "@ai-pixel-offic
 import { post, request } from "../../shared/api/client.ts";
 
 export const agentApi = {
+  previewFit: (input: { intent: string; runtime: "codex" | "claude" }) =>
+    post<{ name: string; role: string; rationale: string; petIds: string[]; petRationale: string }>(
+      "/api/agents/fit-preview",
+      input,
+    ),
   list: (workspaceId: string) =>
     request<Agent[]>(`/api/agents?workspaceId=${encodeURIComponent(workspaceId)}`),
   create: (input: {
