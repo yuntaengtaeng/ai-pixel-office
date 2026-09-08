@@ -49,8 +49,15 @@ export async function generateColleagueFit(
     { onEvent: () => undefined, onApprovalPending: () => undefined },
   );
   const completed = result.events.findLast((event) => event.type === "completed");
-  if (completed?.type !== "completed")
-    throw new DomainError("COLLEAGUE_FIT_FAILED", "동료 추천을 완성하지 못했습니다.", 502);
+  if (completed?.type !== "completed") {
+    const failed = result.events.findLast((event) => event.type === "failed");
+    const detail = failed?.type === "failed" ? failed.error : undefined;
+    throw new DomainError(
+      "COLLEAGUE_FIT_FAILED",
+      detail ? `동료 추천을 완성하지 못했습니다: ${detail}` : "동료 추천을 완성하지 못했습니다.",
+      502,
+    );
+  }
   let value: unknown;
   try {
     value = JSON.parse(completed.result.summary.trim());

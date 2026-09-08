@@ -86,6 +86,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof DomainError) {
+      if (error.status >= 500) request.log.error({ code: error.code }, error.message);
       reply.status(error.status).send({ error: { code: error.code, message: error.message } });
       return;
     }
