@@ -53,6 +53,20 @@ pnpm run dev acceptance
 - production `server.cjs`는 Electron main과 별도로 실행되고 ready/shutdown 메시지 계약을 지켜야 한다.
 - Electron 종료 시 child server가 함께 종료되어야 한다.
 
+## 2026-09-09 — ESM SDK를 CJS server bundle에 포함할 때의 import.meta
+
+### 아쉬웠던 점
+
+Claude Agent SDK는 module 초기화 중 `createRequire(import.meta.url)`을 사용한다. 개발 서버는 ESM
+source를 직접 실행해 정상 동작했지만, 모든 dependency를 포함하는 설치용 CJS bundle에서는 esbuild가
+`import.meta`를 빈 객체로 바꿔 macOS DMG의 local server가 시작 전에 종료됐다.
+
+### 다음 작업의 원칙
+
+- ESM dependency를 설치용 CJS server에 새로 포함하면 source/dev 실행만으로 검증하지 않는다.
+- CJS bundle에서 `import.meta.url`은 현재 bundle의 `__filename`을 file URL로 변환한 값으로 제공한다.
+- `build:desktop` 성공뿐 아니라 생성된 `server.cjs`를 직접 시작해 API ready 상태까지 확인한다.
+
 ## 2026-09-04 — Label 토큰을 mono로 잘못 설계
 
 ### 아쉬웠던 점
