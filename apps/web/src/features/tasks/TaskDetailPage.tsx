@@ -559,7 +559,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   const active = ["working", "needs_input"].includes(item.status);
   return (
     <BaseLayout>
-      <BackButton onClick={() => navigate(-1)}>← 작업 목록</BackButton>
+      <BackButton onClick={() => navigate("/")}>← 작업 목록</BackButton>
       <Styled.Heading>
         <h1>
           {item.title}
