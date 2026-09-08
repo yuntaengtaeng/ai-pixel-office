@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BackButton, Button, Select } from "@ai-pixel-office/design-system";
@@ -121,7 +121,6 @@ const Styled = {
     max-height: min(620px, calc(100vh - 300px));
     padding-right: ${({ theme }) => theme.space.x1};
     overflow-y: auto;
-    overscroll-behavior: contain;
 
     scrollbar-color: ${({ theme }) => theme.colors.border.default} transparent;
   `,
@@ -532,6 +531,11 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
           );
         })
       : undefined;
+  const sessionStreamRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = sessionStreamRef.current;
+    if (node) node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  }, [item?.runs.length, latestRun?.status, pendingApproval?.id]);
   const actionError =
     createRecord.error ??
     updateReferenceDocuments.error ??
@@ -656,7 +660,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                           : "대기 중"}
               </span>
             </SectionHeading>
-            <Styled.SessionStream>
+            <Styled.SessionStream ref={sessionStreamRef}>
               {item.status === "todo" ? (
                 <TaskTodoView
                   value={taskBrief}
