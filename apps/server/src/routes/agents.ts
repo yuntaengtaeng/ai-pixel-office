@@ -30,7 +30,12 @@ export const agentRoutes: FastifyPluginAsyncZod = async (app) => {
     const generator =
       app.colleagueFitGenerator ??
       ((intent: string, runtime: "codex" | "claude") =>
-        generateColleagueFit(intent, runtime, app.generalWorkingDirectory));
+        generateColleagueFit(
+          intent,
+          runtime,
+          app.generalWorkingDirectory,
+          app.runtimeLogDirectory,
+        ));
     return data(reply, 200, await generator(request.body.intent, request.body.runtime));
   });
 

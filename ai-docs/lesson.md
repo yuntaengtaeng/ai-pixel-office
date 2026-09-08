@@ -130,6 +130,32 @@ Claude/Codex 버전·로그인 상태 체크는 모두 정상으로 보이는데
 - macOS PATH 문제는 GUI 실행에서만 재현되고 터미널 실행으로는 재현되지 않는다. "터미널에서는
   되는데 Dock/Finder로 실행하면 안 된다"는 보고는 곧 launchd의 최소 PATH를 의심할 신호다.
 
+## 2026-09-09 — GUI 실행 시 cwd가 달라 상대경로 기본값이 루트에 mkdir 시도
+
+### 아쉬웠던 점
+
+바로 위 PATH 수정을 적용해 재빌드했는데도 Finder/Dock 실행에서 "AI로 동료 추천 받기"가 여전히
+실패했다. 실제 원인은 별개였다: `apps/server/src/index.ts`는 `ClaudeRuntimeAdapter`/
+`CodexRuntimeAdapter`를 만들 때 항상 절대경로 `runtimeLogDirectory`를 넘기는데,
+`apps/server/src/colleague-fit.ts`만 인자 없이 어댑터를 새로 만들어서 생성자 기본값인 상대경로
+`".runtime-logs"`를 그대로 썼다. 상대경로는 `process.cwd()` 기준으로 풀리는데, 터미널에서 앱을
+실행하면 셸의 cwd(홈 디렉터리 등 쓰기 가능한 곳)를 물려받아 우연히 동작했지만, Finder/Dock 실행은
+launchd가 cwd를 파일시스템 루트(`/`)로 준다. 그 결과 `mkdirSync('/.runtime-logs')`가 일반 사용자
+권한으로 실패(ENOENT)해 처리되지 않은 예외가 500으로 나갔다.
+
+### 다음 작업의 원칙
+
+- 클래스 생성자에 상대경로 기본값을 두지 않는다. 특히 데스크톱 앱처럼 실행 방식(터미널 vs
+  GUI/Finder/Dock/작업 스케줄러)에 따라 `process.cwd()`가 달라질 수 있는 환경에서는, 상대경로
+  기본값이 "터미널에서 우연히 동작"하는 것과 "항상 동작"하는 것을 구분하지 못하게 만든다.
+- 같은 클래스/함수를 인스턴스화하는 자리가 여러 곳(`index.ts`의 메인 orchestrator,
+  `colleague-fit.ts`의 별도 경로 등)이면 모든 자리가 같은 절대경로 인자를 명시적으로 넘기는지
+  확인한다. 하나는 넘기고 하나는 기본값에 의존하는 상태는 grep 한 번으로 잡을 수 있는데 놓치기
+  쉽다.
+- "터미널로 실행하면 되는데 GUI로 실행하면 안 된다"는 보고는 PATH뿐 아니라 cwd 차이도 의심해야
+  한다. 실패 스택 트레이스의 정확한 경로(`mkdir '/.runtime-logs'`처럼 루트 바로 아래)가 결정적
+  단서였다 — 추측으로 좁히지 말고 실제 에러 로그를 먼저 받는다.
+
 ## 2026-09-04 — Label 토큰을 mono로 잘못 설계
 
 ### 아쉬웠던 점

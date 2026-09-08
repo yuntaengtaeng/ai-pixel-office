@@ -27,8 +27,12 @@ export async function generateColleagueFit(
   intent: string,
   runtime: AgentModel,
   cwd: string,
+  runtimeLogDirectory: string,
 ): Promise<ColleagueFit> {
-  const adapter = runtime === "codex" ? new CodexRuntimeAdapter() : new ClaudeRuntimeAdapter();
+  const adapter =
+    runtime === "codex"
+      ? new CodexRuntimeAdapter(runtimeLogDirectory)
+      : new ClaudeRuntimeAdapter(runtimeLogDirectory);
   const petCatalog = availablePets
     .map((pet) => `${pet.id}: ${pet.species}, ${pet.breed}, ${pet.name}`)
     .join("\n");
