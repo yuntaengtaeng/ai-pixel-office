@@ -91,6 +91,18 @@ electron-builder의 `extraResources` 복사는 이 symlink를 dereference하지 
 - 해결책은 패키징 전에 실제 파일을 dereference해 별도 폴더로 복사(`fs.cpSync(src, dest, {
   dereference: true }))하고, `extraResources`는 그 폴더를 가리키게 하는 것이다
   (`apps/desktop/scripts/prepare-sdk-resource.mjs`).
+- (같은 날 이어진 문제) 위 dereference 수정만으로는 부족했다. `@anthropic-ai/claude-agent-sdk`의
+  플랫폼별 네이티브 바이너리(optionalDependency, 예: `claude-agent-sdk-win32-x64`)는
+  `apps/server/node_modules/@anthropic-ai`가 아니라 `claude-agent-sdk` symlink가 실제로 가리키는
+  pnpm 저장소 안의 `@anthropic-ai/` 폴더에 형제(sibling)로 linking된다. 얕은 workspace
+  `node_modules/@anthropic-ai`만 복사하면 이 형제 바이너리 패키지가 통째로 빠져 런타임에
+  "Native CLI binary for <platform> not found"로 실패한다(에러 메시지가 원래 뭉뚱그려져 있어서
+  `apps/server/src/colleague-fit.ts`가 runtime `failed` 이벤트의 실제 error를 던지도록 먼저 고친
+  뒤에야 원인을 특정할 수 있었다). 복사 소스는 `realpathSync`로 resolve한 `claude-agent-sdk`의
+  부모 `@anthropic-ai/` 디렉터리여야 한다.
+- 이 optionalDependency는 빌드 머신의 OS/arch에 맞는 것만 pnpm이 설치하므로, macOS DMG는 macOS
+  머신에서 `pnpm install` 후 패키징해야 한다. Windows에서 크로스 빌드한 mac 패키지는 darwin 바이너리
+  자체가 로컬에 없어 이 방식으로 고칠 수 없다.
 
 ## 2026-09-04 — Label 토큰을 mono로 잘못 설계
 
