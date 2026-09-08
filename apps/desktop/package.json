@@ -36,6 +36,10 @@
       {
         "from": "../server/dist",
         "to": "server"
+      },
+      {
+        "from": "../server/node_modules/@anthropic-ai",
+        "to": "server/node_modules/@anthropic-ai"
       }
     ],
     "directories": {

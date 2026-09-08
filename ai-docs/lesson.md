@@ -64,7 +64,8 @@ source를 직접 실행해 정상 동작했지만, 모든 dependency를 포함�
 ### 다음 작업의 원칙
 
 - ESM dependency를 설치용 CJS server에 새로 포함하면 source/dev 실행만으로 검증하지 않는다.
-- CJS bundle에서 `import.meta.url`은 현재 bundle의 `__filename`을 file URL로 변환한 값으로 제공한다.
+- ESM SDK는 CJS bundle에 합치지 말고 package.json과 플랫폼별 dependency를 extraResources로 함께
+  패키징하며, 서버에서는 dynamic import로 로드한다.
 - `build:desktop` 성공뿐 아니라 생성된 `server.cjs`를 직접 시작해 API ready 상태까지 확인한다.
 
 ## 2026-09-04 — Label 토큰을 mono로 잘못 설계

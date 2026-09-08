@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { DomainError } from "@ai-pixel-office/domain";
 import {
   BoundedJsonlWriter,
@@ -127,6 +127,9 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
     input: RuntimeRunInput,
     callbacks: RuntimeCallbacks,
   ): Promise<RuntimeRunResult> {
+    // Keep the SDK as a package resource in desktop builds. It is ESM and ships a
+    // platform-specific Claude binary, so it must be loaded outside the CJS server bundle.
+    const { query } = await import("@anthropic-ai/claude-agent-sdk");
     const controller = new AbortController();
     const events: AgentEvent[] = [];
     const state = createClaudeNormalizationState();
