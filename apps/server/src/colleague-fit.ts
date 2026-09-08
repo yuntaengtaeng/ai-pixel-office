@@ -15,6 +15,14 @@ const availablePets = PETS.filter(
   (pet) => !pet.unlock && (pet.species === "dog" || pet.species === "cat"),
 );
 
+// Models sometimes wrap the JSON answer in a ```json fenced block despite the
+// "Return only JSON" instruction. Unwrap it before parsing instead of failing.
+function extractJson(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  return fenced ? fenced[1] : trimmed;
+}
+
 export async function generateColleagueFit(
   intent: string,
   runtime: AgentModel,
@@ -60,9 +68,14 @@ export async function generateColleagueFit(
   }
   let value: unknown;
   try {
-    value = JSON.parse(completed.result.summary.trim());
+    value = JSON.parse(extractJson(completed.result.summary));
   } catch {
-    throw new DomainError("COLLEAGUE_FIT_INVALID", "동료 추천 형식이 올바르지 않습니다.", 502);
+    const snippet = completed.result.summary.trim().slice(0, 300);
+    throw new DomainError(
+      "COLLEAGUE_FIT_INVALID",
+      snippet ? `동료 추천 형식이 올바르지 않습니다: ${snippet}` : "동료 추천 형식이 올바르지 않습니다.",
+      502,
+    );
   }
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new DomainError("COLLEAGUE_FIT_INVALID", "동료 추천 형식이 올바르지 않습니다.", 502);
