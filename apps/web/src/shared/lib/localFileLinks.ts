@@ -27,7 +27,7 @@ export function extractLocalFilePaths(markdown: string): string[] {
       paths.add(match[1].replace(/[`'"),.;:]+$/, ""));
     }
     const posixMatches = section.matchAll(
-      new RegExp(`(^|[\\s(])(/(?:Users|home|tmp|private|var)/[^\\r\\n<>]*?\\.${LOCAL_FILE_EXTENSION})\\b(?!\\.)`, "gim"),
+      new RegExp(`(^|[\\s(\`])(/(?:Users|home|tmp|private|var)/[^\\r\\n<>]*?\\.${LOCAL_FILE_EXTENSION})\\b(?!\\.)`, "gim"),
     );
     for (const match of posixMatches) {
       paths.add(match[2].replace(/[`'"),.;:]+$/, ""));
@@ -78,7 +78,7 @@ export function linkifyLocalPaths(markdown: string): string {
           return `[${path}](${windowsPathToFileUrl(path)})`;
         },
       ).replace(
-        new RegExp(`(^|[\\s(])(/(?:Users|home|tmp|private|var)/[^\\s<>()\`]+?\\.${LOCAL_FILE_EXTENSION})\\b(?!\\.)`, "gim"),
+        new RegExp(`(^|[\\s(])\`?(/(?:Users|home|tmp|private|var)/[^\\r\\n<>()\`]+?\\.${LOCAL_FILE_EXTENSION})\\b(?!\\.)\`?`, "gim"),
         (full: string, prefix: string, path: string, offset: number) => {
           const pathOffset = offset + prefix.length;
           if (fileUrls.slice(Math.max(0, pathOffset - 2), pathOffset) === "](") return full;
