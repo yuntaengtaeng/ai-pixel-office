@@ -30,6 +30,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       return await runCodexSpike({
         runId: input.runId,
         prompt: input.prompt,
+        attachments: input.attachments,
         cwd: input.cwd,
         model: input.modelName,
         reasoningEffort: input.reasoningEffort,

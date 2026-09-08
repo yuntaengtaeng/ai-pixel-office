@@ -322,6 +322,11 @@ if (!hasLock) {
       ".svg",
       ".bmp",
       ".pdf",
+      ".zip",
+      ".txt",
+      ".json",
+      ".csv",
+      ".log",
     ]);
     if (!isDirectory && !allowedExtensions.has(extname(localPath).toLowerCase())) {
       return { ok: false, message: "지원하지 않는 파일 형식입니다" };

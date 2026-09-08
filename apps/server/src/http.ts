@@ -25,6 +25,7 @@ import { taskRoutes } from "./routes/tasks.ts";
 import { workflowPresetRoutes } from "./routes/workflow-presets.ts";
 import { workspaceRoutes } from "./routes/workspaces.ts";
 import { knowledgeDocumentRoutes } from "./routes/knowledge-documents.ts";
+import { attachmentRoutes } from "./routes/attachments.ts";
 
 export type AppDependencies = {
   repository: Repository;
@@ -68,6 +69,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
     origin: corsOrigin,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
+  void app.register(attachmentRoutes, { prefix: "/api/attachments" });
 
   if (dependencies.staticRoot) {
     void app.register(fastifyStatic, {

@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
 import { parseCreateWorkspace, parseUpdateWorkspace } from "@ai-pixel-office/domain";
 import { data, notFound } from "./app-types.ts";
+import { removeAttachmentFiles } from "./attachments.ts";
 
 const idParams = z.object({ id: z.string() });
 
@@ -30,7 +31,11 @@ export const workspaceRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 
   app.delete("/:id", { schema: { params: idParams } }, async (request, reply) => {
+    const attachmentPaths = app.repository
+      .listAttachmentsByWorkspace(request.params.id)
+      .map((attachment) => attachment.storagePath);
     await app.repository.deleteWorkspace(request.params.id);
+    await removeAttachmentFiles(app.generalWorkingDirectory, attachmentPaths);
     return reply.status(204).send();
   });
 };

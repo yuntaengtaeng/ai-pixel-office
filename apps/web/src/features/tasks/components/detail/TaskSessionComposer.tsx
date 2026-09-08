@@ -1,6 +1,7 @@
-import { Button, TextArea } from "@ai-pixel-office/design-system";
+import { Button } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
-import { isSubmitKey } from "../../../../shared/lib/keyboard.ts";
+import { Composer } from "../../../chat/components/Composer.tsx";
+import { useAttachmentDraft } from "../../../chat/hooks/useAttachmentDraft.ts";
 
 const Styled = {
   Composer: styled.form`
@@ -61,6 +62,7 @@ export function TaskSessionComposer({
   pending,
   disabled,
   helper,
+  attachmentsEnabled = true,
   onChange,
   onSubmit,
 }: {
@@ -74,30 +76,33 @@ export function TaskSessionComposer({
   pending: boolean;
   disabled: boolean;
   helper: string;
+  attachmentsEnabled?: boolean;
   onChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (files: File[]) => Promise<unknown> | unknown;
 }) {
+  const attachments = useAttachmentDraft();
+  const submit = async () => {
+    if (disabled || pending) return;
+    try {
+      await onSubmit(attachments.files);
+      attachments.clear();
+    } catch {
+      // 부모 mutation이 오류를 표시하며, 입력과 첨부는 재시도를 위해 유지한다.
+    }
+  };
   return (
-    <Styled.Composer
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!disabled && !pending) onSubmit();
-      }}
-    >
+    <Composer.Form component={Styled.Composer} attachments={attachments} disabled={disabled} pending={pending} onSubmit={submit}>
       <div>
         <label htmlFor={id}>{title}</label>
         <p>{description}</p>
       </div>
-      <TextArea
+      {attachmentsEnabled && <Composer.Attachments attachments={attachments} />}
+      <Composer.TextArea
+        attachments={attachmentsEnabled ? attachments : undefined}
+        onSubmit={submit}
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (isSubmitKey(event) && !disabled && !pending) {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
         placeholder={placeholder}
         rows={6}
       />
@@ -107,6 +112,6 @@ export function TaskSessionComposer({
           {pending ? submittingLabel : submitLabel}
         </Button>
       </Styled.Footer>
-    </Styled.Composer>
+    </Composer.Form>
   );
 }

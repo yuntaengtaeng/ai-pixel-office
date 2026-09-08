@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { DomainError } from "@ai-pixel-office/domain";
 import {
   BoundedJsonlWriter,
@@ -8,11 +9,12 @@ import {
 } from "../../../../scripts/runtime-spike/runtime-log.ts";
 import { spawnClaude } from "../../../../scripts/runtime-spike/process.ts";
 import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
-import type {
-  RuntimeAdapter,
-  RuntimeCallbacks,
-  RuntimeRunInput,
-  RuntimeRunResult,
+import {
+  isVisionAttachment,
+  type RuntimeAdapter,
+  type RuntimeCallbacks,
+  type RuntimeRunInput,
+  type RuntimeRunResult,
 } from "./index.ts";
 
 type ClaudeMessage = Record<string, unknown>;
@@ -151,7 +153,7 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
     }, input.limits.maxDurationMs);
     try {
       const stream = query({
-        prompt: input.prompt,
+        prompt: await buildClaudePrompt(input),
         options: {
           cwd: input.cwd,
           model: input.modelName,
@@ -415,6 +417,40 @@ function claudeSpawnError(error: unknown): string {
     return "Claude CLI를 찾을 수 없습니다. Claude Code를 설치한 뒤 일반 터미널에서 claude 로그인을 완료해 주세요.";
   }
   return message;
+}
+
+/**
+ * 첨부 중 이미지가 있으면 SDK의 스트리밍 입력 모드(단일 user turn)로 전환해 텍스트 프롬프트 옆에
+ * 실제 이미지 콘텐츠 블록을 인라인한다 — Read 같은 파일 도구 없이도(conversational=true라 tools가
+ * 비어 있어도) 모델이 이미지를 직접 볼 수 있는 유일한 경로다. 이미지가 없으면 기존 문자열 prompt
+ * 경로를 그대로 유지해 회귀 위험을 줄인다.
+ */
+async function buildClaudePrompt(input: RuntimeRunInput): Promise<string | AsyncIterable<SDKUserMessage>> {
+  const images = (input.attachments ?? []).filter(isVisionAttachment);
+  if (images.length === 0) return input.prompt;
+
+  const content: Array<Record<string, unknown>> = [{ type: "text", text: input.prompt }];
+  for (const image of images) {
+    try {
+      const bytes = await readFile(image.storagePath);
+      content.push({
+        type: "image",
+        source: { type: "base64", media_type: image.mediaType, data: bytes.toString("base64") },
+      });
+    } catch {
+      // 원본 파일이 정리됐거나 읽기 실패해도, 텍스트 프롬프트에 이미 첨부 경로 안내가 포함되어 있으니
+      // 이미지 하나의 실패로 전체 실행을 막지 않는다.
+    }
+  }
+
+  async function* stream(): AsyncGenerator<SDKUserMessage> {
+    yield {
+      type: "user",
+      message: { role: "user", content: content as never },
+      parent_tool_use_id: null,
+    };
+  }
+  return stream();
 }
 
 function objectValue(value: unknown): Record<string, unknown> | undefined {

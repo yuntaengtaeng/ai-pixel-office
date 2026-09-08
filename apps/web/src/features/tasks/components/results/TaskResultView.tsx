@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { MarkdownContent } from "../../../../shared/ui/MarkdownContent.tsx";
+import { extractLocalFilePaths } from "../../../../shared/lib/localFileLinks.ts";
 import type { TaskDetail } from "../../api.ts";
 
 const MarkdownResult = styled(MarkdownContent)<{
@@ -74,13 +75,17 @@ const MarkdownResult = styled(MarkdownContent)<{
   }
 `;
 
-const Artifact = styled.div`
+const Artifact = styled.button`
+  width: 100%;
   display: flex;
+  text-align: left;
+  cursor: pointer;
   gap: ${({ theme }) => theme.space.x3};
   margin-top: ${({ theme }) => theme.space.x3};
   padding: ${({ theme }) => theme.space.x3};
   border: 1px solid ${({ theme }) => theme.colors.border.subtle};
   background: ${({ theme }) => theme.colors.background.surfaceRaised};
+  color: inherit;
 
   div {
     display: grid;
@@ -116,14 +121,38 @@ export function TaskResultView({
       ];
     }),
   );
+  const recordedPaths = new Set(pathArtifacts.map((artifact) => artifact.path.toLowerCase()));
+  // Claude may mention a generated file only in its final prose, without an artifact event.
+  // Surface those paths through the same trusted desktop open-path boundary as recorded artifacts.
+  const inferredArtifacts = extractLocalFilePaths(result.summary)
+    .filter((path) => !recordedPaths.has(path.toLowerCase()))
+    .map((path) => ({
+      name: path.split(/[\\/]/).pop() ?? path,
+      path,
+      type: "file",
+      url: undefined,
+    }));
+  const visibleArtifacts = [...(result.artifacts ?? []), ...inferredArtifacts];
 
   return (
     <>
       <MarkdownResult $size={size} artifactPaths={artifactPaths}>
         {result.summary}
       </MarkdownResult>
-      {result.artifacts?.map((artifact) => (
-        <Artifact key={artifact.name}>
+      {visibleArtifacts.map((artifact) => (
+        <Artifact
+          key={artifact.name}
+          type="button"
+          disabled={!artifact.url && (!artifact.path || !window.pixelOffice)}
+          title={artifact.path ? "파일 열기" : artifact.url ? "링크 열기" : undefined}
+          onClick={() => {
+            if (artifact.path && window.pixelOffice) {
+              void window.pixelOffice.openPath(artifact.path);
+            } else if (artifact.url) {
+              window.open(artifact.url, "_blank", "noopener,noreferrer");
+            }
+          }}
+        >
           <span>▤</span>
           <div>
             <strong>{artifact.name}</strong>

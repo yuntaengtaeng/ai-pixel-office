@@ -1,4 +1,9 @@
-import type { AgentModel, ReasoningEffort, RunLimits } from "@ai-pixel-office/domain";
+import type {
+  AgentModel,
+  MessageAttachment,
+  ReasoningEffort,
+  RunLimits,
+} from "@ai-pixel-office/domain";
 import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 
 export type RuntimeRunInput = {
@@ -14,6 +19,8 @@ export type RuntimeRunInput = {
   figma: boolean;
   conversational: boolean;
   limits: RunLimits;
+  /** 사용자가 이번 메시지에 첨부한 파일. 이미지는 adapter가 지원하면 멀티모달 콘텐츠로 인라인하고, 그 외에는 prompt에 이미 경로가 텍스트로 포함되어 있다. */
+  attachments?: MessageAttachment[];
 };
 
 export type RuntimeRunResult = {
@@ -23,6 +30,13 @@ export type RuntimeRunResult = {
   eventLogRef?: string;
   events: AgentEvent[];
 };
+
+const VISION_MEDIA_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+/** Provider가 공통으로 지원하는 raster 이미지 형식만 멀티모달 입력으로 전달, SVG는 일반 파일로 처리 */
+export function isVisionAttachment(attachment: Pick<MessageAttachment, "mediaType">): boolean {
+  return VISION_MEDIA_TYPES.has(attachment.mediaType.toLowerCase());
+}
 
 export type RuntimeCallbacks = {
   onEvent: (event: AgentEvent) => void;

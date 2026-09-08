@@ -25,6 +25,7 @@ import type {
   UpdateWorkspaceInput,
   WorkflowPreset,
   Workspace,
+  MessageAttachment,
 } from "@ai-pixel-office/domain";
 import type { AppDatabase } from "../database.ts";
 import { createActivity, listActivities, type CreateActivityInput } from "./activities.ts";
@@ -97,6 +98,60 @@ export class Repository {
 
   close(): void {
     this.database.close();
+  }
+
+  createAttachment(input: MessageAttachment): MessageAttachment {
+    this.database.prepare(`INSERT INTO task_attachments (id, workspace_id, task_id, run_id, name, media_type, size, source, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(input.id, input.workspaceId, input.taskId, input.runId ?? null, input.name, input.mediaType, input.size, input.source, input.storagePath, input.createdAt);
+    return input;
+  }
+
+  getAttachment(id: string): MessageAttachment | undefined {
+    const row = this.database.prepare("SELECT * FROM task_attachments WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    return row ? attachmentFromRow(row) : undefined;
+  }
+
+  deletePendingAttachment(id: string): MessageAttachment | undefined {
+    const attachment = this.getAttachment(id);
+    if (!attachment || attachment.runId) return undefined;
+    this.database.prepare("DELETE FROM task_attachments WHERE id = ? AND run_id IS NULL").run(id);
+    return attachment;
+  }
+
+  deletePendingAttachmentsBefore(createdBefore: string): MessageAttachment[] {
+    const rows = this.database
+      .prepare(
+        "SELECT * FROM task_attachments WHERE run_id IS NULL AND created_at < ? ORDER BY created_at",
+      )
+      .all(createdBefore) as Record<string, unknown>[];
+    const attachments = rows.map(attachmentFromRow);
+    this.database
+      .prepare("DELETE FROM task_attachments WHERE run_id IS NULL AND created_at < ?")
+      .run(createdBefore);
+    return attachments;
+  }
+
+  /** 클라이언트가 보낸 ID 목록을 신뢰하지 않고, 실제 존재하는 첨부만 그대로 돌려준다 — 호출부가 taskId 소유권을 다시 확인한다. */
+  listAttachmentsByIds(ids: string[]): MessageAttachment[] {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = this.database
+      .prepare(`SELECT * FROM task_attachments WHERE id IN (${placeholders})`)
+      .all(...ids) as Record<string, unknown>[];
+    return rows.map(attachmentFromRow);
+  }
+
+  listAttachmentsByTask(taskId: string): MessageAttachment[] {
+    const rows = this.database
+      .prepare("SELECT * FROM task_attachments WHERE task_id = ? ORDER BY created_at")
+      .all(taskId) as Record<string, unknown>[];
+    return rows.map(attachmentFromRow);
+  }
+
+  listAttachmentsByWorkspace(workspaceId: string): MessageAttachment[] {
+    const rows = this.database
+      .prepare("SELECT * FROM task_attachments WHERE workspace_id = ? ORDER BY created_at")
+      .all(workspaceId) as Record<string, unknown>[];
+    return rows.map(attachmentFromRow);
   }
 
   // getAgent/getProject 위임 메서드를 통해 조회하도록 넘긴다 — 테스트가 인스턴스의
@@ -372,4 +427,19 @@ export class Repository {
   async listActivities(workspaceId: string, limit = 100): Promise<ActivityLog[]> {
     return listActivities(this.database, workspaceId, limit);
   }
+}
+
+function attachmentFromRow(row: Record<string, unknown>): MessageAttachment {
+  return {
+    id: String(row.id),
+    workspaceId: String(row.workspace_id),
+    taskId: String(row.task_id),
+    runId: row.run_id ? String(row.run_id) : undefined,
+    name: String(row.name),
+    mediaType: String(row.media_type),
+    size: Number(row.size),
+    source: row.source as MessageAttachment["source"],
+    storagePath: String(row.storage_path),
+    createdAt: String(row.created_at),
+  };
 }

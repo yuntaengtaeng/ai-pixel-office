@@ -65,7 +65,7 @@ export function NewChatComposer({
   projects: Project[];
   initialProjectId?: string;
   defaultAgentId?: string;
-  onStart: (input: { agentId: string; message: string; projectId?: string }) => void;
+  onStart: (input: { agentId: string; message: string; projectId?: string; files?: File[] }) => Promise<unknown>;
   pending: boolean;
   error?: unknown;
 }) {
@@ -129,13 +129,15 @@ export function NewChatComposer({
         </Empty>
       </ChatScroll>
       <MessageComposer
-        onSend={(message) => {
+        onSend={(message, files) => {
           if (resolvedAgentId)
-            onStart({
+            return onStart({
               agentId: resolvedAgentId,
               message,
               projectId: resolvedProjectId || undefined,
+              files,
             });
+          return Promise.reject(new Error("대화할 동료를 선택해 주세요"));
         }}
         placeholder="어떤 일을 도와드릴까요?"
         disabled={!resolvedAgentId}

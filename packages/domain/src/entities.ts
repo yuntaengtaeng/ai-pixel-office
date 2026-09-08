@@ -86,6 +86,19 @@ export type TaskResult = {
   metadata?: Record<string, unknown>;
 };
 
+export type MessageAttachment = {
+  id: string;
+  workspaceId: string;
+  taskId: string;
+  runId?: string;
+  name: string;
+  mediaType: string;
+  size: number;
+  source: "file" | "clipboard-image";
+  storagePath: string;
+  createdAt: string;
+};
+
 /** office는 칸반/할일 흐름에서, chat은 사이드바 대화 진입점에서 생성됨, 대화 목록 조회 구분에만 사용 */
 export type TaskOrigin = "office" | "chat";
 

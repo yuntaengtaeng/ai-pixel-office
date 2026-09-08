@@ -25,6 +25,7 @@ export function TaskTodoView({
       pending={savePending}
       disabled={value.trim() === originalValue.trim()}
       helper="저장한 내용은 작업을 시작하기 전에도 다시 편집할 수 있어요."
+      attachmentsEnabled={false}
       onChange={onChange}
       onSubmit={onSave}
     />

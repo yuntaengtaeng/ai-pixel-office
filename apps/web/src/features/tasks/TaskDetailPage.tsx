@@ -54,12 +54,15 @@ const Styled = {
       gap: ${({ theme }) => theme.space.x3};
       color: ${({ theme }) => theme.colors.text.primary};
       font-size: clamp(29px, 4vw, 42px);
+      line-height: 1.2;
       letter-spacing: -0.045em;
     }
 
     p {
+      margin-top: ${({ theme }) => theme.space.x2};
       color: ${({ theme }) => theme.colors.text.muted};
       max-width: 720px;
+      line-height: 1.5;
     }
   `,
   PrimaryActionBar: styled.div`
@@ -368,14 +371,33 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
   });
   const approve = useMutation({ mutationFn: () => taskApi.approve(id), onSuccess: refresh });
   const changes = useMutation({
-    mutationFn: () => taskApi.requestChanges(id, feedback),
+    mutationFn: async (files: File[]) => {
+      const attachments = files.length
+        ? await taskApi.uploadAttachments(workspace.id, id, files)
+        : [];
+      return taskApi.requestChanges(
+        id,
+        feedback,
+        attachments.map((attachment) => attachment.id),
+      );
+    },
     onSuccess: () => {
       setFeedback("");
       refresh();
     },
   });
   const resumeSession = useMutation({
-    mutationFn: () => taskApi.resumeSession(id, resumeSourceRunId!, resumeMessage),
+    mutationFn: async (files: File[]) => {
+      const attachments = files.length
+        ? await taskApi.uploadAttachments(workspace.id, id, files)
+        : [];
+      return taskApi.resumeSession(
+        id,
+        resumeSourceRunId!,
+        resumeMessage,
+        attachments.map((attachment) => attachment.id),
+      );
+    },
     onSuccess: () => {
       setResumeMessage("");
       setResumeSourceRunId(undefined);
@@ -648,6 +670,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                   <TaskConversationThread
                     runs={item.runs}
                     agents={agents.data ?? []}
+                    attachmentsByRun={item.attachmentsByRun}
                     showAgentLabels={item.workflow.length > 0}
                     emphasizeLastAgentBubble={item.status === "needs_review"}
                     activeRunStatus={
@@ -711,7 +734,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                   disabled={!feedback.trim()}
                   helper="Enter로 바로 전송, Shift+Enter로 줄바꿈"
                   onChange={setFeedback}
-                  onSubmit={() => changes.mutate()}
+                  onSubmit={(files) => changes.mutateAsync(files)}
                 />
                 <Styled.ReviewFinish>
                   <span>결과가 충분하다면 이 작업을 마무리하세요.</span>
@@ -740,7 +763,7 @@ export function TaskDetailPage({ workspace }: { workspace: Workspace }) {
                     disabled={!resumeMessage.trim()}
                     helper="실행 환경은 현재 Project 설정을 기준으로 다시 확인합니다."
                     onChange={setResumeMessage}
-                    onSubmit={() => resumeSession.mutate()}
+                    onSubmit={(files) => resumeSession.mutateAsync(files)}
                   />
                 ) : (
                   <Styled.ReviewFinish>

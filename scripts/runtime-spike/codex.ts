@@ -9,9 +9,32 @@ import type { ReasoningEffort } from "@ai-pixel-office/domain/entities";
 type ThreadStartResult = { thread: { id: string } };
 type TurnStartResult = { turn: { id: string } };
 
+export type CodexInputItem = { type: "text"; text: string } | { type: "localImage"; path: string };
+
+export type CodexAttachment = { mediaType: string; storagePath: string };
+
+const VISION_MEDIA_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+/**
+ * Codex app-server의 turn/start.input은 텍스트 전용이 아니라 배열이라, 이미지 첨부는
+ * 경로를 프롬프트 문자열에 섞지 않고 { type: "localImage", path } 항목으로 따로 전달할 수 있다.
+ * PDF·문서 등 이미지가 아닌 첨부는 localImage 대상이 아니므로 (orchestrator가 이미 프롬프트
+ * 텍스트에 넣어준) 명시적 경로 안내에 그대로 맡긴다.
+ */
+export function buildCodexInput(prompt: string, attachments?: CodexAttachment[]): CodexInputItem[] {
+  const items: CodexInputItem[] = [{ type: "text", text: prompt }];
+  for (const attachment of attachments ?? []) {
+    if (VISION_MEDIA_TYPES.has(attachment.mediaType.toLowerCase())) {
+      items.push({ type: "localImage", path: attachment.storagePath });
+    }
+  }
+  return items;
+}
+
 export type CodexSpikeOptions = {
   runId?: string;
   prompt: string;
+  attachments?: CodexAttachment[];
   cwd?: string;
   model?: string;
   reasoningEffort?: ReasoningEffort;
@@ -134,7 +157,7 @@ export async function runCodexSpike(options: CodexSpikeOptions): Promise<CodexSp
     acceptRunEvents = true;
     const turnResult = await client.request<TurnStartResult>("turn/start", {
       threadId,
-      input: [{ type: "text", text: options.prompt }],
+      input: buildCodexInput(options.prompt, options.attachments),
     });
     turnId = turnResult.turn.id;
 

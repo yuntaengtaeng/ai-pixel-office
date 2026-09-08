@@ -3,6 +3,7 @@ import type { Agent } from "@ai-pixel-office/domain/entities";
 import type { TaskDetail } from "../../tasks/api.ts";
 import { TaskResultView } from "../../tasks/components/results/TaskResultView.tsx";
 import { PetPreview } from "../../office/PetPreview.tsx";
+import { SentAttachments } from "./SentAttachments.tsx";
 
 const Styled = {
   Thread: styled.div`
@@ -77,10 +78,12 @@ const Styled = {
 /** run.request/result가 각각 사용자/에이전트 메시지 한 쌍이라 실행 기록을 그대로 채팅 말풍선으로 매핑 */
 export function MessageThread({
   runs,
+  attachmentsByRun,
   activeRunStatus,
   agent,
 }: {
   runs: TaskDetail["runs"];
+  attachmentsByRun: TaskDetail["attachmentsByRun"];
   activeRunStatus?: "queued" | "running" | "waiting";
   agent?: Agent;
 }) {
@@ -90,9 +93,12 @@ export function MessageThread({
       {chronological.map((run) => (
         <Styled.Turn key={run.id}>
           {run.request && (
-            <Styled.Row $from="user">
-              <Styled.Bubble $from="user">{run.request}</Styled.Bubble>
-            </Styled.Row>
+            <>
+              <Styled.Row $from="user">
+                <Styled.Bubble $from="user">{run.request}</Styled.Bubble>
+              </Styled.Row>
+              <SentAttachments attachments={attachmentsByRun[run.id]} />
+            </>
           )}
           {run.status === "completed" && run.result && (
             <Styled.Row $from="agent">

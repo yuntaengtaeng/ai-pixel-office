@@ -163,6 +163,21 @@ function migrate(database: AppDatabase): void {
     );
     CREATE INDEX IF NOT EXISTS runs_task_created_idx ON agent_runs(task_id, created_at DESC);
 
+    CREATE TABLE IF NOT EXISTS task_attachments (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      run_id TEXT REFERENCES agent_runs(id) ON DELETE SET NULL,
+      name TEXT NOT NULL,
+      media_type TEXT NOT NULL,
+      size INTEGER NOT NULL CHECK(size >= 0),
+      source TEXT NOT NULL CHECK(source IN ('file', 'clipboard-image')),
+      storage_path TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS task_attachments_task_created_idx
+      ON task_attachments(task_id, created_at DESC);
+
     -- skill_id는 FK 미설정, Skill이 삭제되어도 skill_name_snapshot으로 과거 표시를 유지
     CREATE TABLE IF NOT EXISTS run_skills (
       run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,

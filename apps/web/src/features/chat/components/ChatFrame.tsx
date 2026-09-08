@@ -57,6 +57,7 @@ export const ChatScroll = styled.div`
 export const ChatInputBar = styled.form`
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: ${({ theme }) => theme.space.x2};
   padding: ${({ theme }) => theme.space.x2} ${({ theme }) => theme.space.x3};

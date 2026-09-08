@@ -7,6 +7,7 @@ import {
   type Agent,
   type AgentRun,
   type ExecutionScopeType,
+  type MessageAttachment,
   type RunLimits,
   type Task,
   type TaskResult,
@@ -31,6 +32,7 @@ type ActiveRunContext = {
   workingDirectory: string;
   workflowStepId?: string;
   sessionBudget?: SessionBudget;
+  attachments?: MessageAttachment[];
 };
 
 type SessionBudget = {
@@ -52,6 +54,8 @@ type RunReservationOptions = {
   resumedFromRunId?: string;
   review?: Parameters<Repository["createReview"]>[0];
   activities?: Array<Parameters<Repository["createActivity"]>[0]>;
+  /** 업로드는 이미 끝난 상태로 들어오며, run이 만들어진 뒤 그 run에 소급해서 묶는다. */
+  attachmentIds?: string[];
 };
 
 export type OrchestratorOptions = {
@@ -237,7 +241,7 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
     return { title: `${task.title} 기록`, content, agentId, runId: sourceRun?.id };
   }
 
-  async startTask(taskId: string): Promise<AgentRun> {
+  async startTask(taskId: string, attachmentIds: string[] = []): Promise<AgentRun> {
     const task = await this.requireRunnableTask(taskId, "todo");
     const workflow = await this.repository.listWorkflowSteps(taskId);
     if (workflow.length > 0) {
@@ -253,7 +257,9 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
       compileAgentInstructions(agent, skills, task),
       task,
     );
-    return this.queueRun(task, agent, prompt);
+    return this.queueRun(task, agent, prompt, undefined, undefined, undefined, undefined, {
+      attachmentIds,
+    });
   }
 
   async retryTask(taskId: string): Promise<AgentRun> {
@@ -303,7 +309,11 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
     return updated;
   }
 
-  async requestChanges(taskId: string, feedback: string): Promise<AgentRun> {
+  async requestChanges(
+    taskId: string,
+    feedback: string,
+    attachmentIds: string[] = [],
+  ): Promise<AgentRun> {
     if (!feedback.trim()) throw new DomainError("INVALID_FEEDBACK", "Feedback is required");
     const task = await this.repository.getTask(taskId);
     if (!task) throw new DomainError("NOT_FOUND", `Task not found: ${taskId}`, 404);
@@ -343,13 +353,18 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
             message: `Changes requested: ${feedback.trim()}`,
           },
         ],
+        attachmentIds,
       },
     );
     return run;
   }
 
   /** 후속 메시지는 이전 run의 runtimeThreadId로 같은 런타임 세션을 이어가므로 Agent 지침을 다시 컴파일하지 않고 메시지만 전달 */
-  async sendChatMessage(taskId: string, message: string): Promise<AgentRun> {
+  async sendChatMessage(
+    taskId: string,
+    message: string,
+    attachmentIds: string[] = [],
+  ): Promise<AgentRun> {
     const trimmed = message.trim();
     if (!trimmed) throw new DomainError("INVALID_MESSAGE", "Message is required");
     const task = await this.repository.getTask(taskId);
@@ -384,6 +399,7 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
       undefined,
       undefined,
       trimmed,
+      { attachmentIds },
     );
   }
 
@@ -484,7 +500,12 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
     );
   }
 
-  async resumeTaskSession(taskId: string, sourceRunId: string, message: string): Promise<AgentRun> {
+  async resumeTaskSession(
+    taskId: string,
+    sourceRunId: string,
+    message: string,
+    attachmentIds: string[] = [],
+  ): Promise<AgentRun> {
     const request = message.trim();
     if (!request) throw new DomainError("INVALID_MESSAGE", "A continuation request is required");
     const task = await this.repository.getTask(taskId);
@@ -525,7 +546,7 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
       undefined,
       undefined,
       request,
-      { resumedFromRunId: sourceRun.id },
+      { resumedFromRunId: sourceRun.id, attachmentIds },
     );
   }
 
@@ -603,6 +624,22 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
     const previousRun = existingRuns[0];
     this.assertMatchingExecutionScope(previousRun, executionScope);
     const runId = randomUUID();
+    const attachmentIds = reservationOptions.attachmentIds ?? [];
+    const attachments = attachmentIds.length
+      ? this.repository
+          .listAttachmentsByIds(attachmentIds)
+          .filter((attachment) => attachment.taskId === task.id && !attachment.runId)
+      : [];
+    if (attachments.length !== new Set(attachmentIds).size) {
+      throw new DomainError(
+        "ATTACHMENT_NOT_AVAILABLE",
+        "첨부 파일이 이 작업에 속하지 않거나 이미 다른 실행에 사용되었습니다",
+        409,
+      );
+    }
+    const promptWithAttachments = attachments.length
+      ? `${prompt}\n\n${describeAttachments(attachments)}`
+      : prompt;
     const activities: Array<Parameters<Repository["createActivity"]>[0]> = [
       ...(workflowStep
         ? [
@@ -656,6 +693,7 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
         assigneeAgentId: agent.id,
         review: reservationOptions.review,
         activities,
+        attachmentIds: attachments.map((attachment) => attachment.id),
       },
     );
     const { run, task: updatedTask } = reserved;
@@ -668,9 +706,10 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
       workingDirectory: executionScope.workingDirectory,
       ...(workflowStep ? { workflowStepId: workflowStep.id } : {}),
       ...(sessionBudget ? { sessionBudget } : {}),
+      ...(attachments.length ? { attachments } : {}),
     });
     queueMicrotask(() => {
-      this.executeRun(run, agent, prompt, resumeThreadId).catch((error: unknown) => {
+      this.executeRun(run, agent, promptWithAttachments, resumeThreadId).catch((error: unknown) => {
         console.error(`Unhandled failure while executing run ${run.id}`, error);
       });
     });
@@ -720,6 +759,7 @@ ${source || "실행 기록이 없습니다. 작업 요청과 현재 결과만 �
           figma: agent.permissions.figma === true,
           conversational: agent.mode === "chat",
           limits: this.limits,
+          attachments: this.activeRuns.get(run.id)?.attachments,
         },
         {
           // `RuntimeCallbacks.onEvent` is a fixed synchronous-void contract (see runtime.ts).
@@ -1351,4 +1391,17 @@ function runtimeProgress(
 
 function runUsageTokens(run: AgentRun): number {
   return (run.usage?.inputTokens ?? 0) + (run.usage?.outputTokens ?? 0);
+}
+
+/**
+ * 모든 runtime이 최소한 텍스트로는 첨부를 알 수 있게 prompt에 덧붙이는 요약.
+ * 이미지는 Claude adapter가 추가로 멀티모달 콘텐츠 블록으로 인라인하지만, 이 텍스트 목록도
+ * 그대로 남겨 어떤 이름·경로의 파일이었는지 항상 참조할 수 있게 한다.
+ */
+function describeAttachments(attachments: MessageAttachment[]): string {
+  const lines = attachments.map(
+    (attachment) =>
+      `- ${attachment.name} (${attachment.mediaType}, ${Math.max(1, Math.round(attachment.size / 1024))}KB): ${attachment.storagePath}`,
+  );
+  return `ATTACHMENTS\n사용자가 다음 파일을 함께 보냈습니다. 이미지는 이미 대화 콘텐츠에 포함되어 있습니다. 파일 읽기 도구를 쓸 수 있다면 그 외 파일도 아래 경로에서 열어보세요.\n${lines.join("\n")}`;
 }

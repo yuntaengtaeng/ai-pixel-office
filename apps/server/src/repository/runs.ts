@@ -29,6 +29,7 @@ export type RunReservation = {
   assigneeAgentId?: string;
   review?: Omit<TaskReview, "id" | "createdAt">;
   activities: CreateActivityInput[];
+  attachmentIds?: string[];
 };
 
 type CreateRunInput = Pick<
@@ -177,6 +178,21 @@ export async function reserveRun(
     };
     writeTask(database, task);
     const run = createRunSync(database, input);
+    if (reservation.attachmentIds?.length) {
+      const attach = database.prepare(
+        "UPDATE task_attachments SET run_id = ? WHERE id = ? AND task_id = ? AND run_id IS NULL",
+      );
+      for (const attachmentId of reservation.attachmentIds) {
+        const result = attach.run(run.id, attachmentId, task.id);
+        if (result.changes !== 1) {
+          throw new DomainError(
+            "ATTACHMENT_NOT_AVAILABLE",
+            "첨부 파일이 이 작업에 속하지 않거나 이미 다른 실행에 사용되었습니다",
+            409,
+          );
+        }
+      }
+    }
     if (reservation.workflowStepId) {
       const step = requireEntity(
         getWorkflowStepSync(database, reservation.workflowStepId),

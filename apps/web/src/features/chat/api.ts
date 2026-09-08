@@ -7,6 +7,7 @@ export const chatApi = {
     agentId: string;
     message: string;
     projectId?: string;
+    files?: File[];
   }) => {
     const task = await taskApi.create({
       workspaceId: input.workspaceId,
@@ -16,8 +17,23 @@ export const chatApi = {
       projectId: input.projectId,
       origin: "chat",
     });
-    await taskApi.run(task.id);
+    const attachments = input.files?.length
+      ? await taskApi.uploadAttachments(input.workspaceId, task.id, input.files)
+      : [];
+    await taskApi.run(
+      task.id,
+      attachments.map((attachment) => attachment.id),
+    );
     return task;
   },
-  sendMessage: (taskId: string, message: string) => taskApi.sendMessage(taskId, message),
+  sendMessage: async (workspaceId: string, taskId: string, message: string, files: File[] = []) => {
+    const attachments = files.length
+      ? await taskApi.uploadAttachments(workspaceId, taskId, files)
+      : [];
+    return taskApi.sendMessage(
+      taskId,
+      message,
+      attachments.map((attachment) => attachment.id),
+    );
+  },
 };

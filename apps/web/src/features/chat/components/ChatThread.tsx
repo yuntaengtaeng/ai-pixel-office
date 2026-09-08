@@ -48,7 +48,7 @@ export function ChatThread({
 }: {
   task: TaskDetail;
   agent?: Agent;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, files?: File[]) => Promise<unknown>;
   sending: boolean;
   sendError?: unknown;
   onRetry: () => void;
@@ -59,7 +59,7 @@ export function ChatThread({
   approvalPending: boolean;
   onApprovalDecision: (decision: ApprovalDecision) => void;
   canResumeSession: boolean;
-  onResumeSession: (message: string) => void;
+  onResumeSession: (message: string, files?: File[]) => Promise<unknown>;
   resumePending: boolean;
   onEndChat: () => void;
   endPending: boolean;
@@ -111,7 +111,12 @@ export function ChatThread({
       </ChatHeader>
 
       <ChatScroll ref={scrollRef}>
-        <MessageThread runs={task.runs} activeRunStatus={activeRunStatus} agent={agent} />
+        <MessageThread
+          runs={task.runs}
+          attachmentsByRun={task.attachmentsByRun}
+          activeRunStatus={activeRunStatus}
+          agent={agent}
+        />
         {pendingApproval && (
           <RuntimeApproval
             activity={pendingApproval}

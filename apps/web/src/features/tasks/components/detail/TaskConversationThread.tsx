@@ -1,7 +1,8 @@
 import styled from "styled-components";
-import type { Agent, AgentRun } from "@ai-pixel-office/domain/entities";
+import type { Agent, AgentRun, MessageAttachment } from "@ai-pixel-office/domain/entities";
 import { TaskResultView } from "../results/TaskResultView.tsx";
 import { PetPreview } from "../../../office/PetPreview.tsx";
+import { SentAttachments } from "../../../chat/components/SentAttachments.tsx";
 
 const Styled = {
   Thread: styled.div`
@@ -116,12 +117,14 @@ const Styled = {
 export function TaskConversationThread({
   runs,
   agents,
+  attachmentsByRun,
   showAgentLabels,
   activeRunStatus,
   emphasizeLastAgentBubble,
 }: {
   runs: AgentRun[];
   agents: Agent[];
+  attachmentsByRun: Record<string, Array<Omit<MessageAttachment, "storagePath">>>;
   showAgentLabels?: boolean;
   activeRunStatus?: "queued" | "running" | "waiting";
   emphasizeLastAgentBubble?: boolean;
@@ -138,9 +141,12 @@ export function TaskConversationThread({
         return (
           <Styled.RunGroup key={run.id} id={`run-${run.id}`}>
             {run.request && (
-              <Styled.Row $from="user">
-                <Styled.Bubble $from="user">{run.request}</Styled.Bubble>
-              </Styled.Row>
+              <>
+                <Styled.Row $from="user">
+                  <Styled.Bubble $from="user">{run.request}</Styled.Bubble>
+                </Styled.Row>
+                <SentAttachments attachments={attachmentsByRun[run.id]} />
+              </>
             )}
             {run.status === "completed" && run.result && (
               <Styled.Row $from="agent">

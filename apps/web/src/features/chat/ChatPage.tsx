@@ -77,7 +77,7 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
   };
 
   const startChat = useMutation({
-    mutationFn: (input: { agentId: string; message: string; projectId?: string }) =>
+    mutationFn: (input: { agentId: string; message: string; projectId?: string; files?: File[] }) =>
       chatApi.start({ workspaceId: workspace.id, ...input }),
     onSuccess: (created, input) => {
       rememberProject(workspace.id, input.projectId);
@@ -86,7 +86,8 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     },
   });
   const sendMessage = useMutation({
-    mutationFn: (message: string) => chatApi.sendMessage(taskId as string, message),
+    mutationFn: (input: { message: string; files?: File[] }) =>
+      chatApi.sendMessage(workspace.id, taskId as string, input.message, input.files),
     onSuccess: invalidate,
   });
   const retry = useMutation({
@@ -106,13 +107,21 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
     onSuccess: invalidate,
   });
   const resumeSession = useMutation({
-    mutationFn: (message: string) => {
+    mutationFn: async (input: { message: string; files?: File[] }) => {
       const sourceRun = task.data?.runs.find(
         (run) =>
           Boolean(run.runtimeThreadId) && ["completed", "cancelled"].includes(run.status),
       );
       if (!sourceRun) throw new Error("다시 열 수 있는 이전 세션이 없습니다.");
-      return taskApi.resumeSession(taskId as string, sourceRun.id, message);
+      const attachments = input.files?.length
+        ? await taskApi.uploadAttachments(workspace.id, taskId as string, input.files)
+        : [];
+      return taskApi.resumeSession(
+        taskId as string,
+        sourceRun.id,
+        input.message,
+        attachments.map((attachment) => attachment.id),
+      );
     },
     onSuccess: invalidate,
   });
@@ -197,7 +206,7 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
             <ChatThread
               task={task.data}
               agent={activeAgent}
-              onSendMessage={(message) => sendMessage.mutate(message)}
+              onSendMessage={(message, files) => sendMessage.mutateAsync({ message, files })}
               sending={sendMessage.isPending}
               sendError={sendMessage.error ?? resumeSession.error}
               onRetry={() => retry.mutate()}
@@ -215,7 +224,7 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
                 });
               }}
               canResumeSession={canResumeSession}
-              onResumeSession={(message) => resumeSession.mutate(message)}
+              onResumeSession={(message, files) => resumeSession.mutateAsync({ message, files })}
               resumePending={resumeSession.isPending}
               onEndChat={() => endChat.mutate()}
               endPending={endChat.isPending}
@@ -239,7 +248,7 @@ export function ChatPage({ workspace }: { workspace: Workspace }) {
             projects={projectsWithFolders}
             initialProjectId={initialProjectId}
             defaultAgentId={workspace.defaultAgentId}
-            onStart={(input) => startChat.mutate(input)}
+            onStart={(input) => startChat.mutateAsync(input)}
             pending={startChat.isPending}
             error={startChat.error}
           />

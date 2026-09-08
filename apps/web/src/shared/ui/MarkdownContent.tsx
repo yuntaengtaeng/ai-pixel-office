@@ -146,7 +146,13 @@ export function MarkdownContent({
 }: ComponentProps<typeof Root> & { artifactPaths?: Record<string, string> }) {
   const [linkNotice, setLinkNotice] = useState<string>();
   const openLink = async (event: MouseEvent<HTMLAnchorElement>, href?: string) => {
-    if (!href || href.startsWith("#") || /^https?:\/\//i.test(href)) return;
+    if (!href) {
+      // An invalid local Markdown target otherwise navigates the Electron renderer to app root.
+      event.preventDefault();
+      setLinkNotice("파일 경로를 확인할 수 없어요.");
+      return;
+    }
+    if (href.startsWith("#") || /^https?:\/\//i.test(href)) return;
     event.preventDefault();
     setLinkNotice(undefined);
     let decodedHref: string;
