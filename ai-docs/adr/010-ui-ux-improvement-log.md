@@ -46,6 +46,14 @@ ADR 009에서 결정한 UI/UX 개선을 실제 화면에 적용하면서, 무엇
 - readiness의 단일 판정은 `인증된 runtime + 같은 runtime을 사용하며 fileRead·terminal 권한이 있는 Agent` 조합이다. Project와 기존 Task는 준비 조건이 아니다.
 - 준비된 사용자는 기존 dashboard로 바로 이동하고, 미준비 사용자는 AI 연결 → AI 동료 생성 → 선택적 작업 폴더 연결의 fullscreen onboarding을 거친다. 저장은 기존 preload/runtime 및 Agent·Project API 계약을 사용한다.
 - 모든 단계에서 직접 구성으로 dashboard에 갈 수 있고, 이 선택은 workspace별 localStorage preference로 앱 재시작 뒤에도 유지한다. readiness가 충족되면 preference와 관계없이 정상 dashboard를 표시하며, dashboard의 설정 재개 notice는 preference를 지우고 onboarding을 다시 연다.
+
+### 2026-09-08 — 업무 의도 중심 onboarding revision 3
+
+- onboarding 순서를 첫 업무 입력 → 실행 AI 연결·선택 → 동료 fit과 dog/cat Pet 추천 → 선택 Project → Agent·Task/run 생성으로 변경했다. 이전의 기술 설정 중심 3단계와 dashboard에서 별도 첫 Task를 만들던 결정은 이 revision이 대체한다.
+- `POST /api/agents/fit-preview`는 선택 runtime을 read-only로 실행해 동료 이름·역할·추천 이유와 Pet 후보만 반환하며 Agent, Project, Task 또는 run history를 저장하지 않는다.
+- runtime이 하나만 연결되면 자동 사용하고 둘 다 연결되면 사용자가 실행 AI를 선택한다. 근거 없는 provider 우선순위는 두지 않으며 선택 runtime은 fit preview와 생성 Agent에 동일하게 사용한다.
+- Project는 계속 선택 사항이다. 폴더 입력이 없으면 생성하지 않고, 입력하면 `Project.description`, 첫 Task 연결과 recent-project 선택을 함께 저장한다.
+- 완료는 Task와 run 생성 및 기존 Task session 진입으로 정의한다. 화면 명세와 남은 위험은 `ux-handoff-r3.yaml`, `ui-handoff-r3.yaml`, revision 3 implementation report가 소유한다.
 - dashboard에는 Task composer inline blocker가 남는다. Task draft의 title·description·priority는 sessionStorage로 현재 앱 세션의 해결 왕복 중 보존한다.
 - frontend typecheck, 대상 ESLint, web production build가 통과했다. 실제 OAuth와 native directory picker를 포함한 desktop 수동 acceptance는 수행하지 않았다.
 - DirectConfigDialog, 건너뛰기 전 미저장 입력 안내, composer 자동 재개/focus, 기존 form component 추출은 아직 UI Handoff와 차이가 있으며 implementation report의 deviation으로 기록했다.

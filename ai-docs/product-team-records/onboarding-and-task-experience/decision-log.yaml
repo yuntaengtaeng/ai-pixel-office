@@ -1,9 +1,36 @@
 type: decision-log
-revision: 1
+revision: 2
 status: accepted
 topic: "온보딩 readiness와 완료 경로"
 source_handoff: "ai-docs/product-team-records/onboarding-and-task-experience/ux-handoff.yaml"
 decisions:
+  - type: decision
+    date: "2026-09-08"
+    topic: "업무 의도 중심 onboarding과 첫 Task activation"
+    raised_by: "Product"
+    decision: "첫 업무 입력 → 실행 AI 연결·선택 → 저장 없는 동료 fit·Pet 추천 → 선택 Project → Agent·Task/run 생성 순서로 진행하고 Task session 진입을 onboarding 완료로 본다."
+    reason: "설정 자체보다 사용자가 맡기려는 업무를 먼저 제시하고 실제 제품 가치까지 한 흐름으로 연결한다."
+    alternatives:
+      - "AI 연결과 Agent 설정을 먼저 완료하고 dashboard에서 별도 Task 생성"
+      - "Project를 모든 사용자에게 필수로 요구"
+    impact:
+      - "revision 1의 첫 Task 생성 위치 결정을 supersede한다."
+      - "fit preview는 영속 entity를 만들지 않는 runtime 호출 계약이 필요하다."
+      - "첫 Task 생성 성공 뒤 /tasks/:id로 이동한다."
+    requires_adr: false
+  - type: decision
+    date: "2026-09-08"
+    topic: "복수 runtime 선택 정책"
+    raised_by: "Product"
+    decision: "연결 runtime이 하나면 자동 사용하고 둘 이상이면 자동 우선순위 없이 사용자가 이 동료의 실행 AI를 선택한다. 선택 runtime은 fit preview와 생성 Agent에 동일하게 사용한다."
+    reason: "근거 없는 Codex 또는 Claude 우선순위를 만들지 않고 선택 의미를 실제 업무 실행과 일치시킨다."
+    alternatives:
+      - "Codex 고정 우선"
+      - "최근 연결 runtime 자동 선택"
+    impact:
+      - "복수 연결에서 SegmentedControl을 표시한다."
+      - "연결 card 자체는 checkbox나 radio가 아니다."
+    requires_adr: false
   - type: decision
     date: "2026-09-08"
     topic: "dashboard 직행 readiness"

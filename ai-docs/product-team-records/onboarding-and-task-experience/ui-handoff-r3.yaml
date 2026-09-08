@@ -1,0 +1,49 @@
+type: ui-handoff
+revision: 3
+status: implemented
+source_ux_handoff: "ux-handoff-r3.yaml"
+screen_hierarchy:
+  - "viewport 중앙의 1040x최대720 stage"
+  - "왼쪽 green OfficeSidebar onboarding variant: 출근 준비 제목과 ordered steps"
+  - "오른쪽 border 없는 동일 높이 surface: 단일 Step body와 고정 footer"
+  - "폭이 좁으면 sidebar를 상단 rail로 바꾸고 고정 높이를 해제"
+component_hierarchy:
+  - "OnboardingFlow / OnboardingContext"
+  - "OfficeSidebar / StepNav"
+  - "IntentStep / RuntimeStep / ColleagueStep / ProjectStep / CreationStep"
+  - "ConnectionCard / SegmentedControl / EmployeeBadge / PixelWorkLoader"
+component_states:
+  - "StepNav: upcoming, current, complete"
+  - "ConnectionCard: checking, missing, installed, connecting, connected, error"
+  - "SegmentedControl: runtime 선택은 둘 이상 연결된 경우에만 표시"
+  - "EmployeeBadge: AI 제안값과 선택 Pet의 live preview"
+  - "ProjectStep: empty는 skip 가능, selected는 이름 필수와 목표 선택"
+  - "CreationStep: agent, project, task-run 진행과 recoverable error"
+interaction_states:
+  - "intent submit -> runtime"
+  - "runtime single connected -> implicit selection; multiple -> explicit segmented selection"
+  - "fit submit -> full card loading overlay -> colleague 또는 inline error"
+  - "colleague confirm -> project"
+  - "project empty/valid -> creation -> task session"
+responsive_behavior:
+  - "desktop stage는 최대 720px 높이이며 sidebar와 content가 같은 높이를 공유한다."
+  - "Card 외부 overflow는 숨기고 body만 scroll하며 footer는 유지한다."
+  - "md 이하에서는 stage height와 body 내부 scroll을 해제해 document flow를 사용한다."
+accessibility_constraints:
+  - "visible label과 연결된 field, aria-current step, radiogroup semantics를 사용한다."
+  - "loading overlay는 role=status와 aria-live=polite를 사용한다."
+  - "연결·선택·완료는 텍스트를 포함하며 색상만으로 표시하지 않는다."
+  - "keyboard로 runtime 선택, Pet 선택, folder picker와 이전·다음을 완료한다."
+design_system_mapping:
+  - "Panel, Field, Input, TextArea, Button과 semantic theme token 재사용"
+  - "Settings와 onboarding은 ConnectionCard를 공유"
+  - "Records와 onboarding은 SegmentedControl을 공유"
+  - "Task 실행 대기와 onboarding fit은 PixelWorkLoader를 공유"
+  - "Agent builder와 onboarding은 EmployeeBadge를 공유"
+assets:
+  - "신규 이미지 없음; 기존 @ai-pixel-office/pet sprite 사용"
+open_questions:
+  - "fit 결과가 긴 경우 사원증과 role field의 별도 길이 제한"
+  - "desktop 600px 미만 높이에서 stage 최소 높이와 window scroll acceptance"
+  - "실제 Electron OAuth와 directory picker의 focus-return 검증"
+  - "OQ-05~11의 승인, 권한, 결과, Task/Chat IA, 첨부·링크와 비용 blocker는 ux-handoff-r3.yaml에서 유지"

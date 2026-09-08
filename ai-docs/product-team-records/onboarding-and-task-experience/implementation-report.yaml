@@ -1,58 +1,65 @@
 type: implementation-report
+revision: 3
 status: complete_with_deviations
-source_ux_handoff: "ux-handoff-r2.yaml"
-source_ui_handoff: "ui-handoff-r2.yaml"
+source_ux_handoff: "ux-handoff-r3.yaml"
+source_ui_handoff: "ui-handoff-r3.yaml"
 implemented_scope:
-  - "workspace 조회 중 Pet 출근 splash와 workspace/readiness 오류 재시도 화면"
-  - "prefers-reduced-motion에서 이동 animation을 제거한 정적 Pet 장면과 동일한 텍스트 상태"
-  - "인증 runtime과 fileRead·terminal 권한을 가진 동일 runtime Agent 조합으로 계산하는 canonical readiness"
-  - "ready 사용자의 dashboard 직행과 not-ready 사용자의 fullscreen 3단계 onboarding 분기"
-  - "desktop runtime 설치·로그인 bridge, Agent create API, Project directory picker/create API를 사용하는 단계별 저장"
-  - "약 720px 단일 중앙 컬럼, 자연 document scroll, 완료 단계 역이동이 가능한 3단계 onboarding"
-  - "Settings와 같은 5개 상태 문법의 runtime 선택 행과 연결 runtime radio 선택"
-  - "Settings와 onboarding이 공유하는 system/ConnectionCard 및 Today 작업 필터와 Pet 종 필터가 공유하는 FilterBar"
-  - "강아지·고양이 교차 정렬, 전체·강아지·고양이 필터, radio semantics를 갖춘 Pet 선택"
-  - "선택적 Project 폴더·이름·목표 입력과 Project.description 저장, 이전·완료만 제공하는 마지막 단계"
-  - "생성 Project ID를 recent-project 계약에 저장해 첫 Task composer와 Chat 기본 프로젝트로 사용"
-  - "모든 단계의 '제가 직접 구성할래요' dashboard 이동 및 workspace별 localStorage 선택 보존"
-  - "dashboard의 onboarding 재개 notice와 미준비 Task composer inline blocker"
-  - "Task title·description·priority의 sessionStorage draft 보존과 성공 생성 뒤 정리"
+  - "workspace splash, 조회 오류와 runtime-Agent readiness 분기"
+  - "첫 업무 draft 입력과 workspace별 localStorage 복원"
+  - "Settings 공용 ConnectionCard를 이용한 Codex·Claude 설치·인증 상태와 행동"
+  - "단일 runtime 자동 사용, 복수 runtime SegmentedControl 명시 선택"
+  - "선택 runtime의 read-only fit preview로 이름·역할·추천 이유와 unlocked dog/cat 후보 생성"
+  - "EmployeeBadge 사원증 preview에서 이름·역할·Pet 편집"
+  - "선택 Project 폴더·이름·목표와 Project.description 및 recent-project 저장"
+  - "Agent, 선택 Project, Task와 run 생성 뒤 /tasks/:id replace navigation"
+  - "desktop 동일 높이 green onboarding sidebar와 border 없는 content surface, body-only scroll"
+  - "공용 OfficeSidebar, SegmentedControl, PixelWorkLoader, EmployeeBadge, FilterBar 추출"
+  - "신규 Agent 설정에서 authenticated runtime만 노출하고 기존 Agent의 끊긴 runtime 값 보존"
+  - "dashboard 직접 구성, onboarding 재개와 Task composer draft 복원"
 changed_contracts:
-  - "App entry가 workspace 성공 뒤 system-status와 agents를 함께 조회해 AppShell 또는 OnboardingFlow를 선택한다."
-  - "TodayPage와 dashboard TaskComposer가 optional readiness recovery contract를 입력으로 받는다."
-  - "PetChoice는 onboarding에서만 활성화하는 optional radio semantics와 종·품종 accessible name을 지원한다."
-  - "미준비 사용자의 직접 구성 선택은 manual-config:<workspaceId> localStorage key로 재시작 뒤에도 유지하며, 설정 이어하기가 해당 선택을 지우고 onboarding을 다시 연다. readiness가 true이면 preference와 무관하게 dashboard를 표시한다."
-  - "서버, domain, runtime protocol, Electron IPC 및 database 계약은 변경하지 않았다."
+  - "POST /api/agents/fit-preview는 intent와 runtime을 받아 Agent·Task를 저장하지 않고 ColleagueFit을 반환한다."
+  - "ColleagueFit은 name, role, rationale, unlocked dog/cat petIds와 petRationale을 검증한다."
+  - "Onboarding 완료 callback은 optional taskId를 받아 Task session으로 replace navigation한다."
+  - "fit preview와 생성 Agent는 사용자가 확정한 동일 runtime을 사용한다."
+  - "온보딩에서 명시적으로 만든 Project는 첫 Task projectId와 recent-project가 된다."
+  - "server/domain database schema, Electron IPC와 normalized runtime event 계약은 변경하지 않았다."
 verification:
-  - command: "pnpm --filter @ai-pixel-office/web typecheck"
+  - command: "apps/web npm run typecheck"
     result: pass
-  - command: "eslint App/onboarding/TodayPage/TaskComposer --quiet"
+  - command: "target eslint --quiet"
     result: pass
-  - command: "pnpm --filter @ai-pixel-office/web build"
+  - command: "apps/web npm run build"
     result: pass
-  - command: "pnpm test"
+  - command: "apps/server npm run typecheck"
+    result: pass
+  - command: "npm test -- --runInBand"
     result: "pass (49 tests)"
+  - command: "apps/server npm run build"
+    result: not_run
+    reason: "managed sandbox가 esbuild의 상위 경로 조회를 차단했고 escalation 실행은 중단됐다."
   - command: "desktop interactive acceptance"
     result: not_run
-    reason: "실제 runtime 설치·OAuth 창과 native directory picker를 조작하는 수동 환경이 필요하다."
+    reason: "실제 runtime OAuth, fit 응답과 native directory picker 조작이 필요하다."
 deviations:
-  - id: DEV-01
-    specification: "직접 구성 선택 전에 DirectConfigDialog로 완료 데이터와 저장하지 않은 입력의 유지·폐기를 확인"
-    implementation: "첫 slice에서는 underline button이 즉시 dashboard로 이동하고 workspace별 선택을 localStorage에 보존한다. 이미 서버에 저장된 runtime/Agent/Project는 유지되지만 현재 단계의 미저장 입력은 유지하지 않는다."
-    reason: "기존 Dialog 계약을 연결한 확인 flow와 focus-return acceptance를 이번 최소 구현에서 완결하지 못했다."
-    impact: "실수로 건너뛰었을 때 현재 입력을 다시 작성해야 할 수 있다."
-  - id: DEV-03
-    specification: "inline 해결 왕복 후 composer와 focus를 즉시 복원"
-    implementation: "draft는 sessionStorage에서 복원되지만 dashboard 복귀 시 composer를 자동으로 다시 열거나 focus를 복원하지 않는다."
-    reason: "App gate가 onboarding 동안 TodayPage를 unmount하며 dialog open/focus 상태의 상위 ownership이 아직 없다."
-    impact: "사용자가 새 작업 버튼을 다시 눌러야 보존된 draft를 확인한다."
-  - id: DEV-04
-    specification: "workspace error의 오류 상세 보기와 진입 focus"
-    implementation: "오류 요약과 retry, 데이터 보존 문구는 제공하지만 별도 기술 상세 disclosure와 programmatic focus는 없다."
-    reason: "workspace API error에 사용자용 요약과 분리된 안정적인 detail 구조가 없다."
-    impact: "키보드/진단 acceptance의 일부가 남는다."
+  - id: DEV-R3-01
+    specification: "fit preview 취소와 timeout 복구"
+    implementation: "60초 runtime timeout과 오류 재시도는 있으나 사용자가 진행 중 preview를 취소하는 endpoint는 없다."
+    impact: "긴 preview 중에는 완료나 timeout까지 기다려야 한다."
+  - id: DEV-R3-02
+    specification: "부분 성공의 재시작 포함 멱등 복구"
+    implementation: "현재 mounted flow 안에서는 생성 Agent, Project와 Task ref를 재사용하지만 앱 재시작 뒤 operation id 복구는 없다."
+    impact: "응답 유실 직후 앱을 재시작하고 다시 완료하면 중복 entity 가능성이 남는다."
+  - id: DEV-R3-03
+    specification: "직접 구성 전 확인과 focus 복원"
+    implementation: "draft는 보존하지만 별도 확인 dialog와 dashboard composer focus 복원은 없다."
+    impact: "사용자가 dashboard에서 composer를 다시 열어야 할 수 있다."
+  - id: DEV-R3-04
+    specification: "workspace error 상세와 진입 focus"
+    implementation: "요약과 retry는 제공하지만 안정적인 기술 상세 구조와 programmatic focus가 없다."
+    impact: "진단과 keyboard acceptance 일부가 남는다."
 unresolved_questions:
-  - "DEV-01의 확인 dialog와 미저장 onboarding draft 보존을 다음 revision에서 필수로 할지 결정 필요. 직접 구성 preference 자체는 workspace별로 지속된다."
-  - "runtime 설치·로그인 뒤 polling timeout, 취소, 브라우저 fallback을 공용 ConnectionCard 추출로 통합할지 결정 필요"
-  - "Task 요청이 파일 작업을 요구하는지를 구조적으로 알 수 없어 Project 미연결 blocker는 구현하지 않았다. 의도 판정 contract가 필요하다."
-  - "기존 Agent 중 인증 runtime과 model은 맞지만 필수 실행 권한이 없는 경우 새 Agent 생성 외에 onboarding 안에서 수정할 계약이 필요하다."
+  - "fit preview cancellation을 공통 runtime cancellation contract로 제공할지 결정 필요"
+  - "launch에 server-side idempotency key와 상태 조회 endpoint를 추가할지 결정 필요"
+  - "runtime 인증 취소, 외부 창 닫기와 timeout을 runtime별로 구분할 수 있는지 확인 필요"
+  - "600px 미만 desktop 높이와 200% zoom의 고정 stage acceptance를 수동 검증해야 함"
+  - "OQ-05~11 승인 metadata, 권한, 구조화 결과, Task/Chat IA, 첨부·링크와 비용 계약은 r2에서 유지"
