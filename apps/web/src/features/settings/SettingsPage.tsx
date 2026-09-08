@@ -14,6 +14,9 @@ import { PageHeader } from "../../shared/ui/PageHeader.tsx";
 import { BaseLayout } from "../../shared/ui/BaseLayout.tsx";
 import { SectionHeading } from "../../shared/ui/SectionHeading.tsx";
 import { ConnectionCard } from "../system/components/ConnectionCard.tsx";
+import { storageApi } from "./api.ts";
+import { useConfirmDialog } from "../../shared/hooks/useFeedbackDialog.ts";
+import { ConfirmDialog } from "../../shared/ui/FeedbackDialogs.tsx";
 
 const Styled = {
   Layout: styled(BaseLayout)`
@@ -70,10 +73,49 @@ const Styled = {
     justify-content: flex-end;
     gap: ${({ theme }) => theme.space.x2};
   `,
+  StorageRows: styled.dl`
+    margin: 0;
+    display: grid;
+    gap: ${({ theme }) => theme.space.x2};
+    div { display: flex; justify-content: space-between; gap: ${({ theme }) => theme.space.x4}; }
+    dt { color: ${({ theme }) => theme.colors.text.secondary}; }
+    dd { margin: 0; font-weight: ${({ theme }) => theme.typography.fontWeight.bold}; }
+  `,
+  Danger: styled.div`
+    padding-top: ${({ theme }) => theme.space.x3};
+    border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: ${({ theme }) => theme.space.x3};
+  `,
+  DangerDescription: styled.p`
+    margin: 0;
+    color: ${({ theme }) => theme.colors.text.muted};
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    line-height: 1.55;
+  `,
+  DangerCopy: styled.div`
+    min-width: 0;
+    display: grid;
+    gap: ${({ theme }) => theme.space.x1};
+
+    strong {
+      line-height: 1.4;
+    }
+  `,
 };
+
+function size(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
 
 export function SettingsPage({ workspace }: { workspace: Workspace }) {
   const queryClient = useQueryClient();
+  const { confirm, dialogProps } = useConfirmDialog();
   const status = useQuery({
     queryKey: ["system-status"],
     queryFn: systemApi.status,
@@ -82,6 +124,32 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
   const agents = useQuery({
     queryKey: ["agents", workspace.id],
     queryFn: () => agentApi.list(workspace.id),
+  });
+  const storage = useQuery({
+    queryKey: ["storage", workspace.id],
+    queryFn: () => storageApi.summary(workspace.id),
+  });
+  const clean = useMutation({
+    mutationFn: (kind: "pending" | "completed") =>
+      kind === "pending" ? storageApi.cleanPending(workspace.id) : storageApi.cleanCompleted(workspace.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["storage", workspace.id] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks", workspace.id] });
+    },
+  });
+  const resetApp = useMutation({
+    mutationFn: storageApi.reset,
+    onSuccess: async () => {
+      localStorage.clear();
+      sessionStorage.clear();
+      // An already-running Electron window may still have the previous preload contract.
+      // Reload the renderer as a compatibility fallback; the next desktop launch has relaunch().
+      if (typeof window.pixelOffice?.relaunch === "function") {
+        await window.pixelOffice.relaunch();
+      } else {
+        window.location.reload();
+      }
+    },
   });
   const [workspaceName, setWorkspaceName] = useState(workspace.name);
   const [defaultAgentId, setDefaultAgentId] = useState(workspace.defaultAgentId ?? "");
@@ -100,8 +168,8 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
   return (
     <Styled.Layout>
       <PageHeader
-        eyebrow="CONNECTION CENTER"
-        title="실행 환경 설정"
+        eyebrow="SETTINGS"
+        title="설정"
         action={
           <Button
             $variant="secondary"
@@ -187,6 +255,20 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
             </Button>
           </Styled.SettingsActions>
           {save.isError && <ErrorBanner>{messageOf(save.error)}</ErrorBanner>}
+          <Styled.Danger>
+            <Styled.DangerCopy>
+              <strong>현재 워크스페이스 삭제</strong>
+              <Styled.DangerDescription>
+                현재 워크스페이스의 작업, 동료, 첨부와 이력만 삭제합니다.
+              </Styled.DangerDescription>
+            </Styled.DangerCopy>
+            <Button type="button" $variant="danger" onClick={async () => {
+              if (await confirm({ title: "워크스페이스를 삭제할까요?", description: "프로젝트 폴더의 원본은 유지되지만 이 워크스페이스의 앱 데이터는 되돌릴 수 없습니다.", confirmLabel: "워크스페이스 삭제", tone: "danger" })) {
+                await workspaceApi.delete(workspace.id);
+                window.location.reload();
+              }
+            }}>워크스페이스 삭제</Button>
+          </Styled.Danger>
         </Styled.WorkspaceForm>
         <Styled.OptionalSection>
           <SectionHeading $compact>
@@ -226,7 +308,67 @@ export function SettingsPage({ workspace }: { workspace: Workspace }) {
             </Styled.ConnectionList>
           )}
         </Styled.OptionalSection>
+        <Styled.Section>
+          <SectionHeading $compact>
+            <h2>저장공간 및 데이터</h2>
+            <span>로컬 저장</span>
+          </SectionHeading>
+          <Styled.ConnectionDescription>
+            AI Pixel Office가 이 컴퓨터에 보관한 작업 이력과 첨부를 확인하고 정리합니다.
+          </Styled.ConnectionDescription>
+          {storage.isPending && <Empty>저장공간을 계산하는 중...</Empty>}
+          {storage.isError && <ErrorBanner>{messageOf(storage.error)}</ErrorBanner>}
+          {storage.data && (
+            <Styled.StorageRows>
+              <div><dt>전체 사용량</dt><dd>{size(storage.data.totalBytes)}</dd></div>
+              <div><dt>첨부 파일</dt><dd>{size(storage.data.attachmentBytes)}</dd></div>
+              <div><dt>앱 데이터베이스</dt><dd>{size(storage.data.databaseBytes)}</dd></div>
+              <div><dt>실행 로그</dt><dd>{size(storage.data.runtimeLogBytes)}</dd></div>
+              <div><dt>완료한 작업 {storage.data.completedTaskCount}개</dt><dd>{size(storage.data.completedTaskBytes)}</dd></div>
+            </Styled.StorageRows>
+          )}
+          <Styled.Danger>
+            <Styled.DangerCopy>
+              <strong>불필요한 데이터 정리</strong>
+              <Styled.DangerDescription>
+                선택한 앱 데이터만 정리하며 프로젝트 폴더의 원본 파일은 유지합니다.
+              </Styled.DangerDescription>
+            </Styled.DangerCopy>
+            <Styled.SettingsActions>
+              <Button
+                type="button"
+                $variant="secondary"
+                disabled={clean.isPending || !storage.data?.pendingAttachmentCount}
+                onClick={async () => {
+                  if (await confirm({ title: "미전송 첨부를 정리할까요?", description: `${storage.data?.pendingAttachmentCount ?? 0}개 파일을 삭제합니다.`, confirmLabel: "첨부 정리", tone: "danger" })) clean.mutate("pending");
+                }}
+              >{storage.data?.pendingAttachmentCount ? "미전송 첨부 정리" : "미전송 첨부 없음"}</Button>
+              <Button
+                type="button"
+                $variant="danger"
+                disabled={clean.isPending || !storage.data?.completedTaskCount}
+                onClick={async () => {
+                  if (await confirm({ title: "완료한 작업을 정리할까요?", description: "완료한 Task의 실행 이력과 첨부가 삭제되며 되돌릴 수 없습니다. 프로젝트 파일은 유지됩니다.", confirmLabel: "완료 작업 정리", tone: "danger" })) clean.mutate("completed");
+                }}
+              >{storage.data?.completedTaskCount ? "완료한 작업 정리" : "완료한 작업 없음"}</Button>
+            </Styled.SettingsActions>
+          </Styled.Danger>
+          {clean.isError && <ErrorBanner>{messageOf(clean.error)}</ErrorBanner>}
+          <Styled.Danger>
+            <Styled.DangerCopy>
+              <strong>AI Pixel Office 전체 데이터 초기화</strong>
+              <Styled.DangerDescription>
+                모든 워크스페이스와 앱이 보관한 로컬 데이터를 삭제합니다. 프로젝트 원본은 유지합니다.
+              </Styled.DangerDescription>
+            </Styled.DangerCopy>
+            <Button type="button" $variant="danger" disabled={resetApp.isPending} onClick={async () => {
+              if (await confirm({ title: "앱 데이터를 모두 초기화할까요?", description: "모든 Task, Agent, 실행 이력, 첨부와 일반 작업 폴더의 산출물이 삭제됩니다. Codex·Claude의 외부 로그인은 유지됩니다.", confirmLabel: "모든 데이터 초기화", tone: "danger" })) resetApp.mutate();
+            }}>전체 데이터 초기화</Button>
+          </Styled.Danger>
+          {resetApp.isError && <ErrorBanner>{messageOf(resetApp.error)}</ErrorBanner>}
+        </Styled.Section>
       </Styled.Grid>
+      <ConfirmDialog {...dialogProps} />
     </Styled.Layout>
   );
 }

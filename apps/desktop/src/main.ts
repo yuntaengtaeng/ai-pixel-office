@@ -334,6 +334,15 @@ if (!hasLock) {
     const message = await shell.openPath(localPath);
     return message ? { ok: false, message } : { ok: true };
   });
+  ipcMain.handle("app:relaunch", (event) => {
+    if (event.sender !== mainWindow?.webContents) throw new Error("Unknown relaunch requester");
+    // Packaged mode owns the API child process, so stop it before spawning the replacement app.
+    void stopPackagedServer().finally(() => {
+      app.relaunch();
+      app.quit();
+    });
+    return { started: true };
+  });
   app.on("second-instance", () => {
     if (mainWindow?.isMinimized()) mainWindow.restore();
     mainWindow?.focus();

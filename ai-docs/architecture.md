@@ -73,6 +73,14 @@ renderer와 API가 같은 임의 loopback origin을 사용한다. 개발에서�
 저장소는 Electron용 native addon rebuild를 요구하지 않도록 `node:sqlite`를 사용한다. 지원하는
 Node/Electron 조합은 SQLite API 포함 여부를 compatibility test에서 확인한다.
 
+Settings의 로컬 데이터 관리는 앱 소유 범위만 대상으로 한다. 용량은 SQLite, runtime log,
+`general` 작업 폴더와 Task 첨부를 집계한다. 완료 Task 정리는 해당 Task의 실행 이력과 첨부를 함께
+삭제하고, 앱 데이터 초기화는 모든 workspace와 앱 소유 `general`/runtime-log 데이터를 삭제한다.
+어떤 정리 동작도 사용자가 연결한 Project 폴더와 그 안의 원본 파일을 삭제하지 않는다. 진행 중이거나
+승인을 기다리는 Task가 있으면 전체 초기화를 거부한다. 전체 초기화가 성공하면 renderer의 로컬 작성·
+온보딩 상태를 지우고 Electron main의 좁은 relaunch IPC를 통해 API child process를 정리한 뒤 앱을
+재시작한다. 브라우저 개발 모드에서는 renderer reload로 대체한다.
+
 ## 의존 방향
 
 ```text

@@ -26,12 +26,14 @@ import { workflowPresetRoutes } from "./routes/workflow-presets.ts";
 import { workspaceRoutes } from "./routes/workspaces.ts";
 import { knowledgeDocumentRoutes } from "./routes/knowledge-documents.ts";
 import { attachmentRoutes } from "./routes/attachments.ts";
+import { storageRoutes } from "./routes/storage.ts";
 
 export type AppDependencies = {
   repository: Repository;
   orchestrator: Orchestrator;
   events: EventBus;
   generalWorkingDirectory: string;
+  runtimeLogDirectory?: string;
   knowledgeDocuments?: KnowledgeDocumentStore;
   corsOrigin?: string;
   staticRoot?: string;
@@ -53,6 +55,10 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   app.decorate("orchestrator", dependencies.orchestrator);
   app.decorate("events", dependencies.events);
   app.decorate("generalWorkingDirectory", dependencies.generalWorkingDirectory);
+  app.decorate(
+    "runtimeLogDirectory",
+    dependencies.runtimeLogDirectory ?? join(dependencies.generalWorkingDirectory, ".runtime-logs"),
+  );
   app.decorate(
     "knowledgeDocuments",
     dependencies.knowledgeDocuments ??
@@ -119,6 +125,7 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   void app.register(performanceRoutes, { prefix: "/api/performance" });
   void app.register(petUnlockRoutes, { prefix: "/api/pet-unlocks" });
   void app.register(knowledgeDocumentRoutes, { prefix: "/api/knowledge-documents" });
+  void app.register(storageRoutes, { prefix: "/api/storage" });
 
   return app;
 }

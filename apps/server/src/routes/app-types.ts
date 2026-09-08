@@ -14,6 +14,7 @@ declare module "fastify" {
     orchestrator: Orchestrator;
     events: EventBus;
     generalWorkingDirectory: string;
+    runtimeLogDirectory: string;
     knowledgeDocuments: KnowledgeDocumentStore;
     corsOrigin: string;
     skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;

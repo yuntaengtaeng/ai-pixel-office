@@ -9,4 +9,5 @@ export const workspaceApi = {
       method: "PATCH",
       body: JSON.stringify(input),
     }),
+  delete: (id: string) => request<void>(`/api/workspaces/${id}`, { method: "DELETE" }),
 };

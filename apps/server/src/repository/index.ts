@@ -130,6 +130,36 @@ export class Repository {
     return attachments;
   }
 
+  deletePendingAttachmentsByWorkspace(workspaceId: string): MessageAttachment[] {
+    const rows = this.database
+      .prepare("SELECT * FROM task_attachments WHERE workspace_id = ? AND run_id IS NULL")
+      .all(workspaceId) as Record<string, unknown>[];
+    this.database
+      .prepare("DELETE FROM task_attachments WHERE workspace_id = ? AND run_id IS NULL")
+      .run(workspaceId);
+    return rows.map(attachmentFromRow);
+  }
+
+  databaseFiles(): string[] {
+    const row = this.database.prepare("PRAGMA database_list").get() as { file?: string } | undefined;
+    if (!row?.file) return [];
+    return [row.file, `${row.file}-wal`, `${row.file}-shm`];
+  }
+
+  resetApplicationData(): void {
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      // Workspace-owned rows cascade through tasks, runs, attachments, agents and projects.
+      this.database.exec("DELETE FROM workspaces; DELETE FROM skills;");
+      this.database.exec("COMMIT");
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+    // Keep the migrated schema open for the running server while returning unused pages to disk.
+    this.database.exec("VACUUM");
+  }
+
   /** 클라이언트가 보낸 ID 목록을 신뢰하지 않고, 실제 존재하는 첨부만 그대로 돌려준다 — 호출부가 taskId 소유권을 다시 확인한다. */
   listAttachmentsByIds(ids: string[]): MessageAttachment[] {
     if (ids.length === 0) return [];

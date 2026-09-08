@@ -89,3 +89,33 @@ test("rejects an attachment when workspace and task ownership do not match", asy
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("reports storage and clears app-owned data without touching a linked project", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pixel-office-storage-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "pixel-office-project-"));
+  const repository = new Repository(openDatabase(":memory:"));
+  const workspace = await repository.createWorkspace({ name: "Storage test" });
+  await repository.createProjectDirectory({ workspaceId: workspace.id, name: "Project", path: projectRoot });
+  const task = await repository.createTask({ workspaceId: workspace.id, title: "Keep project" });
+  const events = new EventBus();
+  const orchestrator = new Orchestrator(repository, inactiveRuntime, events, { generalWorkingDirectory: root });
+  const server = createHttpServer({ repository, orchestrator, events, generalWorkingDirectory: root });
+  try {
+    await server.inject({
+      method: "POST", url: "/api/attachments", headers: { "content-type": "application/json" },
+      payload: { workspaceId: workspace.id, taskId: task.id, name: "temp.txt", mediaType: "text/plain", source: "file", data: Buffer.from("hello").toString("base64") },
+    });
+    const summary = await server.inject({ method: "GET", url: `/api/storage?workspaceId=${workspace.id}` });
+    assert.equal(summary.statusCode, 200);
+    assert.equal((summary.json() as { data: { attachmentBytes: number } }).data.attachmentBytes, 5);
+
+    const reset = await server.inject({ method: "POST", url: "/api/storage/reset", payload: { confirmation: "AI Pixel Office 데이터 초기화" } });
+    assert.equal(reset.statusCode, 200);
+    assert.deepEqual(await repository.listWorkspaces(), []);
+    await access(projectRoot);
+  } finally {
+    await server.close();
+    await rm(root, { recursive: true, force: true });
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});

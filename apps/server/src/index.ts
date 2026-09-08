@@ -47,6 +47,7 @@ export async function startServer(
     orchestrator,
     events,
     generalWorkingDirectory,
+    runtimeLogDirectory,
     knowledgeDocuments,
     staticRoot: options.staticRoot,
   });
