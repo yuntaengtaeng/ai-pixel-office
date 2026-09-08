@@ -104,6 +104,32 @@ electron-builder의 `extraResources` 복사는 이 symlink를 dereference하지 
   머신에서 `pnpm install` 후 패키징해야 한다. Windows에서 크로스 빌드한 mac 패키지는 darwin 바이너리
   자체가 로컬에 없어 이 방식으로 고칠 수 없다.
 
+## 2026-09-09 — GUI로 실행한 macOS 앱에서만 Claude SDK 실행이 실패함
+
+### 아쉬웠던 점
+
+터미널에서 앱 바이너리를 직접 실행하면 온보딩의 "AI로 동료 추천 받기"가 되는데, DMG로 설치해
+Finder/Dock으로 실행하면 실패했다. `scripts/runtime-spike/process.ts`의 `runtimeEnvironment()`는
+macOS/Linux에서 `$SHELL -ilc`로 로그인 셸을 한 번 실행해 `.zshrc`/`.zprofile`이 설정하는
+PATH(Homebrew, nvm/volta 등)를 읽어와 병합한다 — GUI로 실행된 앱은 launchd가 주는 최소 PATH만
+갖고, 셸 rc 파일을 전혀 안 읽기 때문이다. `spawnClaude`/`spawnCodex`/`runtimeVersion`/
+`system-status.ts`의 `runCli`는 전부 이 보정된 환경을 넘기는데, 정작 온보딩이 실제로 호출하는
+`ClaudeRuntimeAdapter.runWithSdk`(`apps/server/src/runtime/claude.ts`)의 SDK `query()` 호출에는
+`env`를 안 넘기고 있었다. SDK 문서(`sdk.d.ts`)에 `env`를 생략하면 `process.env`를 그대로
+상속한다고 명시돼 있어, 이 경로만 GUI 실행의 최소 PATH를 그대로 물려받았다. "설정" 화면의
+Claude/Codex 버전·로그인 상태 체크는 모두 정상으로 보이는데 실제 에이전트 실행만 실패하는
+정황과 정확히 일치했다.
+
+### 다음 작업의 원칙
+
+- 자식 프로세스를 스폰하거나 PATH에 의존하는 SDK를 호출하는 새 경로를 추가할 때는, 같은 런타임을
+  부르는 기존 경로(`spawnClaude`, `spawnCodex`, `runtimeVersion`, `runCli`)가 전부
+  `runtimeEnvironment()`를 넘기고 있는지 grep으로 확인하고 빠짐없이 맞춘다.
+- "설정 화면의 상태 체크는 성공하는데 실제 실행만 실패한다"는 정황은 두 경로가 서로 다른 환경/설정을
+  쓰고 있다는 강한 신호다. 실패하는 경로 하나만 보지 말고 같은 기능의 다른 경로와 비교한다.
+- macOS PATH 문제는 GUI 실행에서만 재현되고 터미널 실행으로는 재현되지 않는다. "터미널에서는
+  되는데 Dock/Finder로 실행하면 안 된다"는 보고는 곧 launchd의 최소 PATH를 의심할 신호다.
+
 ## 2026-09-04 — Label 토큰을 mono로 잘못 설계
 
 ### 아쉬웠던 점

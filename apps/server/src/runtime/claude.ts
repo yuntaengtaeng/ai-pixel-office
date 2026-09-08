@@ -7,7 +7,7 @@ import {
   BoundedJsonlWriter,
   pruneRuntimeLogs,
 } from "../../../../scripts/runtime-spike/runtime-log.ts";
-import { spawnClaude } from "../../../../scripts/runtime-spike/process.ts";
+import { runtimeEnvironment, spawnClaude } from "../../../../scripts/runtime-spike/process.ts";
 import type { AgentEvent, ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
 import {
   isVisionAttachment,
@@ -159,6 +159,11 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
         prompt: await buildClaudePrompt(input),
         options: {
           cwd: input.cwd,
+          // query() replaces the subprocess environment entirely when this is set, and
+          // inherits process.env verbatim when omitted. A GUI-launched (Finder/Dock) macOS
+          // app gets launchd's minimal PATH, not the login shell's, so without this the
+          // bundled Claude Code process can't find PATH-dependent tools it shells out to.
+          env: runtimeEnvironment(),
           model: input.modelName,
           resume: input.resumeThreadId,
           maxTurns: Math.max(1, input.limits.maxTurns),
