@@ -68,6 +68,30 @@ source를 직접 실행해 정상 동작했지만, 모든 dependency를 포함�
   패키징하며, 서버에서는 dynamic import로 로드한다.
 - `build:desktop` 성공뿐 아니라 생성된 `server.cjs`를 직접 시작해 API ready 상태까지 확인한다.
 
+## 2026-09-09 — extraResources가 pnpm symlink를 그대로 복사함
+
+### 아쉬웠던 점
+
+`@anthropic-ai/claude-agent-sdk`를 CJS bundle 밖으로 빼고 `extraResources`로
+`apps/server/node_modules/@anthropic-ai`를 복사하도록 고쳤지만(같은 날 앞선 커밋), 그 경로는 pnpm이
+만든 symlink이고 실제 대상은 빌드 머신의 절대경로(`.../node_modules/.pnpm/...`)를 가리킨다.
+electron-builder의 `extraResources` 복사는 이 symlink를 dereference하지 않고 그대로 패키지에
+넣는다. 그 결과 빌드한 Windows 머신에서는 파일이 그 자리에 있으니 dev/typecheck로는 문제를 못
+잡았고, 실제로 다른 머신(macOS DMG)에 설치한 뒤에야 `Cannot find package
+'@anthropic-ai/claude-agent-sdk'`로 실패했다.
+
+### 다음 작업의 원칙
+
+- pnpm monorepo에서 `node_modules` 하위 경로를 `extraResources`나 다른 패키징 복사 대상으로 쓸 때는
+  그 경로가 symlink인지 먼저 확인한다(`ls -la` 또는 `readlink`). symlink라면 복사 도구가
+  dereference하는지 검증하지 않고 넘어가지 않는다.
+- 이런 복사는 빌드 머신에서 `server.cjs`를 직접 실행하는 것만으로는 검증되지 않는다. symlink는 빌드
+  머신 위에서는 항상 유효하기 때문이다. 패키지 결과물(`release/**/resources/...`) 안의 대상 파일이
+  실제 파일인지 symlink인지 `file`/`ls -la`로 직접 확인해야 한다.
+- 해결책은 패키징 전에 실제 파일을 dereference해 별도 폴더로 복사(`fs.cpSync(src, dest, {
+  dereference: true }))하고, `extraResources`는 그 폴더를 가리키게 하는 것이다
+  (`apps/desktop/scripts/prepare-sdk-resource.mjs`).
+
 ## 2026-09-04 — Label 토큰을 mono로 잘못 설계
 
 ### 아쉬웠던 점

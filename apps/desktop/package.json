@@ -10,7 +10,7 @@
     "dev": "pnpm run build && wait-on http://127.0.0.1:47371 http://127.0.0.1:47372/health && node scripts/launch-electron.mjs .",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "package": "pnpm --filter @ai-pixel-office/server build && pnpm --filter @ai-pixel-office/web build && pnpm run build && electron-builder"
+    "package": "pnpm --filter @ai-pixel-office/server build && pnpm --filter @ai-pixel-office/web build && pnpm run build && node scripts/prepare-sdk-resource.mjs && electron-builder"
   },
   "devDependencies": {
     "@types/node": "catalog:",
@@ -38,7 +38,7 @@
         "to": "server"
       },
       {
-        "from": "../server/node_modules/@anthropic-ai",
+        "from": "resources/anthropic-ai",
         "to": "server/node_modules/@anthropic-ai"
       }
     ],
