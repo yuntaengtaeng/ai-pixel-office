@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
-import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
+import { clearAppOwnedDirectories } from "../app-data.ts";
 import { data, notFound } from "./app-types.ts";
 import { removeAttachmentFiles } from "./attachments.ts";
 
@@ -75,12 +76,8 @@ export const storageRoutes: FastifyPluginAsyncZod = async (app) => {
     );
     app.repository.resetApplicationData();
     await removeAttachmentFiles(app.generalWorkingDirectory, attachmentPaths);
-    // general과 runtime-logs는 앱이 소유한다. 사용자가 연결한 프로젝트 경로는 절대 삭제하지 않는다.
-    for (const directory of new Set([app.generalWorkingDirectory, app.runtimeLogDirectory])) {
-      const entries = await readdir(directory).catch(() => []);
-      await Promise.all(entries.map((entry) => rm(`${directory}/${entry}`, { recursive: true, force: true }).catch(() => undefined)));
-      await mkdir(directory, { recursive: true });
-    }
+    await clearAppOwnedDirectories([app.generalWorkingDirectory, app.runtimeLogDirectory]);
+    app.skillLibrary.clear();
     return data(reply, 200, { reset: true });
   });
 };

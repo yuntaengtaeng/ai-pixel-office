@@ -1,7 +1,11 @@
 import { Button } from "@ai-pixel-office/design-system";
 import styled from "styled-components";
-import { Composer } from "../../../chat/components/Composer.tsx";
-import { useAttachmentDraft } from "../../../chat/hooks/useAttachmentDraft.ts";
+import {
+  ComposerAttachments,
+  ComposerForm,
+  ComposerTextArea,
+} from "../../../../shared/ui/composer/Composer.tsx";
+import { useAttachmentDraft } from "../../../../shared/hooks/useAttachmentDraft.ts";
 
 const Styled = {
   Composer: styled.form`
@@ -91,13 +95,19 @@ export function TaskSessionComposer({
     }
   };
   return (
-    <Composer.Form component={Styled.Composer} attachments={attachments} disabled={disabled} pending={pending} onSubmit={submit}>
+    <ComposerForm
+      component={Styled.Composer}
+      attachments={attachments}
+      disabled={disabled}
+      pending={pending}
+      onSubmit={submit}
+    >
       <div>
         <label htmlFor={id}>{title}</label>
         <p>{description}</p>
       </div>
-      {attachmentsEnabled && <Composer.Attachments attachments={attachments} />}
-      <Composer.TextArea
+      {attachmentsEnabled && <ComposerAttachments attachments={attachments} />}
+      <ComposerTextArea
         attachments={attachmentsEnabled ? attachments : undefined}
         onSubmit={submit}
         id={id}
@@ -112,6 +122,6 @@ export function TaskSessionComposer({
           {pending ? submittingLabel : submitLabel}
         </Button>
       </Styled.Footer>
-    </Composer.Form>
+    </ComposerForm>
   );
 }

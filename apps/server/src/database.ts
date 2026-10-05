@@ -21,8 +21,35 @@ export function openDatabase(path = "data/ai-pixel-office.sqlite"): AppDatabase 
   return database;
 }
 
+/** 앱 데이터 구조 버전 (더 낮은 버전으로 만든 DB는 열 때 모든 테이블을 지우고 새로 생성) */
+export const DATA_SCHEMA_VERSION = 2;
+export const LEGACY_DATA_RESET_KEY = "legacy_data_reset_at";
+
+function dropTablesOfOlderDataVersion(database: AppDatabase): boolean {
+  const { user_version: version } = database.prepare("PRAGMA user_version").get() as {
+    user_version: number;
+  };
+  if (version >= DATA_SCHEMA_VERSION) return false;
+  const tables = (
+    database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all() as Array<{ name: string }>
+  ).map((table) => table.name);
+  if (tables.length === 0) return false;
+  database.exec("PRAGMA foreign_keys = OFF");
+  for (const table of tables) database.exec(`DROP TABLE IF EXISTS "${table}"`);
+  database.exec("PRAGMA foreign_keys = ON");
+  return tables.includes("workspaces");
+}
+
 function migrate(database: AppDatabase): void {
+  const droppedOlderData = dropTablesOfOlderDataVersion(database);
   database.exec(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -57,21 +84,6 @@ function migrate(database: AppDatabase): void {
     CREATE INDEX IF NOT EXISTS projects_workspace_status_idx
       ON projects(workspace_id, status, updated_at DESC);
 
-    CREATE TABLE IF NOT EXISTS skills (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      description TEXT NOT NULL,
-      instructions TEXT NOT NULL,
-      tools_json TEXT NOT NULL,
-      required_permissions_json TEXT,
-      output_schema_json TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS skills_workspace_idx ON skills(workspace_id);
-
     CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -87,6 +99,7 @@ function migrate(database: AppDatabase): void {
       permissions_json TEXT NOT NULL,
       system_prompt TEXT,
       working_directory TEXT,
+      source_team TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -101,7 +114,8 @@ function migrate(database: AppDatabase): void {
 
     CREATE TABLE IF NOT EXISTS agent_skills (
       agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-      skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE RESTRICT,
+      -- skill_id: 스킬 라이브러리 폴더 이름
+      skill_id TEXT NOT NULL,
       PRIMARY KEY(agent_id, skill_id)
     );
 
@@ -189,33 +203,6 @@ function migrate(database: AppDatabase): void {
     );
     CREATE INDEX IF NOT EXISTS run_skills_skill_idx ON run_skills(skill_id);
 
-    CREATE TABLE IF NOT EXISTS task_workflow_steps (
-      id TEXT PRIMARY KEY,
-      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
-      position INTEGER NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'working', 'completed', 'failed')),
-      run_id TEXT REFERENCES agent_runs(id) ON DELETE SET NULL,
-      result_json TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      UNIQUE(task_id, position)
-    );
-    CREATE INDEX IF NOT EXISTS workflow_steps_task_position_idx
-      ON task_workflow_steps(task_id, position);
-
-    CREATE TABLE IF NOT EXISTS workflow_presets (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      agent_ids_json TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      UNIQUE(workspace_id, name)
-    );
-    CREATE INDEX IF NOT EXISTS workflow_presets_workspace_idx
-      ON workflow_presets(workspace_id, updated_at DESC);
-
     CREATE TABLE IF NOT EXISTS run_progress_events (
       id TEXT PRIMARY KEY,
       run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
@@ -250,27 +237,14 @@ function migrate(database: AppDatabase): void {
     CREATE INDEX IF NOT EXISTS activity_workspace_created_idx ON activity_logs(workspace_id, created_at DESC);
   `);
 
-  const agentColumns = database.prepare("PRAGMA table_info(agents)").all() as Array<{
-    name: string;
-  }>;
-  if (!agentColumns.some((column) => column.name === "avatar_id")) {
-    database.exec("ALTER TABLE agents ADD COLUMN avatar_id TEXT");
-  }
-  if (!agentColumns.some((column) => column.name === "working_directory")) {
-    database.exec("ALTER TABLE agents ADD COLUMN working_directory TEXT");
-  }
-  if (!agentColumns.some((column) => column.name === "mode")) {
-    database.exec("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'worker'");
-  }
-  if (!agentColumns.some((column) => column.name === "model_policy")) {
-    database.exec("ALTER TABLE agents ADD COLUMN model_policy TEXT NOT NULL DEFAULT 'default'");
-  }
-  if (!agentColumns.some((column) => column.name === "model_name")) {
-    database.exec("ALTER TABLE agents ADD COLUMN model_name TEXT");
-  }
-  if (!agentColumns.some((column) => column.name === "reasoning_effort")) {
-    database.exec("ALTER TABLE agents ADD COLUMN reasoning_effort TEXT");
-  }
+  addMissingColumns(database, "agents", {
+    avatar_id: "TEXT",
+    working_directory: "TEXT",
+    mode: "TEXT NOT NULL DEFAULT 'worker'",
+    model_policy: "TEXT NOT NULL DEFAULT 'default'",
+    model_name: "TEXT",
+    reasoning_effort: "TEXT",
+  });
   database.exec(`
     UPDATE agents
     SET mode = 'worker',
@@ -282,67 +256,117 @@ function migrate(database: AppDatabase): void {
         )
     WHERE mode = 'chat'
   `);
-  const workspaceColumns = database.prepare("PRAGMA table_info(workspaces)").all() as Array<{
-    name: string;
-  }>;
-  if (!workspaceColumns.some((column) => column.name === "default_agent_id")) {
-    database.exec(
-      "ALTER TABLE workspaces ADD COLUMN default_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL",
-    );
-  }
-  if (!workspaceColumns.some((column) => column.name === "working_directory")) {
-    database.exec("ALTER TABLE workspaces ADD COLUMN working_directory TEXT");
-  }
-  const taskColumns = database.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
-  if (!taskColumns.some((column) => column.name === "working_directory")) {
-    database.exec("ALTER TABLE tasks ADD COLUMN working_directory TEXT");
-  }
-  if (!taskColumns.some((column) => column.name === "project_id")) {
-    database.exec(
-      "ALTER TABLE tasks ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL",
-    );
-  }
-  if (!taskColumns.some((column) => column.name === "origin")) {
-    database.exec("ALTER TABLE tasks ADD COLUMN origin TEXT NOT NULL DEFAULT 'office'");
-  }
+  addMissingColumns(database, "workspaces", {
+    default_agent_id: "TEXT REFERENCES agents(id) ON DELETE SET NULL",
+    working_directory: "TEXT",
+  });
+  addMissingColumns(database, "tasks", {
+    working_directory: "TEXT",
+    project_id: "TEXT REFERENCES projects(id) ON DELETE SET NULL",
+    origin: "TEXT NOT NULL DEFAULT 'office'",
+    queued_behind: "TEXT",
+    result_format: "TEXT",
+    modifies_files: "INTEGER",
+    plan_id: "TEXT REFERENCES lead_plans(id) ON DELETE SET NULL",
+    waits_for_json: "TEXT",
+    review_before_next: "INTEGER NOT NULL DEFAULT 0",
+  });
   database.exec(
     "CREATE INDEX IF NOT EXISTS tasks_workspace_origin_idx ON tasks(workspace_id, origin, created_at DESC)",
   );
-  const runColumns = database.prepare("PRAGMA table_info(agent_runs)").all() as Array<{
-    name: string;
-  }>;
-  if (!runColumns.some((column) => column.name === "model_policy")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN model_policy TEXT NOT NULL DEFAULT 'default'");
-  }
-  if (!runColumns.some((column) => column.name === "model_name")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN model_name TEXT");
-  }
-  if (!runColumns.some((column) => column.name === "reasoning_effort")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN reasoning_effort TEXT");
-  }
-  if (!runColumns.some((column) => column.name === "request_text")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN request_text TEXT");
-  }
-  if (!runColumns.some((column) => column.name === "result_json")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN result_json TEXT");
-  }
-  if (!runColumns.some((column) => column.name === "working_directory")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN working_directory TEXT");
-  }
-  if (!runColumns.some((column) => column.name === "scope_type")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN scope_type TEXT NOT NULL DEFAULT 'general'");
-  }
-  if (!runColumns.some((column) => column.name === "scope_project_id")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN scope_project_id TEXT");
-  }
-  if (!runColumns.some((column) => column.name === "resumed_from_run_id")) {
-    database.exec("ALTER TABLE agent_runs ADD COLUMN resumed_from_run_id TEXT REFERENCES agent_runs(id)");
-  }
+  addMissingColumns(database, "agent_runs", {
+    model_policy: "TEXT NOT NULL DEFAULT 'default'",
+    model_name: "TEXT",
+    reasoning_effort: "TEXT",
+    request_text: "TEXT",
+    result_json: "TEXT",
+    working_directory: "TEXT",
+    scope_type: "TEXT NOT NULL DEFAULT 'general'",
+    scope_project_id: "TEXT",
+    resumed_from_run_id: "TEXT REFERENCES agent_runs(id)",
+  });
   database.exec("CREATE INDEX IF NOT EXISTS runs_resumed_from_idx ON agent_runs(resumed_from_run_id)");
+  addMissingColumns(database, "projects", {
+    memo: "TEXT",
+    verification_commands_json: "TEXT NOT NULL DEFAULT '[]'",
+    setup_command: "TEXT",
+    copy_files_json: "TEXT NOT NULL DEFAULT '[]'",
+    default_agent_id: "TEXT REFERENCES agents(id) ON DELETE SET NULL",
+    preview_url: "TEXT",
+    lead_runtime: "TEXT",
+  });
+  addMissingColumns(database, "agent_runs", { modifies_files: "INTEGER NOT NULL DEFAULT 0" });
+  database.exec(`CREATE TABLE IF NOT EXISTS request_workspaces (
+    task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+    project_id TEXT NOT NULL,
+    repository_root TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  database.exec(`CREATE TABLE IF NOT EXISTS lead_plans (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK(status IN ('proposed', 'approved', 'rejected')),
+    title TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    items_json TEXT NOT NULL,
+    feedback TEXT,
+    created_at TEXT NOT NULL,
+    decided_at TEXT
+  )`);
+  database.exec(`CREATE TABLE IF NOT EXISTS lead_messages (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK(role IN ('user', 'lead', 'report')),
+    content TEXT NOT NULL,
+    plan_id TEXT REFERENCES lead_plans(id) ON DELETE SET NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'done', 'failed')),
+    runtime TEXT,
+    thread_id TEXT,
+    created_at TEXT NOT NULL
+  )`);
+  database.exec("CREATE INDEX IF NOT EXISTS lead_messages_project_idx ON lead_messages(project_id, created_at)");
+  database.exec("DROP TABLE IF EXISTS task_workflow_steps");
+  database.exec("DROP TABLE IF EXISTS workflow_presets");
+  dropColumns(database, "projects", ["default_assignee_json"]);
   database.exec(`INSERT OR IGNORE INTO projects
     (id, workspace_id, name, status, working_directory, created_at, updated_at)
     SELECT id, workspace_id, name, 'active', path, created_at, created_at FROM project_directories`);
   database.exec("DROP TABLE project_directories");
+  database.exec(`PRAGMA user_version = ${DATA_SCHEMA_VERSION}`);
+  if (droppedOlderData) {
+    database
+      .prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)")
+      .run(LEGACY_DATA_RESET_KEY, new Date().toISOString());
+  }
+}
+
+/** 테이블에 없는 열만 추가 (기존 데이터 유지) */
+function addMissingColumns(
+  database: AppDatabase,
+  table: string,
+  columns: Record<string, string>,
+): void {
+  const existing = new Set(
+    (database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+      (column) => column.name,
+    ),
+  );
+  for (const [name, definition] of Object.entries(columns)) {
+    if (!existing.has(name)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+  }
+}
+
+/** 테이블에 남아 있는 열만 지움 */
+function dropColumns(database: AppDatabase, table: string, columns: string[]): void {
+  const existing = new Set(
+    (database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+      (column) => column.name,
+    ),
+  );
+  for (const name of columns) {
+    if (existing.has(name)) database.exec(`ALTER TABLE ${table} DROP COLUMN ${name}`);
+  }
 }
 
 export function requireEntity<T>(value: T | undefined, entity: string, id: string): T {

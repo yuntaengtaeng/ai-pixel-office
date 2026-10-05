@@ -104,9 +104,9 @@ const Styled = {
     gap: ${({ theme }) => theme.space.x3};
     align-items: center;
     padding: ${({ theme }) => `${theme.space.x4} ${theme.space.x11} ${theme.space.x4} ${theme.space.x4}`};
-    border: 2px solid ${({ $tone }) => TONE_COLORS[$tone].border};
+    border: 1px solid ${({ $tone }) => TONE_COLORS[$tone].border};
     background: ${({ $tone }) => TONE_COLORS[$tone].background};
-    box-shadow: 5px 5px 0 ${({ theme }) => theme.colors.shadow.snackbar};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.shadow.snackbar};
     line-height: 1.35;
     pointer-events: auto;
     animation: ${slideUpIn} 180ms ease-out;
@@ -215,7 +215,7 @@ export function TaskNotifications({ workspaceId }: { workspaceId: string }) {
           title: "작업 세션이 일시 중단되었습니다",
           message:
             notice.reason === "inactivity"
-              ? "5분 동안 새 진행이 없어 멈췄습니다. 현재 작업을 확인해 주세요."
+              ? "한동안 새 진행이 없어 멈췄습니다. 현재 작업을 확인해 주세요."
               : "현재 진행 내용을 보존했습니다. 같은 세션의 한도를 늘려 계속할 수 있습니다.",
           tone: "warning",
         };

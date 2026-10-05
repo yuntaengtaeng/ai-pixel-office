@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   assertTaskTransition,
   DomainError,
+  ProjectBusyError,
   type ActivityLog,
   type AgentRun,
   type RunProgressEvent,
@@ -11,21 +12,25 @@ import {
 } from "@ai-pixel-office/domain";
 import { requireEntity } from "../database.ts";
 import type { AppDatabase } from "../database.ts";
-import { json, now, type Row, runFrom, workflowStepFrom } from "./rows.ts";
+import { json, now, type Row, runFrom } from "./rows.ts";
 import { withTransaction } from "./shared.ts";
 import { createActivitySync, type CreateActivityInput } from "./activities.ts";
 import { getProjectSync } from "./projects.ts";
 import { createReviewSync } from "./reviews.ts";
 import { getTaskSync, transitionTaskSync, writeTask } from "./tasks.ts";
-import { getWorkflowStepSync, updateWorkflowStepSync } from "./workflow.ts";
 
 export type RunReservation = {
   expectedTaskStatus: TaskStatus;
   expectedProjectPath?: string;
   expectedAssigneeAgentId?: string;
   concurrencyLimit: number;
-  workflowStepId?: string;
-  resetFailedWorkflowStep?: boolean;
+  /**
+   * 프로젝트 폴더에서 직접 파일을 고치는 run이면 그 폴더
+   * 같은 폴더에서 결재 전 변경을 가진 다른 기안서가 있으면 예약하지 않음
+   */
+  exclusiveProjectDirectory?: string;
+  /** 이 run이 파일을 고치는지 (같은 폴더의 자리 판단에 씀) */
+  modifiesFiles?: boolean;
   assigneeAgentId?: string;
   review?: Omit<TaskReview, "id" | "createdAt">;
   activities: CreateActivityInput[];
@@ -53,11 +58,10 @@ type CreateRunInput = Pick<
 function snapshotRunSkills(database: AppDatabase, runId: string, agentId: string): void {
   const skillRows = database
     .prepare(
-      `SELECT skills.id AS skill_id, skills.name AS skill_name
+      `SELECT skill_id, skill_id AS skill_name
        FROM agent_skills
-       JOIN skills ON skills.id = agent_skills.skill_id
-       WHERE agent_skills.agent_id = ?
-       ORDER BY agent_skills.skill_id`,
+       WHERE agent_id = ?
+       ORDER BY skill_id`,
     )
     .all(agentId) as Array<{ skill_id: string; skill_name: string }>;
   const insert = database.prepare(
@@ -66,14 +70,15 @@ function snapshotRunSkills(database: AppDatabase, runId: string, agentId: string
   skillRows.forEach((row, position) => insert.run(runId, row.skill_id, row.skill_name, position));
 }
 
-function createRunSync(database: AppDatabase, input: CreateRunInput): AgentRun {
+function createRunSync(database: AppDatabase, input: CreateRunInput, modifiesFiles = false): AgentRun {
   const run: AgentRun = { ...input, status: "queued", createdAt: now() };
   database
     .prepare(
       `INSERT INTO agent_runs
       (id, task_id, agent_id, runtime, model_policy, model_name, reasoning_effort, status,
-       resumed_from_run_id, request_text, scope_type, scope_project_id, working_directory, cleanup_policy, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       resumed_from_run_id, request_text, scope_type, scope_project_id, working_directory, cleanup_policy, created_at,
+       modifies_files)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       run.id,
@@ -91,6 +96,7 @@ function createRunSync(database: AppDatabase, input: CreateRunInput): AgentRun {
       run.workingDirectory ?? null,
       run.cleanupPolicy,
       run.createdAt,
+      modifiesFiles ? 1 : 0,
     );
   snapshotRunSkills(database, run.id, run.agentId);
   return run;
@@ -120,6 +126,24 @@ export async function reserveRun(
         "실행 예약 중 작업의 담당 Agent가 변경되었습니다",
         409,
       );
+    }
+    if (reservation.exclusiveProjectDirectory) {
+      const holder = database
+        .prepare(
+          `SELECT tasks.title FROM tasks
+           WHERE tasks.project_id = ? AND tasks.id <> ?
+             AND tasks.status IN ('working', 'needs_input', 'needs_review', 'blocked')
+             AND EXISTS (
+               SELECT 1 FROM agent_runs
+               WHERE agent_runs.task_id = tasks.id AND agent_runs.working_directory = ?
+                 AND agent_runs.modifies_files = 1
+             )
+           LIMIT 1`,
+        )
+        .get(input.scopeProjectId ?? "", currentTask.id, reservation.exclusiveProjectDirectory) as
+        | { title: string }
+        | undefined;
+      if (holder) throw new ProjectBusyError(holder.title);
     }
     if (currentTask.projectId !== input.scopeProjectId) {
       throw new DomainError(
@@ -173,11 +197,12 @@ export async function reserveRun(
       ...currentTask,
       status: "working",
       assigneeAgentId: reservation.assigneeAgentId ?? currentTask.assigneeAgentId,
+      queuedBehind: undefined,
       updatedAt: now(),
       completedAt: undefined,
     };
     writeTask(database, task);
-    const run = createRunSync(database, input);
+    const run = createRunSync(database, input, reservation.modifiesFiles === true);
     if (reservation.attachmentIds?.length) {
       const attach = database.prepare(
         "UPDATE task_attachments SET run_id = ? WHERE id = ? AND task_id = ? AND run_id IS NULL",
@@ -191,35 +216,6 @@ export async function reserveRun(
             409,
           );
         }
-      }
-    }
-    if (reservation.workflowStepId) {
-      const step = requireEntity(
-        getWorkflowStepSync(database, reservation.workflowStepId),
-        "WorkflowStep",
-        reservation.workflowStepId,
-      );
-      if (step.taskId !== task.id) {
-        throw new DomainError("WORKFLOW_STEP_MISMATCH", "Workflow step belongs to another task", 409);
-      }
-      const expectedStepStatus = reservation.resetFailedWorkflowStep ? "failed" : "pending";
-      if (step.status !== expectedStepStatus) {
-        throw new DomainError(
-          reservation.resetFailedWorkflowStep ? "WORKFLOW_NOT_FAILED" : "WORKFLOW_STEP_NOT_PENDING",
-          `Workflow step must be ${expectedStepStatus} to run`,
-          409,
-        );
-      }
-      updateWorkflowStepSync(database, reservation.workflowStepId, {
-        status: "working",
-        runId: run.id,
-      });
-    } else {
-      const workflowStep = database
-        .prepare("SELECT id FROM task_workflow_steps WHERE task_id = ? LIMIT 1")
-        .get(task.id);
-      if (workflowStep) {
-        throw new DomainError("WORKFLOW_CHANGED", "실행 예약 중 Task Workflow가 변경되었습니다", 409);
       }
     }
     const review = reservation.review ? createReviewSync(database, reservation.review) : undefined;
@@ -240,9 +236,19 @@ function getRunSync(database: AppDatabase, id: string): AgentRun | undefined {
   return row ? runFrom(row as Row) : undefined;
 }
 
+/** 기안서의 첫 run (실행 범위를 처음 정한 run) */
+export async function firstRun(database: AppDatabase, taskId: string): Promise<AgentRun | undefined> {
+  const row = database
+    .prepare("SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at, rowid LIMIT 1")
+    .get(taskId);
+  return row ? runFrom(row as Row) : undefined;
+}
+
 export async function listRuns(database: AppDatabase, taskId?: string): Promise<AgentRun[]> {
   const rows = taskId
-    ? database.prepare("SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at DESC").all(taskId)
+    ? database
+        .prepare("SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at DESC")
+        .all(taskId)
     : database.prepare("SELECT * FROM agent_runs ORDER BY created_at DESC").all();
   return rows.map((row) => runFrom(row as Row));
 }
@@ -275,7 +281,9 @@ export async function listRunProgress(
   limit = 100,
 ): Promise<RunProgressEvent[]> {
   return database
-    .prepare("SELECT * FROM run_progress_events WHERE run_id = ? ORDER BY created_at, rowid LIMIT ?")
+    .prepare(
+      "SELECT * FROM run_progress_events WHERE run_id = ? ORDER BY created_at, rowid LIMIT ?",
+    )
     .all(runId, Math.min(Math.max(limit, 1), 300))
     .map((raw) => {
       const row = raw as Row;
@@ -330,7 +338,9 @@ function updateRunSync(
 
 export async function recoverInterruptedRuns(database: AppDatabase): Promise<number> {
   const interrupted = database
-    .prepare("SELECT * FROM agent_runs WHERE status IN ('queued', 'running', 'waiting') ORDER BY created_at")
+    .prepare(
+      "SELECT * FROM agent_runs WHERE status IN ('queued', 'running', 'waiting') ORDER BY created_at",
+    )
     .all()
     .map((row) => runFrom(row as Row));
   if (interrupted.length === 0) return 0;
@@ -339,11 +349,6 @@ export async function recoverInterruptedRuns(database: AppDatabase): Promise<num
     for (const run of interrupted) {
       const error = "Server restarted while the AgentRun was active. Retry the task to continue.";
       updateRunSync(database, run.id, { status: "failed", finishedAt: now(), error });
-      const workflowRow = database
-        .prepare("SELECT * FROM task_workflow_steps WHERE run_id = ?")
-        .get(run.id);
-      const workflowStep = workflowRow ? workflowStepFrom(workflowRow as Row) : undefined;
-      if (workflowStep) updateWorkflowStepSync(database, workflowStep.id, { status: "failed" });
       const task = getTaskSync(database, run.taskId);
       if (task && ["working", "needs_input", "blocked"].includes(task.status)) {
         const failedTask = transitionTaskSync(database, task.id, "failed");
@@ -361,7 +366,10 @@ export async function recoverInterruptedRuns(database: AppDatabase): Promise<num
   return interrupted.length;
 }
 
-export async function latestRun(database: AppDatabase, taskId: string): Promise<AgentRun | undefined> {
+export async function latestRun(
+  database: AppDatabase,
+  taskId: string,
+): Promise<AgentRun | undefined> {
   const row = database
     .prepare("SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at DESC LIMIT 1")
     .get(taskId);

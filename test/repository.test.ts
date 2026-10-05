@@ -12,21 +12,12 @@ test("persists the MVP domain and normalized activity", async () => {
       name: "App",
       path: process.cwd(),
     });
-    const skill = await repository.createSkill({
-      workspaceId: workspace.id,
-      name: "UI Review",
-      category: "Design",
-      description: "Review a UI",
-      instructions: "Inspect spacing.",
-      tools: [{ name: "workspace-reader" }],
-      requiredPermissions: ["fileRead"],
-    });
     const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "UI Reviewer",
       role: "Review interfaces",
       model: "codex",
-      skillIds: [skill.id],
+      skillIds: ["ui-review"],
       permissions: { fileRead: true },
     });
     const task = await repository.createTask({
@@ -36,7 +27,7 @@ test("persists the MVP domain and normalized activity", async () => {
       priority: "high",
     });
 
-    assert.equal((await repository.getAgent(agent.id))?.skillIds[0], skill.id);
+    assert.equal((await repository.getAgent(agent.id))?.skillIds[0], "ui-review");
     assert.equal((await repository.listProjectDirectories(workspace.id))[0]?.id, project.id);
     assert.equal((await repository.getTask(task.id))?.status, "todo");
     assert.deepEqual(
@@ -134,4 +125,3 @@ test("recovers waiting runs after a server restart", async () => {
     repository.close();
   }
 });
-

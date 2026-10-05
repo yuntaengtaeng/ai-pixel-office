@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -12,6 +13,7 @@ import {
   resolveRuntimeLogDirectory,
 } from "../apps/server/src/index.ts";
 import type { RuntimeAdapter } from "../apps/server/src/runtime/index.ts";
+import { SkillLibrary } from "../apps/server/src/skill-library.ts";
 
 const inactiveRuntime: RuntimeAdapter = {
   async run() {
@@ -41,7 +43,9 @@ test("keeps runtime logs under an absolute application-owned directory", () => {
   );
 });
 
-test("serves workspace, skill, agent, and task CRUD", async () => {
+test("serves workspace, skill, agent, and task CRUD", async (context) => {
+  const libraryDirectory = mkdtempSync(join(tmpdir(), "ai-pixel-library-"));
+  context.after(() => rmSync(libraryDirectory, { recursive: true, force: true }));
   const repository = new Repository(openDatabase(":memory:"));
   const events = new EventBus();
   const orchestrator = new Orchestrator(repository, inactiveRuntime, events, {
@@ -52,12 +56,13 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     orchestrator,
     events,
     generalWorkingDirectory: tmpdir(),
+    skillLibrary: new SkillLibrary(libraryDirectory),
     skillDraftGenerator: async (brief) => ({
-      name: "UI Review",
+      id: "ui-review",
+      title: "UI Review",
       category: "Design",
       description: brief,
       instructions: "## 검토\n일관성을 확인합니다.",
-      tools: ["figma"],
       requiredPermissions: ["figma"],
     }),
   });
@@ -126,16 +131,16 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     const skillResponse = await request("/api/skills", {
       method: "POST",
       body: JSON.stringify({
-        workspaceId: workspace.id,
-        name: "React",
+        title: "React",
         category: "Frontend",
         description: "Build React UI",
         instructions: "Use TypeScript.",
-        tools: [],
         requiredPermissions: ["fileRead"],
       }),
     });
-    const skill = skillResponse.body?.data as { id: string };
+    const skill = skillResponse.body?.data as { id: string; source: string };
+    assert.equal(skill.id, "react");
+    assert.equal(skill.source, "local");
 
     const agentResponse = await request("/api/agents", {
       method: "POST",
@@ -158,19 +163,6 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     assert.equal(agent.avatarId, "dog-corgi");
     assert.equal(agent.workingDirectory, undefined);
 
-    const secondAgentResponse = await request("/api/agents", {
-      method: "POST",
-      body: JSON.stringify({
-        workspaceId: workspace.id,
-        name: "Code Reviewer",
-        role: "Review changes",
-        model: "claude",
-        skillIds: [],
-        permissions: { fileRead: true, terminal: true },
-      }),
-    });
-    const secondAgent = secondAgentResponse.body?.data as { id: string };
-
     const templateResponse = await request(`/api/agents/${agent.id}/task-templates`, {
       method: "POST",
       body: JSON.stringify({ title: "UI 검토", description: "화면 일관성을 검토해 줘" }),
@@ -184,7 +176,7 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
       body: JSON.stringify({ brief: "Figma 화면을 검토하는 스킬" }),
     });
     assert.equal(draftResponse.response.statusCode, 200);
-    assert.equal((draftResponse.body?.data as { name: string }).name, "UI Review");
+    assert.equal((draftResponse.body?.data as { title: string }).title, "UI Review");
 
     const taskResponse = await request("/api/tasks", {
       method: "POST",
@@ -193,39 +185,23 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
         title: "Build login",
         assigneeAgentId: agent.id,
         projectId: project.id,
+        resultFormat: "developer",
       }),
     });
     assert.equal(taskResponse.response.statusCode, 201);
-    const task = taskResponse.body?.data as { id: string; status: string; projectId: string };
+    const task = taskResponse.body?.data as {
+      id: string;
+      status: string;
+      projectId: string;
+      resultFormat: string;
+    };
     assert.equal(task.status, "todo");
     assert.equal(task.projectId, project.id);
-    const workflowResponse = await request(`/api/tasks/${task.id}/workflow`, {
-      method: "PUT",
-      body: JSON.stringify({ agentIds: [agent.id, secondAgent.id] }),
-    });
-    assert.equal(workflowResponse.response.statusCode, 200);
-    assert.equal((workflowResponse.body?.data as unknown[]).length, 2);
-
-    const presetResponse = await request("/api/workflow-presets", {
-      method: "POST",
-      body: JSON.stringify({
-        workspaceId: workspace.id,
-        name: "UI 구현 검토",
-        agentIds: [agent.id, secondAgent.id],
-      }),
-    });
-    assert.equal(presetResponse.response.statusCode, 201);
-    const preset = presetResponse.body?.data as { id: string; name: string; agentIds: string[] };
-    assert.equal(preset.name, "UI 구현 검토");
-    assert.deepEqual(preset.agentIds, [agent.id, secondAgent.id]);
-    const presetList = await request(`/api/workflow-presets?workspaceId=${workspace.id}`);
-    assert.equal((presetList.body?.data as unknown[]).length, 1);
-
+    assert.equal(task.resultFormat, "developer");
     const detail = await request(`/api/tasks/${task.id}`);
     assert.equal(detail.response.statusCode, 200);
     assert.deepEqual((detail.body?.data as { runs: unknown[] }).runs, []);
     assert.deepEqual((detail.body?.data as { progress: unknown[] }).progress, []);
-    assert.equal((detail.body?.data as { workflow: unknown[] }).workflow.length, 2);
     const executionContext = await request(`/api/tasks/${task.id}/execution-context`);
     assert.equal(executionContext.response.statusCode, 200);
     const contexts = executionContext.body?.data as Array<{
@@ -234,14 +210,9 @@ test("serves workspace, skill, agent, and task CRUD", async () => {
     }>;
     assert.deepEqual(
       contexts.map((context) => context.runtime),
-      ["codex", "claude"],
+      ["codex"],
     );
     assert.equal(contexts[0]?.workingDirectory, process.cwd());
-
-    const presetDelete = await request(`/api/workflow-presets/${preset.id}`, {
-      method: "DELETE",
-    });
-    assert.equal(presetDelete.response.statusCode, 204);
 
     const invalid = await request("/api/agents", { method: "POST", body: "{}" });
     assert.equal(invalid.response.statusCode, 400);

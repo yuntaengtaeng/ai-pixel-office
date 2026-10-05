@@ -17,6 +17,8 @@ export type SystemStatus = {
   codex: { installed: boolean; version?: string; authenticated: boolean; detail: string };
   claude: { installed: boolean; version?: string; authenticated: boolean; detail: string };
   mcp: Record<"figma", McpIntegrationStatus>;
+  /** 이전 데이터 버전이 초기화된 시각 (초기화된 적 없으면 없음) */
+  legacyDataResetAt?: string;
 };
 
 export const systemApi = {

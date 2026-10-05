@@ -65,3 +65,33 @@ test("maps completion and cancellation to product-safe events", () => {
     [{ type: "cancelled", cleanupPolicy: "preserve" }],
   );
 });
+
+test("records a finished command with its exit code and the files a change wrote", () => {
+  const state = createNormalizationState();
+  const command = normalizeAppServerMessage(
+    {
+      method: "item/completed",
+      params: {
+        item: { type: "commandExecution", command: "pnpm test", status: "failed", exitCode: 1 },
+      },
+    },
+    state,
+  );
+  assert.deepEqual(command.at(-1), {
+    type: "command_finished",
+    command: "pnpm test",
+    exitCode: 1,
+    succeeded: false,
+  });
+
+  const change = normalizeAppServerMessage(
+    {
+      method: "item/completed",
+      params: {
+        item: { type: "fileChange", status: "completed", changes: [{ path: "src/a.ts" }] },
+      },
+    },
+    state,
+  );
+  assert.deepEqual(change.at(-1), { type: "files_changed", paths: ["src/a.ts"] });
+});

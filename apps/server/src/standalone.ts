@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { startServer } from "./index.ts";
 
 type ParentMessage = { type: "shutdown" };
@@ -15,6 +16,9 @@ async function main(): Promise<void> {
     staticRoot: process.env.PIXEL_OFFICE_STATIC_ROOT,
     generalWorkingDirectory: process.env.PIXEL_OFFICE_GENERAL_WORKING_DIRECTORY,
     runtimeLogDirectory: process.env.PIXEL_OFFICE_RUNTIME_LOG_DIRECTORY,
+    libraryDirectory: process.env.PIXEL_OFFICE_LIBRARY_DIRECTORY,
+    bundledTeamsDirectory:
+      process.env.PIXEL_OFFICE_BUNDLED_TEAMS_DIRECTORY ?? resolve("resources", "teams"),
   });
   process.send?.({ type: "ready", address: runtime.address });
 

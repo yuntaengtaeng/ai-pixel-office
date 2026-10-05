@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@ai-pixel-office/design-system";
 import { ChatInputBar } from "./ChatFrame.tsx";
-import { Composer } from "./Composer.tsx";
-import { useAttachmentDraft } from "../hooks/useAttachmentDraft.ts";
+import { ComposerForm, ComposerTextArea, ComposerAttachments } from "../../../shared/ui/composer/Composer.tsx";
+import { useAttachmentDraft } from "../../../shared/hooks/useAttachmentDraft.ts";
 
 /** draft를 컴포저 내부에 가둬서, 부모는 확정된 메시지 문자열만 받고 draft 상태/초기화를 신경 쓰지 않아도 됨 */
 export function MessageComposer({
@@ -44,8 +44,8 @@ export function MessageComposer({
   };
 
   return (
-    <Composer.Form component={ChatInputBar} attachments={attachments} disabled={disabled} pending={pending} onSubmit={submit}>
-      <Composer.TextArea
+    <ComposerForm component={ChatInputBar} attachments={attachments} disabled={disabled} pending={pending} onSubmit={submit}>
+      <ComposerTextArea
         attachments={attachments}
         onSubmit={submit}
         value={draft}
@@ -53,10 +53,10 @@ export function MessageComposer({
         placeholder={placeholder}
         autoFocus={autoFocus}
       />
-      <Composer.Attachments attachments={attachments} $stacked />
+      <ComposerAttachments attachments={attachments} $stacked />
       <Button $variant="primary" type="submit" disabled={pending || !draft.trim() || disabled}>
         {pending ? pendingLabel : submitLabel}
       </Button>
-    </Composer.Form>
+    </ComposerForm>
   );
 }

@@ -2,6 +2,8 @@ import styled from "styled-components";
 import { MarkdownContent } from "../../../../shared/ui/MarkdownContent.tsx";
 import { extractLocalFilePaths } from "../../../../shared/lib/localFileLinks.ts";
 import type { TaskDetail } from "../../api.ts";
+import { reportedResultOf, summaryWithoutReportedJson } from "../../utils/requestResult.ts";
+import { ReportedResultView } from "./ReportedResultView.tsx";
 
 const MarkdownResult = styled(MarkdownContent)<{
   $size?: "default" | "compact" | "small";
@@ -19,7 +21,7 @@ const MarkdownResult = styled(MarkdownContent)<{
 
   h1 {
     padding-bottom: ${({ theme }) => theme.space.x2};
-    border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
     font-size: ${({ theme }) => theme.typography.fontSize.headingXl};
   }
 
@@ -44,9 +46,9 @@ const MarkdownResult = styled(MarkdownContent)<{
   pre {
     padding: ${({ theme }) => theme.space.x3};
     overflow: auto;
-    border: 2px solid ${({ theme }) => theme.colors.border.positive};
-    background: ${({ theme }) => theme.colors.semantic.info};
-    color: ${({ theme }) => theme.colors.text.inverse};
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
+    background: ${({ theme }) => theme.colors.background.surfaceMuted};
+    color: ${({ theme }) => theme.colors.text.primary};
   }
 
   pre code {
@@ -133,12 +135,17 @@ export function TaskResultView({
       url: undefined,
     }));
   const visibleArtifacts = [...(result.artifacts ?? []), ...inferredArtifacts];
+  const reported = reportedResultOf({ result });
+  const summary = reported ? summaryWithoutReportedJson(result.summary) : result.summary;
 
   return (
     <>
-      <MarkdownResult $size={size} artifactPaths={artifactPaths}>
-        {result.summary}
-      </MarkdownResult>
+      {summary && (
+        <MarkdownResult $size={size} artifactPaths={artifactPaths}>
+          {summary}
+        </MarkdownResult>
+      )}
+      {reported && <ReportedResultView reported={reported} compact={size !== "default"} />}
       {visibleArtifacts.map((artifact) => (
         <Artifact
           key={artifact.name}

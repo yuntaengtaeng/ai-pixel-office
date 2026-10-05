@@ -26,7 +26,7 @@ const Styled = {
   Icon: styled.span<{ $tone: "default" | "danger" }>`
     width: 42px;
     height: 42px;
-    border: 2px solid ${({ theme }) => theme.colors.border.positive};
+    border: 1px solid ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.surfaceMuted};
     color: ${({ theme }) => theme.colors.text.positive};
     display: grid;
@@ -35,7 +35,7 @@ const Styled = {
     font-size: ${({ theme }) => theme.typography.fontSize.headingXl};
     font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
     line-height: 1;
-    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.positive};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.border.positive};
 
     ${({ $tone, theme }) =>
       $tone === "danger" &&
@@ -43,7 +43,7 @@ const Styled = {
         border-color: ${theme.colors.border.negative};
         background: ${theme.colors.background.surfaceMuted};
         color: ${theme.colors.text.negative};
-        box-shadow: 3px 3px 0 ${theme.colors.shadow.negative};
+        box-shadow: 0 0 0 1px ${theme.colors.shadow.negative};
       `}
   `,
   Actions: styled.div`

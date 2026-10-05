@@ -45,7 +45,7 @@ const Seal = styled.span`
   border-radius: 50%;
   background: ${({ theme }) => theme.colors.semantic.warning};
   color: ${({ theme }) => theme.colors.text.primary};
-  border: 2px solid ${({ theme }) => theme.colors.border.strong};
+  border: 1px solid ${({ theme }) => theme.colors.border.strong};
   font-size: ${({ theme }) => theme.typography.fontSize.lg};
 `;
 

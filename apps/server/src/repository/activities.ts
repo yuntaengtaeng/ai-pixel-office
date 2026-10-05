@@ -55,18 +55,33 @@ export async function listActivities(
       "SELECT * FROM activity_logs WHERE workspace_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
     )
     .all(workspaceId, Math.min(Math.max(limit, 1), 500))
-    .map((raw) => {
-      const row = raw as Row;
-      return {
-        id: String(row.id),
-        workspaceId: String(row.workspace_id),
-        type: row.type as ActivityType,
-        agentId: optional(row.agent_id),
-        taskId: optional(row.task_id),
-        runId: optional(row.run_id),
-        message: String(row.message),
-        metadata: json<Record<string, unknown> | undefined>(row.metadata_json, undefined),
-        createdAt: String(row.created_at),
-      };
-    });
+    .map((raw) => activityFrom(raw as Row));
+}
+
+/** 기안서 하나의 특정 종류 활동 기록 (오래된 순) */
+export function listTaskActivities(
+  database: AppDatabase,
+  taskId: string,
+  type: ActivityType,
+): ActivityLog[] {
+  return database
+    .prepare(
+      "SELECT * FROM activity_logs WHERE task_id = ? AND type = ? ORDER BY created_at, rowid",
+    )
+    .all(taskId, type)
+    .map((raw) => activityFrom(raw as Row));
+}
+
+function activityFrom(row: Row): ActivityLog {
+  return {
+    id: String(row.id),
+    workspaceId: String(row.workspace_id),
+    type: row.type as ActivityType,
+    agentId: optional(row.agent_id),
+    taskId: optional(row.task_id),
+    runId: optional(row.run_id),
+    message: String(row.message),
+    metadata: json<Record<string, unknown> | undefined>(row.metadata_json, undefined),
+    createdAt: String(row.created_at),
+  };
 }

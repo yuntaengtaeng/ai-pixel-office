@@ -11,9 +11,9 @@ const Frame = styled.aside<{ $embedded: boolean }>`
   min-height: ${({ $embedded }) => ($embedded ? "0" : "100dvh")};
   padding: ${({ theme }) => `${theme.space.x6} ${theme.space.x5}`};
   background: ${({ theme }) => theme.colors.brand.primaryDark};
-  color: ${({ theme }) => theme.colors.text.inverse};
+  color: ${({ theme }) => theme.colors.text.primary};
   border: 0;
-  border-right: 4px solid ${({ theme }) => theme.colors.brand.primary};
+  border-right: 1px solid ${({ theme }) => theme.colors.brand.primary};
   display: flex;
   flex-direction: column;
   overflow-y: ${({ $embedded }) => ($embedded ? "visible" : "auto")};
@@ -27,7 +27,7 @@ const Frame = styled.aside<{ $embedded: boolean }>`
     height: auto;
     padding: ${({ theme }) => `${theme.space.x3} ${theme.space.x3}`};
     border: 0;
-    border-bottom: 4px solid ${({ theme }) => theme.colors.brand.primary};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.brand.primary};
     flex-direction: row;
     align-items: center;
     overflow-y: visible;
@@ -37,7 +37,7 @@ const Brand = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.x3};
-  color: ${({ theme }) => theme.colors.text.inverse};
+  color: ${({ theme }) => theme.colors.text.primary};
   font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};
   letter-spacing: -0.02em;
 `;
@@ -49,8 +49,8 @@ const Mark = styled.span`
   flex: 0 0 auto;
   background: ${({ theme }) => theme.colors.semantic.warning};
   color: ${({ theme }) => theme.colors.text.primary};
-  border: 2px solid ${({ theme }) => theme.colors.border.strong};
-  box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
+  border: 1px solid ${({ theme }) => theme.colors.border.strong};
+  box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.shadow.default};
   font-family: ${({ theme }) => theme.typography.fontFamily.mono};
   font-size: ${({ theme }) => theme.typography.fontSize.title};
 `;

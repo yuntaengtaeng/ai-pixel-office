@@ -6,6 +6,7 @@ import type { Repository } from "../repository/index.ts";
 import type { SkillDraft } from "../skill-draft.ts";
 import type { KnowledgeDocumentStore } from "../knowledge-documents.ts";
 import type { ColleagueFit } from "../colleague-fit.ts";
+import type { SkillLibrary } from "../skill-library.ts";
 import type { AgentModel } from "@ai-pixel-office/domain";
 
 declare module "fastify" {
@@ -17,6 +18,8 @@ declare module "fastify" {
     runtimeLogDirectory: string;
     knowledgeDocuments: KnowledgeDocumentStore;
     corsOrigin: string;
+    skillLibrary: SkillLibrary;
+    bundledTeamsDirectory: string;
     skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
     colleagueFitGenerator?: (intent: string, runtime: AgentModel) => Promise<ColleagueFit>;
   }

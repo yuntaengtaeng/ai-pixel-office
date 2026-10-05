@@ -16,9 +16,9 @@ const Message = styled.div<{ $error: boolean }>`
     width: 48px;
     height: 48px;
     place-items: center;
-    border: 3px solid ${({ theme }) => theme.colors.border.strong};
+    border: 1px solid ${({ theme }) => theme.colors.border.strong};
     background: ${({ theme }) => theme.colors.semantic.warning};
-    box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.border.default};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.border.default};
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
     font-size: ${({ theme }) => theme.typography.fontSize.displayXs};
     font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};

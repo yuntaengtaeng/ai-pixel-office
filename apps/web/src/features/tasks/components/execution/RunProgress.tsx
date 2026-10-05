@@ -6,7 +6,7 @@ import type { TaskDetail } from "../../api.ts";
 const Container = styled.details`
   margin-top: ${({ theme }) => theme.space.x1};
   padding-top: ${({ theme }) => theme.space.x4};
-  border-top: 2px dashed ${({ theme }) => theme.colors.border.subtle};
+  border-top: 1px dashed ${({ theme }) => theme.colors.border.subtle};
 `;
 const Heading = styled.summary`
   display: flex;

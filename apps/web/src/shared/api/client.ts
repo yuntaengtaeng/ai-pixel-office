@@ -1,6 +1,19 @@
 type ApiEnvelope<T> = { data: T };
 type ApiError = { error?: { code?: string; message?: string } };
 
+/** 서버가 알려준 오류 (code는 서버 오류 코드, 없으면 undefined) */
+export class ApiRequestError extends Error {
+  readonly code?: string;
+  readonly status: number;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -27,7 +40,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       response.status >= 500
         ? "서버에 연결할 수 없습니다. 실행 창에서 서버 상태를 확인해 주세요."
         : `요청에 실패했습니다 (HTTP ${response.status})`;
-    throw new Error(body?.error?.message ?? fallback);
+    throw new ApiRequestError(body?.error?.message ?? fallback, response.status, body?.error?.code);
   }
   return body.data;
 }

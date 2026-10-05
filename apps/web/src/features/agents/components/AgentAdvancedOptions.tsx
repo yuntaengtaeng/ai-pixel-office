@@ -26,7 +26,7 @@ const Styled = {
       padding: ${({ theme }) => theme.space.x3};
       display: grid;
       gap: ${({ theme }) => theme.space.x1};
-      border: 2px solid ${({ theme }) => theme.colors.border.default};
+      border: 1px solid ${({ theme }) => theme.colors.border.default};
       background: ${({ theme }) => theme.colors.background.surfaceRaised};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 

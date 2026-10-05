@@ -78,3 +78,41 @@ test("normalizes Claude result errors with a visible cause", () => {
   );
   assert.deepEqual(events, [{ type: "failed", error: "authentication_failed" }]);
 });
+
+test("records Claude shell commands and successful file writes as facts", () => {
+  const state = createClaudeNormalizationState();
+  normalizeClaudeMessage(
+    {
+      type: "assistant",
+      message: {
+        content: [
+          { type: "tool_use", id: "bash-1", name: "Bash", input: { command: "pnpm test" } },
+          { type: "tool_use", id: "edit-1", name: "Edit", input: { file_path: "src/a.ts" } },
+          { type: "tool_use", id: "edit-2", name: "Edit", input: { file_path: "src/b.ts" } },
+        ],
+      },
+    },
+    state,
+  );
+  const events = normalizeClaudeMessage(
+    {
+      type: "user",
+      message: {
+        content: [
+          { type: "tool_result", tool_use_id: "bash-1", is_error: true },
+          { type: "tool_result", tool_use_id: "edit-1" },
+          { type: "tool_result", tool_use_id: "edit-2", is_error: true },
+        ],
+      },
+    },
+    state,
+  );
+
+  assert.deepEqual(
+    events.filter((event) => event.type === "command_finished" || event.type === "files_changed"),
+    [
+      { type: "command_finished", command: "pnpm test", succeeded: false },
+      { type: "files_changed", paths: ["src/a.ts"] },
+    ],
+  );
+});

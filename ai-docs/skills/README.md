@@ -3,6 +3,13 @@
 이 디렉터리는 Codex와 Claude Code가 함께 사용하는 프로젝트 스킬의 단일 원본이다. 각 런타임은
 `AGENTS.md`와 `CLAUDE.md`의 공통 읽기 순서를 통해 작업에 적용되는 스킬을 선택한다.
 
+## 항상 적용하는 스킬
+
+- [`readable-testable-code`](./readable-testable-code/SKILL.md): 코드를 작성, 수정, 리팩터링, 리뷰하는 모든
+  작업에 가장 먼저 적용한다. 다른 코드 스타일 스킬과 판단이 겹치면 이 스킬의 우선순위(의도 → 책임 → 테스트
+  가능성 → 필요한 만큼의 추상화)를 따른다. Codex는 `.agents/skills/`, Claude Code는 `.claude/skills/`의 같은
+  이름 진입 스킬로 이 원본을 찾는다.
+
 ## 사용 가능한 스킬
 
 - [`frontend-code-style`](./frontend-code-style/SKILL.md): TypeScript, JavaScript, React 코드 작성 및 리뷰

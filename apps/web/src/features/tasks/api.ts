@@ -1,14 +1,30 @@
 import type {
   AgentRun,
+  QueuedRequest,
   KnowledgeDocument,
   MessageAttachment,
   RunProgressEvent,
   Task,
   TaskReview,
-  TaskWorkflowStep,
 } from "@ai-pixel-office/domain/entities";
 import type { ApprovalDecision } from "@ai-pixel-office/runtime-protocol";
-import { post, request } from "../../shared/api/client.ts";
+import { ApiRequestError, post, request } from "../../shared/api/client.ts";
+import { requestTitle } from "./utils/requestTitle.ts";
+
+/** 결재가 프로젝트 폴더에 먼저 반영된 변경과 겹쳐 반영되지 않음 */
+export class WorkspaceConflictError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "WorkspaceConflictError";
+  }
+}
+
+export type WorkspaceFileChange = { status: "added" | "modified" | "deleted"; path: string };
+
+/** 기안서 작업 공간의 바뀐 파일 (작업 공간에서 실행하지 않으면 isolated: false) */
+export type RequestWorkspaceSummary =
+  | { isolated: false }
+  | { isolated: true; inside: WorkspaceFileChange[]; outside: WorkspaceFileChange[] };
 
 export type TaskDetail = Task & {
   runs: AgentRun[];
@@ -16,7 +32,6 @@ export type TaskDetail = Task & {
   progress: RunProgressEvent[];
   progressByRun: Record<string, RunProgressEvent[]>;
   attachmentsByRun: Record<string, Array<Omit<MessageAttachment, "storagePath">>>;
-  workflow: TaskWorkflowStep[];
 };
 
 export type UploadedAttachment = Pick<
@@ -38,8 +53,6 @@ export type TaskExecutionContext = {
   agentName: string;
   runtime: AgentRun["runtime"];
   workingDirectory: string;
-  workflowStepId?: string;
-  position?: number;
   instructionFiles: string[];
   projectSkills: Array<{ name: string; path: string }>;
 };
@@ -69,14 +82,55 @@ export const taskApi = {
   ) => request<Task>(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   remove: (id: string) => request<void>(`/api/tasks/${id}`, { method: "DELETE" }),
   run: (id: string, attachmentIds: string[] = []) =>
-    post<AgentRun>(`/api/tasks/${id}/run`, { attachmentIds }),
+    post<AgentRun | QueuedRequest>(`/api/tasks/${id}/run`, { attachmentIds }),
   createDocument: (id: string) => post<KnowledgeDocument>(`/api/tasks/${id}/document`, {}),
   retry: (id: string) => post<AgentRun>(`/api/tasks/${id}/retry`, {}),
   continue: (id: string) => post<AgentRun>(`/api/tasks/${id}/continue`, {}),
   extendSession: (id: string) => post<AgentRun>(`/api/tasks/${id}/extend-session`, {}),
   resumeSession: (id: string, sourceRunId: string, message: string, attachmentIds: string[] = []) =>
     post<AgentRun>(`/api/tasks/${id}/resume`, { sourceRunId, message, attachmentIds }),
-  approve: (id: string) => post<Task>(`/api/tasks/${id}/approve`, {}),
+  /** 결재 (프로젝트 폴더에 먼저 반영된 변경과 겹치면 WorkspaceConflictError) */
+  approve: async (id: string) => {
+    try {
+      return await post<Task>(`/api/tasks/${id}/approve`, {});
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.code === "WORKSPACE_CONFLICT")
+        throw new WorkspaceConflictError(error.message, { cause: error });
+      throw error;
+    }
+  },
+  /** 결재가 겹친 기안서를 프로젝트 폴더의 지금 상태에 맞춰 다시 얹음 */
+  realign: (id: string) => post<Task | AgentRun>(`/api/tasks/${id}/realign`, {}),
+  workspace: (id: string) => request<RequestWorkspaceSummary>(`/api/tasks/${id}/workspace`),
+  /** 결재 전 작업 공간에서 파일 하나가 바뀐 내용 (unified diff) */
+  workspaceDiff: (id: string, path: string) =>
+    request<{ diff: string }>(
+      `/api/tasks/${id}/workspace/diff?path=${encodeURIComponent(path)}`,
+    ),
+  /** 새 요청: 기안서를 만들고 첨부를 올린 뒤 바로 시작 */
+  startRequest: async (input: {
+    workspaceId: string;
+    message: string;
+    projectId?: string;
+    agentId: string;
+    files?: File[];
+  }) => {
+    const task = await taskApi.create({
+      workspaceId: input.workspaceId,
+      title: requestTitle(input.message),
+      description: input.message,
+      assigneeAgentId: input.agentId,
+      projectId: input.projectId,
+    });
+    const attachments = input.files?.length
+      ? await taskApi.uploadAttachments(input.workspaceId, task.id, input.files)
+      : [];
+    await taskApi.run(
+      task.id,
+      attachments.map((attachment) => attachment.id),
+    );
+    return task;
+  },
   requestChanges: (id: string, feedback: string, attachmentIds: string[] = []) =>
     post<AgentRun>(`/api/tasks/${id}/request-changes`, { feedback, attachmentIds }),
   sendMessage: (id: string, message: string, attachmentIds: string[] = []) =>

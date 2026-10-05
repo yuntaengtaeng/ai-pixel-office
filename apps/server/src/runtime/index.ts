@@ -21,6 +21,10 @@ export type RuntimeRunInput = {
   limits: RunLimits;
   /** 사용자가 이번 메시지에 첨부한 파일. 이미지는 adapter가 지원하면 멀티모달 콘텐츠로 인라인하고, 그 외에는 prompt에 이미 경로가 텍스트로 포함되어 있다. */
   attachments?: MessageAttachment[];
+  /** 이번 실행에서 쓸 스킬을 담은 실행용 폴더 */
+  skills?: { pluginRoot: string; skillsRoot: string; skillIds: string[] };
+  /** 결과 보고 도구를 붙일지 (지원하지 않는 runtime은 마지막 응답의 결과 블록을 씀) */
+  resultReporting?: boolean;
 };
 
 export type RuntimeRunResult = {

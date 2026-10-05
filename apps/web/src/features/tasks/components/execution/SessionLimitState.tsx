@@ -6,9 +6,9 @@ const DESCRIPTION: Record<SessionLimitReason, string> = {
   capacity:
     "현재 진행 내용과 변경된 파일을 보존했습니다. 기존 대화를 유지한 채 세션 한도를 늘려 계속할 수 있습니다.",
   inactivity:
-    "5분 동안 새로운 진행이 없어 안전하게 중단했습니다. 기존 대화와 작업 폴더를 그대로 유지해 다시 시작할 수 있습니다.",
+    "한동안 새로운 진행이 없어 안전하게 중단했습니다. 기존 대화와 작업 폴더를 그대로 유지해 다시 시작할 수 있습니다.",
   duration:
-    "20분 실행 한도에 도달했습니다. 기존 대화와 현재까지의 변경 내용을 유지한 채 계속할 수 있습니다.",
+    "실행 시간 한도에 도달했습니다. 기존 대화와 현재까지의 변경 내용을 유지한 채 계속할 수 있습니다.",
 };
 const Container = styled.div`
   display: grid;
@@ -16,7 +16,7 @@ const Container = styled.div`
   gap: ${({ theme }) => theme.space.x3};
   margin-top: ${({ theme }) => theme.space.x5};
   padding: ${({ theme }) => theme.space.x5};
-  border: 2px solid ${({ theme }) => theme.colors.border.default};
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
   background: ${({ theme }) => theme.colors.background.surfaceRaised};
   > span {
     width: 38px;

@@ -22,6 +22,7 @@ export const agentApi = {
     avatarId: string;
     skillIds: string[];
     permissions: AgentPermissions;
+    systemPrompt?: string;
   }) => post<Agent>("/api/agents", input),
   get: (id: string) => request<Agent>(`/api/agents/${id}`),
   update: (

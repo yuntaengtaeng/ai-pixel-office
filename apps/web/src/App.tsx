@@ -1,39 +1,43 @@
-import { mediaQuery } from "@ai-pixel-office/design-system";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import styled from "styled-components";
 import type { Workspace } from "@ai-pixel-office/domain/entities";
 import { systemApi } from "./features/system/api.ts";
-import { workspaceApi } from "./features/workspaces/api.ts";
 import { TaskNotifications } from "./features/notifications/TaskNotifications.tsx";
 import { useLiveUpdates } from "./shared/hooks/useLiveUpdates.ts";
-import { messageOf } from "./shared/lib/errors.ts";
 import { PageLoading } from "./shared/ui/PageLoading.tsx";
-import { Sidebar } from "./shared/ui/Sidebar.tsx";
+import { AppSidebar } from "./shared/ui/AppSidebar.tsx";
+import { useDeskItems } from "./features/desk/hooks/useDeskItems.ts";
+import { useSidebarProjects } from "./features/projects/hooks/useSidebarProjects.ts";
 import { agentApi } from "./features/agents/api.ts";
 import { CommuteSplash } from "./features/splash/components/CommuteSplash.tsx";
+import { useBootData } from "./features/splash/hooks/useBootData.ts";
+import { useSplashIntroPlaying } from "./features/splash/hooks/useSplashIntro.ts";
+import { splashIntroMs } from "./features/splash/utils/splashTimeline.ts";
 import { OnboardingFlow } from "./features/onboarding/OnboardingFlow.tsx";
 import { isWorkspaceReady } from "./features/onboarding/readiness.ts";
+import { LegacyResetNotice } from "./features/system/LegacyResetNotice.tsx";
 
-const TodayPage = lazy(() =>
-  import("./features/dashboard/TodayPage.tsx").then((module) => ({ default: module.TodayPage })),
+const OfficeHomePage = lazy(() =>
+  import("./features/office/OfficeHomePage.tsx").then((module) => ({
+    default: module.OfficeHomePage,
+  })),
 );
 const ProjectsPage = lazy(() =>
-  import("./features/projects/ProjectPages.tsx").then((module) => ({
+  import("./features/projects/ProjectsPage.tsx").then((module) => ({
     default: module.ProjectsPage,
   })),
 );
-const ProjectDetailPage = lazy(() =>
-  import("./features/projects/ProjectPages.tsx").then((module) => ({
-    default: module.ProjectDetailPage,
+const ProjectWorkspacePage = lazy(() =>
+  import("./features/projects/ProjectWorkspacePage.tsx").then((module) => ({
+    default: module.ProjectWorkspacePage,
   })),
 );
-const AgentsPage = lazy(() =>
-  import("./features/agents/AgentPages.tsx").then((module) => ({ default: module.AgentsPage })),
+const OrgChartPage = lazy(() =>
+  import("./features/agents/OrgChartPage.tsx").then((module) => ({ default: module.OrgChartPage })),
 );
 const AgentDetailPage = lazy(() =>
-  import("./features/agents/AgentPages.tsx").then((module) => ({
+  import("./features/agents/AgentDetailPage.tsx").then((module) => ({
     default: module.AgentDetailPage,
   })),
 );
@@ -56,86 +60,54 @@ const PerformancePage = lazy(() =>
 const ChatPage = lazy(() =>
   import("./features/chat/ChatPage.tsx").then((module) => ({ default: module.ChatPage })),
 );
+const InboxPage = lazy(() =>
+  import("./features/desk/InboxPage.tsx").then((module) => ({ default: module.InboxPage })),
+);
+const NewRequestPage = lazy(() =>
+  import("./features/tasks/NewRequestPage.tsx").then((module) => ({
+    default: module.NewRequestPage,
+  })),
+);
 const TaskDetailPage = lazy(() =>
   import("./features/tasks/TaskDetailPage.tsx").then((module) => ({
     default: module.TaskDetailPage,
   })),
 );
 
-function useWorkspace() {
-  return useQuery({
-    queryKey: ["workspace"],
-    queryFn: async () => {
-      const workspaces = await workspaceApi.list();
-      return workspaces[0] ?? workspaceApi.create("나의 AI 오피스");
-    },
-    staleTime: Infinity,
-  });
-}
-
 const Styled = {
   Shell: styled.div`
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 228px minmax(0, 1fr);
-
-    @media ${mediaQuery.md} {
+    grid-template-columns: 232px minmax(0, 1fr);
+    @media ${({ theme }) => theme.mediaQuery.md} {
       display: block;
     }
   `,
   Content: styled.main`
-    grid-column: 2;
     min-width: 0;
   `,
 };
 
 export function App() {
-  const workspace = useWorkspace();
-  if (workspace.isPending) return <CommuteSplash message="오피스를 여는 중이에요." />;
-  if (workspace.isError || !workspace.data)
+  const boot = useBootData();
+  const introPlaying = useSplashIntroPlaying(splashIntroMs());
+  if (boot.status === "error")
+    return <CommuteSplash message="" error={boot.error} onRetry={boot.retry} />;
+  if (boot.status === "loading" || introPlaying)
     return (
       <CommuteSplash
-        message=""
-        error={messageOf(workspace.error)}
-        onRetry={() => void workspace.refetch()}
-      />
-    );
-  return <WorkspaceGate workspace={workspace.data} />;
-}
-
-function WorkspaceGate({ workspace }: { workspace: Workspace }) {
-  const runtimeStatus = useQuery({
-    queryKey: ["system-status"],
-    queryFn: systemApi.status,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-  const agents = useQuery({
-    queryKey: ["agents", workspace.id],
-    queryFn: () => agentApi.list(workspace.id),
-  });
-  if (runtimeStatus.isPending || agents.isPending)
-    return <CommuteSplash message="AI 연결과 출근 가능한 동료를 확인하는 중이에요." />;
-  if (runtimeStatus.isError || agents.isError || !runtimeStatus.data)
-    return (
-      <CommuteSplash
-        message=""
-        error={messageOf(runtimeStatus.error ?? agents.error)}
-        onRetry={() => {
-          void runtimeStatus.refetch();
-          void agents.refetch();
-        }}
+        message={boot.status === "loading" ? boot.message : "출근 완료! 오피스를 열어요."}
       />
     );
   // 독립된 인증과 Agent 존재 여부가 아니라 서로 호환되는 실행 가능 조합을 기준으로 분기
-  const ready = isWorkspaceReady(agents.data, runtimeStatus.data);
+  const ready = isWorkspaceReady(boot.agents, boot.runtimeStatus);
   return (
     <ReadyWorkspace
-      workspace={workspace}
-      runtimeStatus={runtimeStatus.data}
-      agents={agents.data ?? []}
+      workspace={boot.workspace}
+      runtimeStatus={boot.runtimeStatus}
+      agents={boot.agents}
       ready={ready}
-      onRefresh={runtimeStatus.refetch}
+      onRefresh={boot.refreshRuntimeStatus}
     />
   );
 }
@@ -252,26 +224,35 @@ function AppShell({
   onResumeOnboarding: () => void;
 }) {
   useLiveUpdates(workspace.id);
+  const desk = useDeskItems(workspace.id);
+  const sidebarProjects = useSidebarProjects(workspace.id);
   return (
     <Styled.Shell>
       <ScrollToTop />
       <TaskNotifications workspaceId={workspace.id} />
-      <Sidebar workspace={workspace} runtimeStatus={runtimeStatus} />
+      <AppSidebar
+        workspace={workspace}
+        runtimeStatus={runtimeStatus}
+        deskCount={desk.items.length}
+        projects={sidebarProjects}
+      />
       <Styled.Content>
+        <LegacyResetNotice resetAt={runtimeStatus.legacyDataResetAt} />
         <Suspense fallback={<PageLoading>화면을 준비하는 중...</PageLoading>}>
           <Routes>
             <Route
               path="/"
               element={
-                <TodayPage
+                <OfficeHomePage
                   workspace={workspace}
                   readiness={{ ready, showSetupNotice, onResumeOnboarding }}
                 />
               }
             />
+            <Route path="/inbox" element={<InboxPage workspace={workspace} />} />
             <Route path="/projects" element={<ProjectsPage workspace={workspace} />} />
-            <Route path="/projects/:id" element={<ProjectDetailPage workspace={workspace} />} />
-            <Route path="/agents" element={<AgentsPage workspace={workspace} />} />
+            <Route path="/projects/:id" element={<ProjectWorkspacePage workspace={workspace} />} />
+            <Route path="/agents" element={<OrgChartPage workspace={workspace} />} />
             <Route path="/agents/:id" element={<AgentDetailPage workspace={workspace} />} />
             <Route path="/skills" element={<SkillsPage workspace={workspace} />} />
             <Route path="/records" element={<RecordsPage workspace={workspace} />} />
@@ -279,6 +260,7 @@ function AppShell({
             <Route path="/chat" element={<ChatPage workspace={workspace} />} />
             <Route path="/chat/:taskId" element={<ChatPage workspace={workspace} />} />
             <Route path="/settings" element={<SettingsPage workspace={workspace} />} />
+            <Route path="/new" element={<NewRequestPage workspace={workspace} />} />
             <Route path="/tasks/:id" element={<TaskDetailPage workspace={workspace} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

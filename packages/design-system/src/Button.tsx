@@ -2,7 +2,8 @@ import styled from "styled-components";
 import { colors } from "@ai-pixel-office/design-token";
 import { Label } from "./typography.ts";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+/** stamp는 최종 결재 행동 전용 */
+export type ButtonVariant = "primary" | "secondary" | "danger" | "stamp";
 
 const VARIANT_STYLES: Record<
   ButtonVariant,
@@ -26,6 +27,12 @@ const VARIANT_STYLES: Record<
     border: colors.action.danger.border,
     shadow: colors.action.danger.shadow,
   },
+  stamp: {
+    color: colors.stamp.onStamp,
+    background: colors.stamp.ink,
+    border: colors.stamp.ink,
+    shadow: colors.action.primary.shadow,
+  },
 };
 
 /**
@@ -44,23 +51,26 @@ export const Button = styled.button<{ $variant?: ButtonVariant; $fullWidth?: boo
   align-items: center;
   justify-content: center;
   gap: ${({ theme }) => theme.space.x2};
-  border: 2px solid ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].border};
+  border: 1px solid ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].border};
+  border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].background};
   color: ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].color};
-  box-shadow: 3px 3px 0 ${({ $variant = "primary" }) => VARIANT_STYLES[$variant].shadow};
   cursor: pointer;
   transition:
-    transform 0.12s,
-    box-shadow 0.12s;
+    filter 0.12s,
+    background 0.12s;
 
   &:hover:not(:disabled) {
-    transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0 currentColor;
+    filter: brightness(1.08);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.shadow.focus};
   }
 
   &:disabled {
     opacity: 0.47;
-    box-shadow: none;
     cursor: not-allowed;
   }
 `;

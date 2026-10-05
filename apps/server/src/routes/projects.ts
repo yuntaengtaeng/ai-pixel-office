@@ -4,10 +4,18 @@ import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
 import { DomainError } from "@ai-pixel-office/domain";
 import { data, notFound } from "./app-types.ts";
+import { suggestProjectSetup } from "../project-setup.ts";
+import { assertRelativeInside } from "../request-workspace.ts";
 
 const idParams = z.object({ id: z.string() });
 const listQuery = z.object({ workspaceId: z.string().min(1) });
 const projectStatus = z.enum(["active", "paused", "done"]);
+
+const commandList = z.array(z.string().trim().min(1)).max(20);
+const copyFileList = z
+  .array(z.string().trim().min(1))
+  .max(50)
+  .transform((paths) => paths.map(assertRelativeInside));
 
 const createBody = z.object({
   workspaceId: z.string().min(1),
@@ -24,6 +32,13 @@ const updateBody = z.object({
   status: projectStatus.optional(),
   figmaUrl: z.string().optional(),
   path: z.string().trim().min(1).optional(),
+  memo: z.string().optional(),
+  verificationCommands: commandList.optional(),
+  setupCommand: z.string().optional(),
+  copyFiles: copyFileList.optional(),
+  defaultAgentId: z.string().min(1).nullable().optional(),
+  previewUrl: z.string().optional(),
+  leadRuntime: z.enum(["claude", "codex"]).nullable().optional(),
 });
 
 function resolveProjectDirectory(value: string | undefined): string | undefined {
@@ -89,8 +104,33 @@ export const projectRoutes: FastifyPluginAsyncZod = async (app) => {
         ...(body.status ? { status: body.status } : {}),
         ...(body.figmaUrl !== undefined ? { figmaUrl: body.figmaUrl.trim() || undefined } : {}),
         ...(body.path !== undefined ? { path: directory } : {}),
+        ...(body.memo !== undefined ? { memo: body.memo.trim() || undefined } : {}),
+        ...(body.verificationCommands !== undefined
+          ? { verificationCommands: body.verificationCommands }
+          : {}),
+        ...(body.setupCommand !== undefined
+          ? { setupCommand: body.setupCommand.trim() || undefined }
+          : {}),
+        ...(body.copyFiles !== undefined ? { copyFiles: body.copyFiles } : {}),
+        ...(body.defaultAgentId !== undefined
+          ? { defaultAgentId: body.defaultAgentId ?? undefined }
+          : {}),
+        ...(body.leadRuntime !== undefined ? { leadRuntime: body.leadRuntime ?? undefined } : {}),
+        ...(body.previewUrl !== undefined
+          ? { previewUrl: body.previewUrl.trim() || undefined }
+          : {}),
       }),
     );
+  });
+
+  app.get("/:id/setup-suggestions", { schema: { params: idParams } }, async (request, reply) => {
+    const project =
+      (await app.repository.getProject(request.params.id)) ??
+      notFound("Project", request.params.id);
+    if (!project.path) {
+      throw new DomainError("PROJECT_PATH_REQUIRED", "프로젝트 작업 폴더가 없습니다", 422);
+    }
+    return data(reply, 200, await suggestProjectSetup(project.path));
   });
 
   app.delete("/:id", { schema: { params: idParams } }, async (request, reply) => {

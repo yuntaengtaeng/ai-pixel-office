@@ -12,14 +12,13 @@ import {
 
 const timestamp = "2026-09-03T00:00:00.000Z";
 const skill: Skill = {
-  id: "skill-1",
+  id: "ui-review",
   name: "UI Review",
   category: "Design",
-  description: "Review UI",
-  instructions: "Inspect spacing and typography.",
-  tools: [{ name: "workspace-reader" }],
+  description: "Review spacing and typography",
+  source: "local",
   requiredPermissions: ["fileRead"],
-  createdAt: timestamp,
+  files: [],
   updatedAt: timestamp,
 };
 const agent: Agent = {
@@ -46,11 +45,10 @@ const task: Task = {
   updatedAt: timestamp,
 };
 
-test("compiles role, skills, tools, and task into runtime instructions", () => {
+test("compiles role, the available skill list, and task into runtime instructions", () => {
   const prompt = compileAgentInstructions(agent, [skill], task);
   assert.match(prompt, /ROLE\nValidate UI quality/);
-  assert.match(prompt, /SKILL: UI REVIEW/);
-  assert.match(prompt, /workspace-reader/);
+  assert.match(prompt, /SKILLS[\s\S]*- ui-review: Review spacing and typography/);
   assert.match(prompt, /Review checkout spacing/);
   assert.match(prompt, /Check the mobile layout and report exact spacing issues/);
 });

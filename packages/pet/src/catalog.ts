@@ -304,7 +304,7 @@ export const PETS: readonly PetDesign[] = [
     pattern: "solid",
     accessories: ["bandana"],
     unlock: {
-      mission: "2명 이상의 동료가 참여한 워크플로 완료",
+      mission: "2명 이상의 동료가 참여한 계획서 완료",
       hint: "여럿이 힘을 합치면 웃음소리가 들릴지도?",
     },
   },

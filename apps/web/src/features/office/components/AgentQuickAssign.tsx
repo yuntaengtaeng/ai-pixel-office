@@ -6,6 +6,7 @@ import type { Agent, Task, TaskStatus } from "@ai-pixel-office/domain/entities";
 import { RUNTIME } from "../../../shared/config/presentation.ts";
 import { TaskComposerFields } from "../../tasks/components/TaskComposerFields.tsx";
 import { OFFICE_STATUS_LABEL } from "../utils/pet-personality.ts";
+import { OFFICE_PALETTE } from "../utils/officePalette.ts";
 
 const agentFloat = keyframes`
   from {
@@ -23,7 +24,7 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
   width: 133%;
   height: 27%;
   padding: 0 5%;
-  border: 2px solid ${({ theme }) => theme.colors.action.secondary.border};
+  border: 1px solid ${({ theme }) => theme.colors.action.secondary.border};
   background: ${({ theme }) => theme.colors.background.surfaceRaised};
   color: ${({ theme }) => theme.colors.action.secondary.foreground};
   display: grid;
@@ -47,8 +48,8 @@ const StatusLabel = styled.span<{ $hidden: boolean }>`
     bottom: -6px;
     width: 10px;
     height: 10px;
-    border-right: 2px solid ${({ theme }) => theme.colors.action.secondary.border};
-    border-bottom: 2px solid ${({ theme }) => theme.colors.action.secondary.border};
+    border-right: 1px solid ${({ theme }) => theme.colors.action.secondary.border};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.action.secondary.border};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     transform: translateX(-50%) rotate(45deg);
   }
@@ -76,13 +77,12 @@ const AgentName = styled.button<{ $hasTask: boolean }>`
   width: 94%;
   min-height: 23%;
   padding: 2% 4%;
-  border: 1px solid rgb(109 83 71 / 42%);
+  border: 1px solid ${OFFICE_PALETTE.tagBorder};
   border-radius: ${({ theme }) => theme.radius.sm};
-  background: rgb(255 250 240 / 88%);
-  box-shadow: 0 2px 0 rgb(109 83 71 / 30%);
+  background: ${OFFICE_PALETTE.tagBackground};
   display: grid;
   place-content: center;
-  color: #4b4541;
+  color: ${OFFICE_PALETTE.tagText};
   font: inherit;
   line-height: 1.05;
   pointer-events: auto;
@@ -97,7 +97,7 @@ const AgentName = styled.button<{ $hasTask: boolean }>`
 
   small {
     margin-top: ${({ theme }) => theme.space.x1};
-    color: #6f786e;
+    color: ${OFFICE_PALETTE.labelMuted};
     font-size: clamp(4px, 0.62vw, 7px);
     font-weight: ${({ theme }) => theme.typography.fontWeight.black};
   }
@@ -105,12 +105,11 @@ const AgentName = styled.button<{ $hasTask: boolean }>`
   ${({ $hasTask }) =>
     $hasTask &&
     `
-      border-color: #628275;
-      background: rgb(239 248 240 / 94%);
+      border-color: ${OFFICE_PALETTE.working};
     `}
 
   &:focus-visible {
-    outline: 2px dashed #426e60;
+    outline: 2px solid ${OFFICE_PALETTE.focus};
     outline-offset: 2px;
   }
 `;
@@ -146,7 +145,7 @@ const AgentHitbox = styled.button`
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px dashed #426e60;
+    outline: 2px solid ${OFFICE_PALETTE.focus};
     outline-offset: 2px;
   }
 `;
@@ -154,7 +153,7 @@ const AgentHitbox = styled.button`
 const AgentSlot = styled.div`
   position: absolute;
   width: 16.05%;
-  color: #4b4541;
+  color: ${OFFICE_PALETTE.tagText};
   text-align: center;
   font-family: Pretendard, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   animation: ${agentFloat} 1.5s ease-in-out infinite alternate;
@@ -165,7 +164,7 @@ const AgentSlot = styled.div`
   }
 
   &:hover ${AgentName}, &:focus-within ${AgentName} {
-    border-color: #426e60;
+    border-color: ${OFFICE_PALETTE.focus};
   }
 
   &[data-status="needs_review"]
@@ -176,8 +175,7 @@ const AgentSlot = styled.div`
     ${AgentName},
     &[data-status="failed"]
     ${AgentName} {
-    border-color: #8b68b5;
-    box-shadow: 0 2px 0 rgb(92 66 123 / 42%);
+    border-color: ${OFFICE_PALETTE.attention};
   }
 `;
 
@@ -185,12 +183,13 @@ const QuickPopover = styled(Popover)`
   z-index: ${({ theme }) => theme.zIndex.popover};
   width: min(320px, calc(100vw - 24px));
   padding: ${({ theme }) => theme.space.x4};
-  border: 2px solid #5a766c;
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.colors.background.surface};
-  box-shadow: 5px 5px 0 #9eafa6;
+  box-shadow: ${({ theme }) => theme.floatingShadow};
 
   small {
-    color: #7d6f65;
+    color: ${({ theme }) => theme.colors.text.muted};
     font-size: ${({ theme }) => theme.typography.fontSize.micro};
   }
 
@@ -217,26 +216,27 @@ const TaskListPopover = styled.div`
   button {
     min-width: 0;
     padding: ${({ theme }) => theme.space.x2};
-    border: 1px solid #d5c8b5;
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    border-radius: ${({ theme }) => theme.radius.md};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: ${({ theme }) => theme.space.x2};
     align-items: center;
-    color: #4b4541;
+    color: ${({ theme }) => theme.colors.text.primary};
     text-align: left;
     cursor: pointer;
 
     &:hover,
     &:focus-visible {
-      border-color: #4c7b6b;
-      background: #eaf2ec;
+      border-color: ${({ theme }) => theme.colors.border.focus};
+      background: ${({ theme }) => theme.colors.background.surfaceMuted};
       outline: none;
     }
 
     > span,
     > small {
-      color: #756960;
+      color: ${({ theme }) => theme.colors.text.muted};
       font-size: ${({ theme }) => theme.typography.fontSize.xs};
       font-weight: ${({ theme }) => theme.typography.fontWeight.black};
     }
@@ -319,7 +319,7 @@ export function AgentQuickAssign({
   );
 
   return (
-    <Styled.AgentSlot style={{ left, top, height }} data-status={status}>
+    <Styled.AgentSlot style={{ left, top, height }} data-status={status} data-agent-id={agent.id}>
       {bubble}
       <Styled.AgentName
         ref={triggerRef}

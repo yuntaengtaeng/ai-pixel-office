@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
-import { parseCreateAgent, parseUpdateAgent } from "@ai-pixel-office/domain";
+import { DomainError, parseCreateAgent, parseUpdateAgent } from "@ai-pixel-office/domain";
+import type { SkillLibrary } from "../skill-library.ts";
 import { data, notFound } from "./app-types.ts";
 import { generateColleagueFit } from "../colleague-fit.ts";
 
@@ -17,14 +18,23 @@ const fitBody = z.object({
   runtime: z.enum(["codex", "claude"]),
 });
 
+function assertSkillsInLibrary(skillLibrary: SkillLibrary, skillIds: string[] = []): void {
+  const missing = skillIds.filter((id) => !skillLibrary.has(id));
+  if (missing.length > 0) {
+    throw new DomainError("SKILLS_NOT_FOUND", `Skill not found: ${missing.join(", ")}`, 422);
+  }
+}
+
 export const agentRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get("", { schema: { querystring: listQuery } }, async (request, reply) =>
     data(reply, 200, await app.repository.listAgents(request.query.workspaceId)),
   );
 
-  app.post("", async (request, reply) =>
-    data(reply, 201, await app.repository.createAgent(parseCreateAgent(request.body))),
-  );
+  app.post("", async (request, reply) => {
+    const input = parseCreateAgent(request.body);
+    assertSkillsInLibrary(app.skillLibrary, input.skillIds);
+    return data(reply, 201, await app.repository.createAgent(input));
+  });
 
   app.post("/fit-preview", { schema: { body: fitBody } }, async (request, reply) => {
     const generator =
@@ -47,13 +57,11 @@ export const agentRoutes: FastifyPluginAsyncZod = async (app) => {
     ),
   );
 
-  app.patch("/:id", { schema: { params: idParams } }, async (request, reply) =>
-    data(
-      reply,
-      200,
-      await app.repository.updateAgent(request.params.id, parseUpdateAgent(request.body)),
-    ),
-  );
+  app.patch("/:id", { schema: { params: idParams } }, async (request, reply) => {
+    const input = parseUpdateAgent(request.body);
+    assertSkillsInLibrary(app.skillLibrary, input.skillIds);
+    return data(reply, 200, await app.repository.updateAgent(request.params.id, input));
+  });
 
   app.delete("/:id", { schema: { params: idParams } }, async (request, reply) => {
     await app.repository.deleteAgent(request.params.id);

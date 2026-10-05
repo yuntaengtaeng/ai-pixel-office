@@ -32,6 +32,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         prompt: input.prompt,
         attachments: input.attachments,
         cwd: input.cwd,
+        skillRoots: input.skills ? [input.skills.skillsRoot] : undefined,
         model: input.modelName,
         reasoningEffort: input.reasoningEffort,
         resumeThreadId: input.resumeThreadId,

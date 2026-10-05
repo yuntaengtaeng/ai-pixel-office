@@ -46,7 +46,10 @@ function calculate(database: AppDatabase, workspaceId: string): PetUnlockProgres
   if (
     database
       .prepare(
-        `SELECT 1 FROM tasks t JOIN task_workflow_steps s ON s.task_id = t.id WHERE t.workspace_id = ? AND t.status = 'done' GROUP BY t.id HAVING COUNT(DISTINCT s.agent_id) >= 2 LIMIT 1`,
+        `SELECT 1 FROM tasks WHERE workspace_id = ? AND plan_id IS NOT NULL
+         GROUP BY plan_id
+         HAVING COUNT(DISTINCT assignee_agent_id) >= 2 AND SUM(status <> 'done') = 0
+         LIMIT 1`,
       )
       .get(workspaceId)
   )

@@ -35,7 +35,7 @@ React/styled-components 의존을 끌고 오지 않는다.
 Radix(`radix-ui`)는 web에서 완전히 제거했다. `Dialog`(`packages/design-system/src/Dialog.tsx`)는
 네이티브 `<dialog>`와 `showModal()`/`close()`를 기반으로, `Popover`(`Popover.tsx` +
 `usePopoverPosition.ts`)는 네이티브 Popover API(`popover="auto"`, `toggle` 이벤트)와 자체
-충돌 보정 위치 계산을 기반으로 구현했다. `FeedbackDialogs`, `TodayPage`의 작업 생성 Dialog,
+충돌 보정 위치 계산을 기반으로 구현했다. `FeedbackDialogs`, 새 스킬, 동료 추가 Dialog,
 `PixelOffice`의 바로 맡기기 Popover가 이 primitive를 쓴다. Popover의 트리거는 각 caller가
 소유하며, `Popover`는 위치 계산과 open/close 상태만 책임진다(화살표 마커는 동적 side 대응
 복잡도 대비 가치가 낮아 생략했다).
@@ -46,10 +46,26 @@ context 안에 갇힌다. `Popover`를 어떤 조상 트리에 두든 이 문제
 그대로 두고 렌더링 위치만 `document.body`로 옮겨 top layer 승격을 보장한다. 배경이 되는 회귀
 사례는 [`lesson.md`](./lesson.md)를 참고.
 
+## 시각 언어
+
+[ADR 015](./adr/015-visual-language-graphite-approval-office.md)의 "그래파이트 결재 오피스"를 따른다.
+
+- 면은 어두운 그래파이트 단계(`background.canvas` → `surface` → `surfaceRaised`)이고 경계는 1px이다.
+  2px 이상의 테두리는 `outline`(키보드 포커스)과 `border-left` 강조선에만 쓴다.
+- 오프셋(하드) 그림자를 쓰지 않는다. `theme.shadow`는 호환용 `none`이고, 떠 있는 층(Dialog, Popover)만
+  `theme.floatingShadow`를 쓴다. 선택 상태는 `box-shadow: 0 0 0 1px …` 링이나 테두리 색으로 표시한다.
+- 포커스는 `0 0 0 3px colors.shadow.focus` 링이다.
+- 주요 행동은 밝은 중립색 `action.primary` 버튼이다. `colors.stamp`는 최종 결재 행동과 결재란 도장에만 쓴다.
+- `text.inverse`는 밝은 상태 색 채움 위의 어두운 글자다. 어두운 크롬(사이드바, 레일, 코드 블록) 위 글자는
+  `text.primary`를 쓴다.
+- 본문 글꼴은 앱에 포함한 Pretendard(`apps/web/src/main.tsx`에서 불러옴)이고, 그 밖에는 시스템 글꼴을 쓴다(원격 글꼴 금지).
+  캔버스(오피스 장면) 글자는 `loadCanvasFonts()`로 글꼴을 먼저 불러온 뒤 그린다. `fontFamily.serif`는 서류 제목과 도장, `fontFamily.pixel`은 동료
+  이름표용이다.
+
 ## 색상
 
 색상은 실제 UI 역할에 따라 `brand`, `background`, `text`, `semantic`, `status`, `priority`,
-`runtime`, `border`, `shadow`, `action`, `overlay`로 구분한다. styled-component와
+`runtime`, `border`, `shadow`, `action`, `overlay`, `stamp`로 구분한다. styled-component와
 `AppGlobalStyles`는 theme token을 직접 참조한다. 반투명 색은 `rgb(... / %)` 대신 8자리
 hex(`RRGGBBAA`)로 alpha를 박아 넣는다(기존 `colors.shadow.glow` 컨벤션) —
 `colors.overlay.scrim`(Dialog backdrop), `colors.shadow.dialog`/`shadow.snackbar`,
@@ -70,7 +86,7 @@ Pixi, Canvas에 의존하지 않는다. web의 Canvas와 Pixi 코드는 이 상�
 
 그 token을 주입받아 소비하는 component만 소유한다.
 
-- `Button`(`$variant` + `$fullWidth`), `IconButton`(`$size` + `$tone`) — 공용 컴포넌트를 만들
+- `Button`(`$variant`: primary / secondary / danger / stamp + `$fullWidth`, stamp는 최종 결재 행동 전용), `IconButton`(`$size` + `$tone`) — 공용 컴포넌트를 만들
   때 크기 축 중 어떤 게 variant로 고정되고 어떤 게 caller가 바꿔야 하는 축인지 구분한다.
   `Button`은 높이는 `min-height`로 고정하고 너비만 `$fullWidth`로 가변(auto ↔ 100%),
   `IconButton`은 정사각형이라 `$size` 하나가 두 축을 함께 결정한다. `apps/web` 전체 43곳의

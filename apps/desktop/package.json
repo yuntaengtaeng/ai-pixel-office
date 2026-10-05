@@ -38,6 +38,10 @@
         "to": "server"
       },
       {
+        "from": "../server/resources/teams",
+        "to": "teams"
+      },
+      {
         "from": "resources/anthropic-ai",
         "to": "server/node_modules/@anthropic-ai"
       }

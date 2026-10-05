@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   assertTaskTransition,
   type CreateTaskInput,
+  type ActivityLog,
   type Task,
   type TaskOrigin,
   type TaskResult,
@@ -13,7 +14,7 @@ import { requireEntity } from "../database.ts";
 import type { AppDatabase } from "../database.ts";
 import { now, type Row, taskFrom } from "./rows.ts";
 import { requireChanged, withTransaction } from "./shared.ts";
-import { createActivity } from "./activities.ts";
+import { createActivity, createActivitySync } from "./activities.ts";
 import { assertAgentWorkspace, type AgentLookup } from "./agents.ts";
 import { assertProjectWorkspace, type ProjectLookup } from "./projects.ts";
 import { getWorkspace } from "./workspaces.ts";
@@ -58,7 +59,11 @@ export function getTaskSync(database: AppDatabase, id: string): Task | undefined
   return row ? taskFrom(row as Row) : undefined;
 }
 
-export function insertTask(database: AppDatabase, input: CreateTaskInput): Task {
+/** 계획서에서 만든 기안의 앞 기안·확인 정보까지 포함한 입력 */
+export type NewTaskInput = CreateTaskInput &
+  Partial<Pick<Task, "planId" | "waitsFor" | "modifiesFiles" | "reviewBeforeNext" | "queuedBehind">>;
+
+export function insertTask(database: AppDatabase, input: NewTaskInput): Task {
   const createdAt = now();
   const task: Task = {
     id: randomUUID(),
@@ -72,8 +77,9 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
     .prepare(
       `INSERT INTO tasks
       (id, workspace_id, title, description, status, assignee_agent_id,
-       due_date, priority, project_id, working_directory, origin, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       due_date, priority, project_id, working_directory, origin, result_format, modifies_files,
+       plan_id, waits_for_json, review_before_next, queued_behind, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       task.id,
@@ -87,6 +93,12 @@ export function insertTask(database: AppDatabase, input: CreateTaskInput): Task 
       task.projectId ?? null,
       task.workingDirectory ?? null,
       task.origin,
+      task.resultFormat ?? null,
+      task.modifiesFiles === false ? 0 : null,
+      task.planId ?? null,
+      task.waitsFor?.length ? JSON.stringify(task.waitsFor) : null,
+      task.reviewBeforeNext ? 1 : 0,
+      task.queuedBehind ?? null,
       task.createdAt,
       task.updatedAt,
     );
@@ -97,7 +109,8 @@ export function writeTask(database: AppDatabase, task: Task): void {
   database
     .prepare(
       `UPDATE tasks SET title = ?, description = ?, status = ?, assignee_agent_id = ?,
-      due_date = ?, priority = ?, project_id = ?, working_directory = ?, result_json = ?, updated_at = ?, completed_at = ?
+      due_date = ?, priority = ?, project_id = ?, working_directory = ?, result_json = ?, queued_behind = ?,
+      updated_at = ?, completed_at = ?
       WHERE id = ?`,
     )
     .run(
@@ -110,6 +123,7 @@ export function writeTask(database: AppDatabase, task: Task): void {
       task.projectId ?? null,
       task.workingDirectory ?? null,
       task.result ? JSON.stringify(task.result) : null,
+      task.queuedBehind ?? null,
       task.updatedAt,
       task.completedAt ?? null,
       task.id,
@@ -211,11 +225,46 @@ export function transitionTaskSync(
     ...current,
     status,
     ...(result !== undefined ? { result } : {}),
+    queuedBehind: undefined,
     updatedAt: now(),
     completedAt: status === "done" ? now() : undefined,
   };
   writeTask(database, updated);
   return updated;
+}
+
+/** 기안서를 순서 대기로 (시작 전 상태로 두고 먼저 폴더를 쓰는 기안서 이름과 대기 기록을 남김) */
+export async function queueTask(
+  database: AppDatabase,
+  id: string,
+  holderTitle: string,
+  metadata: Record<string, unknown>,
+): Promise<{ task: Task; activity: ActivityLog }> {
+  return withTransaction(database, () => {
+    const current = requireEntity(getTaskSync(database, id), "Task", id);
+    assertTaskTransition(current.status, "todo");
+    const task: Task = { ...current, status: "todo", queuedBehind: holderTitle, updatedAt: now() };
+    writeTask(database, task);
+    const activity = createActivitySync(database, {
+      workspaceId: task.workspaceId,
+      type: "request_queued",
+      taskId: task.id,
+      message: `'${holderTitle}' 결재를 기다리는 중`,
+      metadata,
+    });
+    return { task, activity };
+  });
+}
+
+/** 프로젝트에서 순서를 기다리는 기안서 (먼저 기다린 순) */
+export async function listQueuedTasks(database: AppDatabase, projectId: string): Promise<Task[]> {
+  const rows = database
+    .prepare(
+      `SELECT * FROM tasks WHERE project_id = ? AND status = 'todo' AND queued_behind IS NOT NULL
+       ORDER BY updated_at ASC`,
+    )
+    .all(projectId) as Row[];
+  return rows.map(taskFrom);
 }
 
 export async function transitionTask(
@@ -229,6 +278,13 @@ export async function transitionTask(
     if (status === "done") evaluatePetUnlocks(database, task.workspaceId);
     return task;
   });
+}
+
+/** 한 계획서에서 만든 기안서 */
+export async function listPlanTasks(database: AppDatabase, planId: string): Promise<Task[]> {
+  return (
+    database.prepare("SELECT * FROM tasks WHERE plan_id = ? ORDER BY created_at, rowid").all(planId) as Row[]
+  ).map(taskFrom);
 }
 
 export async function deleteTask(database: AppDatabase, id: string): Promise<void> {

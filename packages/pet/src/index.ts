@@ -3,11 +3,12 @@ export type { Accessory, EarShape, Pattern, PetDesign, PetSpecies } from "./cata
 export { plotPet } from "./procedural-renderer.ts";
 export type { PixelPlotter } from "./procedural-renderer.ts";
 export { getPetSpriteUrl } from "./assets.ts";
-export { getPetAnimation } from "./animation.ts";
+export { getPetAnimation, idleActionAt, walkingFrame } from "./animation.ts";
 export type {
   PetAnimation,
   PetAnimationFrame,
   PetAnimationInput,
+  IdleAction,
   PetAnimationStatus,
 } from "./animation.ts";
 export { createPet, PetActor } from "./actor.ts";

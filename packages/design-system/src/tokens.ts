@@ -9,7 +9,7 @@ export {
 export { radius, type Radius } from "@ai-pixel-office/design-token";
 export { zIndex, type ZIndex } from "@ai-pixel-office/design-token";
 export { space, type SpaceKey } from "@ai-pixel-office/design-token";
-export { shadow } from "@ai-pixel-office/design-token";
+export { floatingShadow, shadow } from "@ai-pixel-office/design-token";
 export {
   fontFamily,
   fontSize,

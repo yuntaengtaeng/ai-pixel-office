@@ -15,8 +15,8 @@ const Container = styled.div`
     height: 44px;
     background: ${({ theme }) => theme.colors.semantic.negative};
     color: ${({ theme }) => theme.colors.text.inverse};
-    border: 3px solid ${({ theme }) => theme.colors.border.negative};
-    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.border.negative};
+    border: 1px solid ${({ theme }) => theme.colors.border.negative};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.border.negative};
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
     font-size: ${({ theme }) => theme.typography.fontSize.heading2xl};
     font-weight: ${({ theme }) => theme.typography.fontWeight.heavy};

@@ -42,14 +42,6 @@ test("미션 달성 시 신규 펫을 워크스페이스에 영구 해금한다"
       skillIds: [],
       permissions: {},
     });
-    const secondAgent = await repository.createAgent({
-      workspaceId: workspace.id,
-      name: "둘째",
-      role: "검토",
-      model: "codex",
-      skillIds: [],
-      permissions: {},
-    });
 
     for (let index = 0; index < 10; index += 1) {
       const task = await repository.createTask({
@@ -57,9 +49,6 @@ test("미션 달성 시 신규 펫을 워크스페이스에 영구 해금한다"
         title: `업무 ${index + 1}`,
         assigneeAgentId: firstAgent.id,
       });
-      if (index === 0) {
-        await repository.setTaskWorkflow(task.id, [firstAgent.id, secondAgent.id]);
-      }
       await repository.transitionTask(task.id, "working");
       await repository.transitionTask(task.id, "needs_review");
       await repository.transitionTask(task.id, "done");
@@ -72,7 +61,7 @@ test("미션 달성 시 신규 펫을 워크스페이스에 영구 해금한다"
       [
         ["rabbit-yuzu", true],
         ["capybara-gamja", true],
-        ["quokka-bangul", true],
+        ["quokka-bangul", false],
       ],
     );
     const persisted = await repository.getPetUnlockProgress(workspace.id);

@@ -27,9 +27,10 @@ const StyledDialog = styled.dialog`
 const Content = styled.div`
   width: min(440px, calc(100vw - 28px));
   padding: ${({ theme }) => theme.space.x6};
-  border: 3px solid ${({ theme }) => theme.colors.border.positive};
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
+  border-radius: ${({ theme }) => theme.radius.xl};
   background: ${({ theme }) => theme.colors.background.surface};
-  box-shadow: 8px 8px 0 ${({ theme }) => theme.colors.shadow.dialog};
+  box-shadow: ${({ theme }) => theme.floatingShadow};
 `;
 
 export type DialogProps = {

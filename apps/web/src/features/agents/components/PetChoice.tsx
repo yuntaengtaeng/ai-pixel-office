@@ -7,7 +7,7 @@ const Styled = {
   PetChoice: styled.button<{ $selected: boolean; $locked: boolean }>`
     min-width: 0;
     padding: ${({ theme }) => `${theme.space.x2} ${theme.space.x1}`};
-    border: 2px solid ${({ theme }) => theme.colors.border.subtle};
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     display: flex;
     flex-direction: column;
@@ -29,7 +29,7 @@ const Styled = {
       `
         border-color: ${theme.colors.border.positive};
         background: ${theme.colors.background.surfaceMuted};
-        box-shadow: 3px 3px 0 ${theme.colors.border.positive};
+        box-shadow: 0 0 0 1px ${theme.colors.border.positive};
       `}
 
     strong {

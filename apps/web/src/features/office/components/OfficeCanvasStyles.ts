@@ -6,6 +6,5 @@ export const OfficeCanvasStyles = createGlobalStyle`
     width: 100% !important;
     height: 100% !important;
     object-fit: contain;
-    image-rendering: pixelated;
   }
 `;

@@ -1,35 +1,39 @@
 import type {
   ActivityLog,
   Agent,
+  AgentModel,
+  LeadMessage,
+  LeadPlan,
   AgentRun,
   AgentTaskTemplate,
   CreateAgentInput,
   CreateAgentTaskTemplateInput,
-  CreateSkillInput,
   CreateTaskInput,
   CreateWorkspaceInput,
   PerformanceReviewPeriod,
   PerformanceReviewSummary,
   Project,
   RunProgressEvent,
-  Skill,
   TaskOrigin,
   Task,
   TaskResult,
   TaskReview,
   TaskStatus,
-  TaskWorkflowStep,
   UpdateAgentInput,
-  UpdateSkillInput,
   UpdateTaskInput,
   UpdateWorkspaceInput,
-  WorkflowPreset,
   Workspace,
   MessageAttachment,
 } from "@ai-pixel-office/domain";
 import type { AppDatabase } from "../database.ts";
-import { createActivity, listActivities, type CreateActivityInput } from "./activities.ts";
 import {
+  createActivity,
+  listActivities,
+  listTaskActivities,
+  type CreateActivityInput,
+} from "./activities.ts";
+import {
+  countAgentsUsingSkill,
   createAgent,
   createAgentTaskTemplate,
   deleteAgent,
@@ -37,6 +41,7 @@ import {
   getAgent,
   listAgentTaskTemplates,
   listAgents,
+  listAgentsBySourceTeam,
   updateAgent,
   type AgentLookup,
 } from "./agents.ts";
@@ -56,6 +61,12 @@ import {
 } from "./pet-unlocks.ts";
 import { createReview, listReviews } from "./reviews.ts";
 import {
+  getRequestWorkspaceBinding,
+  saveRequestWorkspaceBinding,
+  type RequestWorkspaceBinding,
+} from "./request-workspaces.ts";
+import {
+  firstRun,
   createRun,
   createRunProgress,
   getRun,
@@ -67,18 +78,30 @@ import {
   updateRun,
   type RunReservation,
 } from "./runs.ts";
-import { createSkill, deleteSkill, getSkill, listSkills, updateSkill } from "./skills.ts";
-import { createTask, deleteTask, getTask, listTasks, transitionTask, updateTask } from "./tasks.ts";
 import {
-  createWorkflowPreset,
-  deleteWorkflowPreset,
-  getWorkflowStepByRun,
-  listWorkflowPresets,
-  listWorkflowSteps,
-  resetFailedWorkflowStep,
-  setTaskWorkflow,
-  updateWorkflowStep,
-} from "./workflow.ts";
+  createTask,
+  deleteTask,
+  getTask,
+  listPlanTasks,
+  listQueuedTasks,
+  listTasks,
+  queueTask,
+  transitionTask,
+  updateTask,
+} from "./tasks.ts";
+import {
+  approveLeadPlan,
+  createLeadMessage,
+  createLeadPlan,
+  failPendingLeadMessages,
+  finishLeadMessage,
+  getLeadPlan,
+  hasPendingLeadMessage,
+  latestLeadThread,
+  listLeadMessages,
+  listLeadPlans,
+  rejectLeadPlan,
+} from "./leads.ts";
 import {
   createWorkspace,
   deleteWorkspace,
@@ -101,12 +124,28 @@ export class Repository {
   }
 
   createAttachment(input: MessageAttachment): MessageAttachment {
-    this.database.prepare(`INSERT INTO task_attachments (id, workspace_id, task_id, run_id, name, media_type, size, source, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(input.id, input.workspaceId, input.taskId, input.runId ?? null, input.name, input.mediaType, input.size, input.source, input.storagePath, input.createdAt);
+    this.database
+      .prepare(
+        `INSERT INTO task_attachments (id, workspace_id, task_id, run_id, name, media_type, size, source, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.id,
+        input.workspaceId,
+        input.taskId,
+        input.runId ?? null,
+        input.name,
+        input.mediaType,
+        input.size,
+        input.source,
+        input.storagePath,
+        input.createdAt,
+      );
     return input;
   }
 
   getAttachment(id: string): MessageAttachment | undefined {
-    const row = this.database.prepare("SELECT * FROM task_attachments WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    const row = this.database.prepare("SELECT * FROM task_attachments WHERE id = ?").get(id) as
+      Record<string, unknown> | undefined;
     return row ? attachmentFromRow(row) : undefined;
   }
 
@@ -141,7 +180,8 @@ export class Repository {
   }
 
   databaseFiles(): string[] {
-    const row = this.database.prepare("PRAGMA database_list").get() as { file?: string } | undefined;
+    const row = this.database.prepare("PRAGMA database_list").get() as
+      { file?: string } | undefined;
     if (!row?.file) return [];
     return [row.file, `${row.file}-wal`, `${row.file}-shm`];
   }
@@ -150,7 +190,7 @@ export class Repository {
     this.database.exec("BEGIN IMMEDIATE");
     try {
       // Workspace-owned rows cascade through tasks, runs, attachments, agents and projects.
-      this.database.exec("DELETE FROM workspaces; DELETE FROM skills;");
+      this.database.exec("DELETE FROM workspaces;");
       this.database.exec("COMMIT");
     } catch (error) {
       this.database.exec("ROLLBACK");
@@ -239,24 +279,24 @@ export class Repository {
     return deleteProjectDirectory(this.database, id);
   }
 
-  async listSkills(workspaceId?: string): Promise<Skill[]> {
-    return listSkills(this.database, workspaceId);
+  countAgentsUsingSkill(skillId: string): number {
+    return countAgentsUsingSkill(this.database, skillId);
   }
 
-  async getSkill(id: string): Promise<Skill | undefined> {
-    return getSkill(this.database, id);
+  async listAgentsBySourceTeam(workspaceId: string, sourceTeamPrefix: string): Promise<Agent[]> {
+    return listAgentsBySourceTeam(this.database, workspaceId, sourceTeamPrefix);
   }
 
-  async createSkill(input: CreateSkillInput): Promise<Skill> {
-    return createSkill(this.database, input);
+  getAppMeta(key: string): string | undefined {
+    const row = this.database.prepare("SELECT value FROM app_meta WHERE key = ?").get(key) as
+      { value: string } | undefined;
+    return row?.value;
   }
 
-  async updateSkill(id: string, input: UpdateSkillInput): Promise<Skill> {
-    return updateSkill(this.database, id, input);
-  }
-
-  async deleteSkill(id: string): Promise<void> {
-    return deleteSkill(this.database, id);
+  setAppMeta(key: string, value: string): void {
+    this.database
+      .prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)")
+      .run(key, value);
   }
 
   async listAgents(workspaceId?: string): Promise<Agent[]> {
@@ -319,47 +359,20 @@ export class Repository {
     return transitionTask(this.database, id, status, result);
   }
 
+  async queueTask(
+    id: string,
+    holderTitle: string,
+    metadata: Record<string, unknown>,
+  ): Promise<{ task: Task; activity: ActivityLog }> {
+    return queueTask(this.database, id, holderTitle, metadata);
+  }
+
+  async listQueuedTasks(projectId: string): Promise<Task[]> {
+    return listQueuedTasks(this.database, projectId);
+  }
+
   async deleteTask(id: string): Promise<void> {
     return deleteTask(this.database, id);
-  }
-
-  async listWorkflowSteps(taskId: string): Promise<TaskWorkflowStep[]> {
-    return listWorkflowSteps(this.database, taskId);
-  }
-
-  async listWorkflowPresets(workspaceId: string): Promise<WorkflowPreset[]> {
-    return listWorkflowPresets(this.database, workspaceId);
-  }
-
-  async createWorkflowPreset(input: {
-    workspaceId: string;
-    name: string;
-    agentIds: string[];
-  }): Promise<WorkflowPreset> {
-    return createWorkflowPreset(this.database, input, (id) => this.getAgent(id));
-  }
-
-  async deleteWorkflowPreset(id: string): Promise<void> {
-    return deleteWorkflowPreset(this.database, id);
-  }
-
-  async getWorkflowStepByRun(runId: string): Promise<TaskWorkflowStep | undefined> {
-    return getWorkflowStepByRun(this.database, runId);
-  }
-
-  async setTaskWorkflow(taskId: string, agentIds: string[]): Promise<TaskWorkflowStep[]> {
-    return setTaskWorkflow(this.database, taskId, agentIds, (id) => this.getAgent(id));
-  }
-
-  async updateWorkflowStep(
-    id: string,
-    input: Partial<Pick<TaskWorkflowStep, "status" | "runId" | "result">>,
-  ): Promise<TaskWorkflowStep> {
-    return updateWorkflowStep(this.database, id, input);
-  }
-
-  async resetFailedWorkflowStep(taskId: string): Promise<TaskWorkflowStep | undefined> {
-    return resetFailedWorkflowStep(this.database, taskId);
   }
 
   async createRun(
@@ -409,7 +422,52 @@ export class Repository {
   }
 
   async recoverInterruptedRuns(): Promise<number> {
+    failPendingLeadMessages(this.database);
     return recoverInterruptedRuns(this.database);
+  }
+
+  async listPlanTasks(planId: string): Promise<Task[]> {
+    return listPlanTasks(this.database, planId);
+  }
+
+  listLeadMessages(projectId: string): LeadMessage[] {
+    return listLeadMessages(this.database, projectId);
+  }
+
+  createLeadMessage(input: Parameters<typeof createLeadMessage>[1]): LeadMessage {
+    return createLeadMessage(this.database, input);
+  }
+
+  finishLeadMessage(id: string, input: Parameters<typeof finishLeadMessage>[2]): LeadMessage {
+    return finishLeadMessage(this.database, id, input);
+  }
+
+  latestLeadThread(projectId: string, runtime: AgentModel): string | undefined {
+    return latestLeadThread(this.database, projectId, runtime);
+  }
+
+  hasPendingLeadMessage(projectId: string): boolean {
+    return hasPendingLeadMessage(this.database, projectId);
+  }
+
+  createLeadPlan(input: Parameters<typeof createLeadPlan>[1]): LeadPlan {
+    return createLeadPlan(this.database, input);
+  }
+
+  getLeadPlan(id: string): LeadPlan | undefined {
+    return getLeadPlan(this.database, id);
+  }
+
+  listLeadPlans(projectId: string): LeadPlan[] {
+    return listLeadPlans(this.database, projectId);
+  }
+
+  rejectLeadPlan(id: string, feedback: string): LeadPlan {
+    return rejectLeadPlan(this.database, id, feedback);
+  }
+
+  approveLeadPlan(id: string): { plan: LeadPlan; tasks: Task[] } {
+    return approveLeadPlan(this.database, id);
   }
 
   async latestRun(taskId: string): Promise<AgentRun | undefined> {
@@ -452,6 +510,22 @@ export class Repository {
 
   async createActivity(input: CreateActivityInput): Promise<ActivityLog> {
     return createActivity(this.database, input);
+  }
+
+  async firstRun(taskId: string): Promise<AgentRun | undefined> {
+    return firstRun(this.database, taskId);
+  }
+
+  getRequestWorkspaceBinding(taskId: string): RequestWorkspaceBinding | undefined {
+    return getRequestWorkspaceBinding(this.database, taskId);
+  }
+
+  saveRequestWorkspaceBinding(binding: RequestWorkspaceBinding): void {
+    saveRequestWorkspaceBinding(this.database, binding);
+  }
+
+  listTaskActivities(taskId: string, type: ActivityLog["type"]): ActivityLog[] {
+    return listTaskActivities(this.database, taskId, type);
   }
 
   async listActivities(workspaceId: string, limit = 100): Promise<ActivityLog[]> {

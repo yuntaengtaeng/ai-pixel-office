@@ -4,7 +4,7 @@ export { breakpoints, mediaQuery, type Breakpoints, type MediaQuery } from "./br
 export { radius, type Radius } from "./radius.ts";
 export { zIndex, type ZIndex } from "./z-index.ts";
 export { space, type SpaceKey } from "./space.ts";
-export { shadow } from "./shadow.ts";
+export { floatingShadow, shadow } from "./shadow.ts";
 export {
   fontFamily,
   fontSize,

@@ -32,6 +32,20 @@ export type Project = {
   status: ProjectStatus;
   figmaUrl?: string;
   path?: string;
+  /** 동료들이 이 프로젝트에서 알아야 할 사람의 맥락 */
+  memo?: string;
+  /** 바뀐 뒤 실행해 결과를 검증 사실로 남길 명령 */
+  verificationCommands: string[];
+  /** 작업 공간을 처음 쓰기 전에 실행할 준비 명령 (예: pnpm install) */
+  setupCommand?: string;
+  /** 프로젝트 폴더에서 작업 공간으로 복사할 무시된 파일 (예: .env.local) */
+  copyFiles: string[];
+  /** 이 프로젝트에 새 요청을 맡길 때 먼저 골라 둘 동료 */
+  defaultAgentId?: string;
+  /** 이 프로젝트 화면을 열어 볼 주소 (예: http://localhost:5173) */
+  previewUrl?: string;
+  /** 이 프로젝트 팀장이 쓸 runtime (없으면 workspace 기본 동료의 runtime) */
+  leadRuntime?: AgentModel;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,31 +68,48 @@ export type Agent = {
   permissions: AgentPermissions;
   systemPrompt?: string;
   workingDirectory?: string;
+  /** bundled Team으로 만든 동료면 "teamId@version" */
+  sourceTeam?: string;
   createdAt: string;
   updatedAt: string;
 };
 
-export type ToolBinding = {
-  name: string;
-  config?: Record<string, unknown>;
-};
+/** 스킬 출처 (bundled는 Team과 함께 설치, local은 사용자가 만듦, imported는 밖에서 가져옴) */
+export type SkillSource = "bundled" | "local" | "imported";
 
 export type Skill = {
+  /** 폴더 이름이자 SKILL.md의 `name` (소문자, 숫자, `-`) */
   id: string;
-  workspaceId?: string;
+  /** 사람이 읽는 표시 이름(pixel-office.json의 title, 없으면 id) */
   name: string;
-  category: string;
   description: string;
-  instructions: string;
-  tools: ToolBinding[];
+  category: string;
+  source: SkillSource;
+  version?: string;
+  /** bundled Team이 설치한 스킬이면 그 Team id */
+  teamId?: string;
   requiredPermissions?: Array<keyof AgentPermissions>;
-  outputSchema?: Record<string, unknown>;
-  createdAt: string;
+  /** SKILL.md 외 보조 파일의 상대 경로 */
+  files: string[];
   updatedAt: string;
 };
 
-export type TaskStatus =
-  "todo" | "working" | "needs_review" | "needs_input" | "blocked" | "done" | "failed";
+export type SkillDetail = Skill & {
+  /** frontmatter를 뺀 SKILL.md 본문 */
+  body: string;
+};
+
+export const TASK_STATUSES = [
+  "todo",
+  "working",
+  "needs_review",
+  "needs_input",
+  "blocked",
+  "done",
+  "failed",
+] as const;
+
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export type TaskResult = {
   summary: string;
@@ -115,6 +146,18 @@ export type Task = {
   workingDirectory?: string;
   result?: TaskResult;
   origin: TaskOrigin;
+  /** 끝날 때 내야 하는 결과 형식 (없으면 자유 형식) */
+  resultFormat?: ResultFormat;
+  /** 프로젝트 파일을 고치는 기안인지 (false면 같은 폴더 자리를 잡지 않음, 기본 true) */
+  modifiesFiles?: boolean;
+  /** 팀장 계획서에서 만들어진 기안이면 그 계획서 */
+  planId?: string;
+  /** 이 기안을 시작하기 전에 끝나야 하는 기안 (앞 기안) */
+  waitsFor?: string[];
+  /** 파일이 바뀌지 않아도 사람이 결과를 확인해야 끝나는지 (내가 보고 넘김) */
+  reviewBeforeNext?: boolean;
+  /** 순서 대기 중이면 같은 프로젝트 폴더를 먼저 쓰고 있는 기안서 이름 */
+  queuedBehind?: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -166,28 +209,14 @@ export type AgentRun = {
   createdAt: string;
 };
 
-export type WorkflowStepStatus = "pending" | "working" | "completed" | "failed";
+/** 기안서가 끝날 때 내야 하는 결과 형식 */
+export const RESULT_FORMATS = ["ux", "ui", "developer"] as const;
 
-export type TaskWorkflowStep = {
-  id: string;
-  taskId: string;
-  agentId: string;
-  position: number;
-  status: WorkflowStepStatus;
-  runId?: string;
-  result?: TaskResult;
-  createdAt: string;
-  updatedAt: string;
-};
+export type ResultFormat = (typeof RESULT_FORMATS)[number];
 
-export type WorkflowPreset = {
-  id: string;
-  workspaceId: string;
-  name: string;
-  agentIds: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+export function isResultFormat(value: unknown): value is ResultFormat {
+  return (RESULT_FORMATS as readonly unknown[]).includes(value);
+}
 
 export type RunProgressEvent = {
   id: string;
@@ -198,10 +227,58 @@ export type RunProgressEvent = {
   createdAt: string;
 };
 
+/** 같은 프로젝트 폴더가 비기를 기다리게 된 기안서 */
+export type QueuedRequest = { queued: true; task: Task };
+
+/** 프로젝트 팀장 대화의 한 줄 (사람의 말, 팀장의 답, 맡긴 기안에 대한 보고) */
+export type LeadMessage = {
+  id: string;
+  projectId: string;
+  role: "user" | "lead" | "report";
+  content: string;
+  /** 팀장이 이 답과 함께 올린 계획서 */
+  planId?: string;
+  status: "pending" | "done" | "failed";
+  createdAt: string;
+};
+
+export const LEAD_PLAN_STATUSES = ["proposed", "approved", "rejected"] as const;
+
+export type LeadPlanStatus = (typeof LEAD_PLAN_STATUSES)[number];
+
+/** 계획서의 기안 하나 */
+export type LeadPlanItem = {
+  /** 계획서 안에서 앞 기안을 가리킬 때 쓰는 이름 */
+  key: string;
+  title: string;
+  /** 끝나면 사람이 받을 것 (업무 언어) */
+  deliverable: string;
+  /** 담당 동료에게 넘길 내용 */
+  brief: string;
+  agentId: string;
+  resultFormat?: ResultFormat;
+  modifiesFiles: boolean;
+  /** 앞 기안의 key */
+  after: string[];
+  reviewBeforeNext: boolean;
+};
+
+/** 팀장이 올린 계획서 (결재해야 기안서가 만들어짐) */
+export type LeadPlan = {
+  id: string;
+  projectId: string;
+  status: LeadPlanStatus;
+  title: string;
+  /** 왜 이렇게 나눴는지 */
+  reason: string;
+  items: LeadPlanItem[];
+  /** 반려할 때 남긴 의견 */
+  feedback?: string;
+  createdAt: string;
+  decidedAt?: string;
+};
+
 export type ActivityType =
-  | "workflow_configured"
-  | "workflow_step_started"
-  | "workflow_step_completed"
   | "session_limit_warning"
   | "session_limit_reached"
   | "task_created"
@@ -213,7 +290,15 @@ export type ActivityType =
   | "approval_resolved"
   | "task_approved"
   | "change_requested"
-  | "agent_created";
+  | "agent_created"
+  | "result_questions_asked"
+  | "result_incomplete"
+  | "verification_failed"
+  | "verification_returned"
+  | "task_completed_without_changes"
+  | "workspace_conflict"
+  | "workspace_realigned"
+  | "request_queued";
 
 export type ActivityLog = {
   id: string;
@@ -285,20 +370,35 @@ export type CreateAgentInput = Pick<
       | "modelPolicy"
       | "modelName"
       | "reasoningEffort"
+      | "sourceTeam"
     >
   >;
 export type UpdateAgentInput = Partial<Omit<CreateAgentInput, "workspaceId">>;
 
-export type CreateSkillInput = Pick<
-  Skill,
-  "name" | "category" | "description" | "instructions" | "tools"
-> &
-  Partial<Pick<Skill, "workspaceId" | "requiredPermissions" | "outputSchema">>;
-export type UpdateSkillInput = Partial<Omit<CreateSkillInput, "workspaceId">>;
+export type CreateSkillInput = {
+  /** 폴더 이름 (없으면 title에서 생성) */
+  id?: string;
+  /** 사람이 읽는 이름(라이브러리 표시용) */
+  title: string;
+  description: string;
+  category: string;
+  /** SKILL.md 본문(Markdown) */
+  instructions: string;
+  requiredPermissions?: Array<keyof AgentPermissions>;
+};
 
 export type CreateTaskInput = Pick<Task, "workspaceId" | "title"> &
   Partial<
-    Pick<Task, "description" | "assigneeAgentId" | "dueDate" | "priority" | "projectId" | "origin">
+    Pick<
+      Task,
+      | "description"
+      | "assigneeAgentId"
+      | "dueDate"
+      | "priority"
+      | "projectId"
+      | "origin"
+      | "resultFormat"
+    >
   >;
 export type UpdateTaskInput = Partial<
   Pick<Task, "title" | "description" | "assigneeAgentId" | "dueDate" | "priority" | "projectId">

@@ -125,6 +125,18 @@ export function normalizeAppServerMessage(
       }
     }
     if (tool) events.push({ type: "tool_completed", tool, status: text(item.status) });
+    if (item.type === "commandExecution") {
+      const command = text(item.command);
+      const exitCode = typeof item.exitCode === "number" ? item.exitCode : undefined;
+      if (command && exitCode !== undefined)
+        events.push({ type: "command_finished", command, exitCode, succeeded: exitCode === 0 });
+    }
+    if (item.type === "fileChange" && text(item.status) === "completed") {
+      const paths = (Array.isArray(item.changes) ? item.changes : [])
+        .map((change) => text(record(change).path))
+        .filter((path): path is string => path !== undefined);
+      if (paths.length > 0) events.push({ type: "files_changed", paths });
+    }
     return events;
   }
 

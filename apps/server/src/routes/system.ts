@@ -5,6 +5,7 @@ import { z } from "zod";
 import { DomainError } from "@ai-pixel-office/domain";
 import { pickDirectory } from "../directory-picker.ts";
 import { getSystemStatus } from "../system-status.ts";
+import { LEGACY_DATA_RESET_KEY } from "../database.ts";
 import { data } from "./app-types.ts";
 
 const checkDirectoryBody = z.object({ path: z.string().trim().min(1) });
@@ -15,7 +16,10 @@ export const systemRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get("/health", async () => ({ status: "ok", runtimes: ["codex", "claude"] }));
 
   app.get("/api/system/status", async (_request, reply) =>
-    data(reply, 200, await getSystemStatus()),
+    data(reply, 200, {
+      ...(await getSystemStatus()),
+      legacyDataResetAt: app.repository.getAppMeta(LEGACY_DATA_RESET_KEY),
+    }),
   );
 
   app.post(
@@ -41,32 +45,28 @@ export const systemRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   );
 
-  app.get(
-    "/api/events",
-    { schema: { querystring: eventsQuery } },
-    async (request, reply) => {
-      const { workspaceId } = request.query;
-      reply.hijack();
-      reply.raw.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": app.corsOrigin,
-      });
-      const unsubscribe = app.events.subscribe(workspaceId, reply.raw);
-      const heartbeat = setInterval(() => {
-        try {
-          reply.raw.write(": heartbeat\n\n");
-        } catch {
-          // socket already broken; the close/error handlers below finish teardown
-        }
-      }, 15_000);
-      const cleanup = () => {
-        clearInterval(heartbeat);
-        unsubscribe();
-      };
-      request.raw.once("close", cleanup);
-      reply.raw.once("error", cleanup);
-    },
-  );
+  app.get("/api/events", { schema: { querystring: eventsQuery } }, async (request, reply) => {
+    const { workspaceId } = request.query;
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": app.corsOrigin,
+    });
+    const unsubscribe = app.events.subscribe(workspaceId, reply.raw);
+    const heartbeat = setInterval(() => {
+      try {
+        reply.raw.write(": heartbeat\n\n");
+      } catch {
+        // socket already broken; the close/error handlers below finish teardown
+      }
+    }, 15_000);
+    const cleanup = () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    };
+    request.raw.once("close", cleanup);
+    reply.raw.once("error", cleanup);
+  });
 };

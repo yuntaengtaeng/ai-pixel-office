@@ -8,9 +8,9 @@ const Badge = styled.article`
   align-items: center;
   gap: ${({ theme }) => theme.space.x4};
   padding: ${({ theme }) => theme.space.x5};
-  border: 2px solid ${({ theme }) => theme.colors.border.strong};
+  border: 1px solid ${({ theme }) => theme.colors.border.strong};
   background: ${({ theme }) => theme.colors.background.surfaceMuted};
-  box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
+  box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.shadow.default};
   &::before {
     content: "";
     position: absolute;
@@ -26,7 +26,7 @@ const Badge = styled.article`
     top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2px solid ${({ theme }) => theme.colors.border.strong};
+    border: 1px solid ${({ theme }) => theme.colors.border.strong};
     background: ${({ theme }) => theme.colors.background.canvas};
   }
 `;
@@ -52,7 +52,7 @@ const Photo = styled.div`
   display: grid;
   place-items: center;
   padding: ${({ theme }) => theme.space.x2};
-  border: 2px solid ${({ theme }) => theme.colors.border.default};
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
   background: ${({ theme }) => theme.colors.background.surfaceRaised};
 `;
 const Identity = styled.div`

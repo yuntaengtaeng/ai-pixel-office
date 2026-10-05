@@ -16,7 +16,7 @@ export const SectionHeading = styled.div<{ $compact?: boolean }>`
     $compact &&
     `
     padding-bottom: ${theme.space.x3};
-    border-bottom: 2px solid ${theme.colors.border.subtle};
+    border-bottom: 1px solid ${theme.colors.border.subtle};
 
     h2 {
       display: flex;

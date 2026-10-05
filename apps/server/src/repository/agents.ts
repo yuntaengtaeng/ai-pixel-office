@@ -13,7 +13,6 @@ import type { AppDatabase } from "../database.ts";
 import { agentFrom, now, type Row, taskTemplateFrom } from "./rows.ts";
 import { requireChanged, withTransaction } from "./shared.ts";
 import { createActivity } from "./activities.ts";
-import { getSkill } from "./skills.ts";
 import { getWorkspace } from "./workspaces.ts";
 
 export async function listAgents(database: AppDatabase, workspaceId?: string): Promise<Agent[]> {
@@ -30,21 +29,24 @@ export async function getAgent(database: AppDatabase, id: string): Promise<Agent
   return row ? agentFrom(database, row as Row) : undefined;
 }
 
-async function assertSkillScope(
+export function countAgentsUsingSkill(database: AppDatabase, skillId: string): number {
+  const row = database
+    .prepare("SELECT COUNT(*) AS count FROM agent_skills WHERE skill_id = ?")
+    .get(skillId) as { count: number };
+  return Number(row.count);
+}
+
+export async function listAgentsBySourceTeam(
   database: AppDatabase,
   workspaceId: string,
-  skillIds: string[],
-): Promise<void> {
-  for (const skillId of skillIds) {
-    const skill = requireEntity(await getSkill(database, skillId), "Skill", skillId);
-    if (skill.workspaceId && skill.workspaceId !== workspaceId) {
-      throw new DomainError(
-        "SKILL_SCOPE_MISMATCH",
-        `Skill ${skillId} belongs to another workspace`,
-        422,
-      );
-    }
-  }
+  sourceTeamPrefix: string,
+): Promise<Agent[]> {
+  return database
+    .prepare(
+      "SELECT * FROM agents WHERE workspace_id = ? AND source_team LIKE ? ORDER BY created_at",
+    )
+    .all(workspaceId, `${sourceTeamPrefix}%`)
+    .map((row) => agentFrom(database, row as Row));
 }
 
 function replaceAgentSkills(database: AppDatabase, agentId: string, skillIds: string[]): void {
@@ -70,7 +72,6 @@ function assertAvatarAvailable(
 
 export async function createAgent(database: AppDatabase, input: CreateAgentInput): Promise<Agent> {
   requireEntity(await getWorkspace(database, input.workspaceId), "Workspace", input.workspaceId);
-  await assertSkillScope(database, input.workspaceId, input.skillIds);
   const createdAt = now();
   const agent: Agent = {
     id: randomUUID(),
@@ -85,8 +86,8 @@ export async function createAgent(database: AppDatabase, input: CreateAgentInput
     database
       .prepare(
         `INSERT INTO agents
-        (id, workspace_id, name, role, description, model, model_policy, model_name, reasoning_effort, mode, avatar_id, permissions_json, system_prompt, working_directory, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, workspace_id, name, role, description, model, model_policy, model_name, reasoning_effort, mode, avatar_id, permissions_json, system_prompt, working_directory, source_team, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         agent.id,
@@ -103,6 +104,7 @@ export async function createAgent(database: AppDatabase, input: CreateAgentInput
         JSON.stringify(agent.permissions),
         agent.systemPrompt ?? null,
         agent.workingDirectory ?? null,
+        agent.sourceTeam ?? null,
         agent.createdAt,
         agent.updatedAt,
       );
@@ -124,7 +126,6 @@ export async function updateAgent(
 ): Promise<Agent> {
   const current = requireEntity(await getAgent(database, id), "Agent", id);
   const updated: Agent = { ...current, ...input, updatedAt: now() };
-  await assertSkillScope(database, updated.workspaceId, updated.skillIds);
   withTransaction(database, () => {
     if ("avatarId" in input && input.avatarId !== current.avatarId)
       assertAvatarAvailable(database, updated.workspaceId, updated.avatarId);

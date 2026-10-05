@@ -14,6 +14,7 @@ export default tseslint.config(
       "coverage/**",
       "data/**",
       ".runtime-logs/**",
+      "apps/desktop/resources/anthropic-ai/**",
     ],
   },
   eslint.configs.recommended,

@@ -1,6 +1,24 @@
 import { randomUUID } from "node:crypto";
 import { DomainError, type Project } from "@ai-pixel-office/domain";
 import { requireEntity } from "../database.ts";
+
+/** 사용자가 정하는 프로젝트 값 */
+export type ProjectSettings = Pick<
+  Project,
+  | "workspaceId"
+  | "name"
+  | "description"
+  | "status"
+  | "figmaUrl"
+  | "path"
+  | "memo"
+  | "verificationCommands"
+  | "setupCommand"
+  | "copyFiles"
+  | "defaultAgentId"
+  | "previewUrl"
+  | "leadRuntime"
+>;
 import type { AppDatabase } from "../database.ts";
 import { now, projectFrom, type Row } from "./rows.ts";
 import { requireChanged, withTransaction } from "./shared.ts";
@@ -29,8 +47,7 @@ export function getProjectSync(database: AppDatabase, id: string): Project | und
 
 export async function createProjectDirectory(
   database: AppDatabase,
-  input: Pick<Project, "workspaceId" | "name"> &
-    Partial<Pick<Project, "description" | "status" | "figmaUrl" | "path">>,
+  input: Pick<Project, "workspaceId" | "name"> & Partial<Omit<ProjectSettings, "workspaceId">>,
 ): Promise<Project> {
   requireEntity(await getWorkspace(database, input.workspaceId), "Workspace", input.workspaceId);
   if (input.path) {
@@ -49,6 +66,8 @@ export async function createProjectDirectory(
   const project: Project = {
     id: randomUUID(),
     ...input,
+    verificationCommands: input.verificationCommands ?? [],
+    copyFiles: input.copyFiles ?? [],
     status: input.status ?? "active",
     createdAt,
     updatedAt: createdAt,
@@ -57,8 +76,10 @@ export async function createProjectDirectory(
     database
       .prepare(
         `INSERT INTO projects
-    (id, workspace_id, name, description, status, figma_url, working_directory, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, workspace_id, name, description, status, figma_url, working_directory, memo,
+     verification_commands_json, setup_command, copy_files_json, default_agent_id, preview_url, lead_runtime,
+     created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         project.id,
@@ -68,6 +89,13 @@ export async function createProjectDirectory(
         project.status,
         project.figmaUrl ?? null,
         project.path ?? null,
+        project.memo ?? null,
+        JSON.stringify(project.verificationCommands),
+        project.setupCommand ?? null,
+        JSON.stringify(project.copyFiles),
+        project.defaultAgentId ?? null,
+        project.previewUrl ?? null,
+        project.leadRuntime ?? null,
         project.createdAt,
         project.updatedAt,
       );
@@ -79,7 +107,10 @@ export async function createProjectDirectory(
 function writeProject(database: AppDatabase, project: Project): void {
   database
     .prepare(
-      "UPDATE projects SET name = ?, description = ?, status = ?, figma_url = ?, working_directory = ?, updated_at = ? WHERE id = ?",
+      `UPDATE projects SET name = ?, description = ?, status = ?, figma_url = ?, working_directory = ?,
+       memo = ?, verification_commands_json = ?, setup_command = ?, copy_files_json = ?,
+       default_agent_id = ?, preview_url = ?, lead_runtime = ?, updated_at = ?
+       WHERE id = ?`,
     )
     .run(
       project.name,
@@ -87,6 +118,13 @@ function writeProject(database: AppDatabase, project: Project): void {
       project.status,
       project.figmaUrl ?? null,
       project.path ?? null,
+      project.memo ?? null,
+      JSON.stringify(project.verificationCommands),
+      project.setupCommand ?? null,
+      JSON.stringify(project.copyFiles),
+      project.defaultAgentId ?? null,
+      project.previewUrl ?? null,
+      project.leadRuntime ?? null,
       project.updatedAt,
       project.id,
     );
@@ -95,7 +133,7 @@ function writeProject(database: AppDatabase, project: Project): void {
 export async function updateProject(
   database: AppDatabase,
   id: string,
-  input: Partial<Pick<Project, "name" | "description" | "status" | "figmaUrl" | "path">>,
+  input: Partial<Omit<ProjectSettings, "workspaceId">>,
 ): Promise<Project> {
   const updated = withTransaction(database, () => {
     const current = requireEntity(getProjectSync(database, id), "Project", id);

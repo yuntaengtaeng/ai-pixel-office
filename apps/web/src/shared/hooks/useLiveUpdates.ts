@@ -8,6 +8,7 @@ const LIVE_UPDATE_EVENTS = [
   "activity.created",
   "approval.requested",
   "run.progress",
+  "lead.updated",
 ];
 
 /** SSE로 워크스페이스 실시간 이벤트를 받으면 관련 쿼리를 무효화, 화면별 갱신 로직은 두지 않음 */
@@ -18,5 +19,6 @@ export function useLiveUpdates(workspaceId: string) {
     void queryClient.invalidateQueries({ queryKey: ["activities", workspaceId] });
     void queryClient.invalidateQueries({ queryKey: ["task"] });
     void queryClient.invalidateQueries({ queryKey: ["pet-unlocks", workspaceId] });
+    void queryClient.invalidateQueries({ queryKey: ["lead"] });
   });
 }

@@ -6,14 +6,10 @@ import { getPet, getPetSpriteUrl, plotPet } from "@ai-pixel-office/pet";
 const Styled = {
   Canvas: styled.canvas`
     image-rendering: pixelated;
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceMuted};
   `,
   Image: styled.img<{ $silhouette: boolean }>`
     display: block;
     image-rendering: pixelated;
-    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-    background: ${({ theme }) => theme.colors.background.surfaceMuted};
     filter: ${({ $silhouette }) => ($silhouette ? "grayscale(1) brightness(0.7)" : "none")};
   `,
 };
@@ -38,8 +34,6 @@ export function PetPreview({
     const scale = 3;
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.imageSmoothingEnabled = false;
-    context.fillStyle = colors.background.surfaceMuted;
-    context.fillRect(0, 0, canvas.width, canvas.height);
     plotPet(getPet(petId), (x, y, width, height, color) => {
       context.fillStyle = silhouette ? colors.text.muted : color;
       context.fillRect((x + 1) * scale, (y + 1) * scale, width * scale, height * scale);

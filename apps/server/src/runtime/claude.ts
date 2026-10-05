@@ -2,6 +2,7 @@ import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
 import { DomainError } from "@ai-pixel-office/domain";
 import {
   BoundedJsonlWriter,
@@ -24,14 +25,20 @@ export type ClaudeNormalizationState = {
   finalText?: string;
   started: boolean;
   toolNames: Map<string, string>;
+  /** 도구 호출 id별 셸 명령 또는 파일 경로 */
+  toolTargets: Map<string, { command?: string; path?: string }>;
 };
+
+const FILE_WRITE_TOOLS = new Set(["Edit", "Write", "NotebookEdit", "MultiEdit"]);
+export const APP_TOOL_SERVER = "pixel_office";
+export const RESULT_REPORT_TOOL = "report_result";
 
 type ActiveClaudeRun = {
   cancel: () => void;
 };
 
 export function createClaudeNormalizationState(): ClaudeNormalizationState {
-  return { started: false, toolNames: new Map() };
+  return { started: false, toolNames: new Map(), toolTargets: new Map() };
 }
 
 export function normalizeClaudeMessage(
@@ -59,11 +66,18 @@ export function normalizeClaudeMessage(
       if (block?.type === "tool_use") {
         const id = stringValue(block.id);
         const tool = stringValue(block.name) ?? "tool";
-        if (id) state.toolNames.set(id, tool);
+        const toolInput = objectValue(block.input);
+        if (id) {
+          state.toolNames.set(id, tool);
+          state.toolTargets.set(id, {
+            command: tool === "Bash" ? stringValue(toolInput?.command) : undefined,
+            path: toolInput ? claudePath(toolInput) : undefined,
+          });
+        }
         events.push({
           type: "tool_started",
           tool,
-          detail: summarizeToolInput(objectValue(block.input)),
+          detail: summarizeToolInput(toolInput),
         });
       }
     }
@@ -78,11 +92,14 @@ export function normalizeClaudeMessage(
       const block = objectValue(rawBlock);
       if (block?.type !== "tool_result") continue;
       const toolUseId = stringValue(block.tool_use_id);
-      events.push({
-        type: "tool_completed",
-        tool: (toolUseId && state.toolNames.get(toolUseId)) || "tool",
-        status: block.is_error === true ? "failed" : "completed",
-      });
+      const tool = (toolUseId && state.toolNames.get(toolUseId)) || "tool";
+      const succeeded = block.is_error !== true;
+      events.push({ type: "tool_completed", tool, status: succeeded ? "completed" : "failed" });
+      const target = toolUseId ? state.toolTargets.get(toolUseId) : undefined;
+      if (target?.command)
+        events.push({ type: "command_finished", command: target.command, succeeded });
+      if (succeeded && target?.path && FILE_WRITE_TOOLS.has(tool))
+        events.push({ type: "files_changed", paths: [target.path] });
     }
   }
 
@@ -129,7 +146,7 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
   ): Promise<RuntimeRunResult> {
     // Keep the SDK as a package resource in desktop builds. It is ESM and ships a
     // platform-specific Claude binary, so it must be loaded outside the CJS server bundle.
-    const { query } = await import("@anthropic-ai/claude-agent-sdk");
+    const { query, createSdkMcpServer, tool } = await import("@anthropic-ai/claude-agent-sdk");
     const controller = new AbortController();
     const events: AgentEvent[] = [];
     const state = createClaudeNormalizationState();
@@ -155,6 +172,23 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
       controller.abort();
     }, input.limits.maxDurationMs);
     try {
+      const resultReportServer = input.resultReporting
+        ? createSdkMcpServer({
+            name: APP_TOOL_SERVER,
+            version: "1.0.0",
+            tools: [
+              tool(
+                RESULT_REPORT_TOOL,
+                "Submit the result in the required output format. Call it once when the work is done.",
+                { result: z.record(z.string(), z.unknown()) },
+                async (args) => {
+                  emit({ type: "result_reported", result: args.result });
+                  return { content: [{ type: "text", text: "Result recorded." }] };
+                },
+              ),
+            ],
+          })
+        : undefined;
       const stream = query({
         prompt: await buildClaudePrompt(input),
         options: {
@@ -168,10 +202,17 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
           resume: input.resumeThreadId,
           maxTurns: Math.max(1, input.limits.maxTurns),
           tools: allowedTools(input),
+          ...(resultReportServer
+            ? { mcpServers: { [APP_TOOL_SERVER]: resultReportServer } }
+            : {}),
+          ...(input.skills
+            ? { plugins: [{ type: "local" as const, path: input.skills.pluginRoot }] }
+            : {}),
           permissionMode: "default",
           abortController: controller,
           canUseTool: async (toolName, toolInput, options) => {
-            if (["Read", "Glob", "Grep"].includes(toolName)) return { behavior: "allow" };
+            if (["Read", "Glob", "Grep", "Skill", resultReportToolName()].includes(toolName))
+              return { behavior: "allow" };
             const requestId = options.requestId;
             const decision = await new Promise<ApprovalDecision>((resolveDecision) => {
               approvals.set(requestId, resolveDecision);
@@ -208,17 +249,33 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
       if (!events.some((event) => ["completed", "failed", "cancelled"].includes(event.type))) {
         emit(
           timedOut
-            ? { type: "failed", error: `Claude execution exceeded ${input.limits.maxDurationMs}ms.` }
+            ? {
+                type: "failed",
+                error: `Claude execution exceeded ${input.limits.maxDurationMs}ms.`,
+              }
             : cancelled
               ? { type: "cancelled", cleanupPolicy: "preserve" }
               : { type: "failed", error: "Claude ended without a result." },
         );
       }
-      return { runId: input.runId, threadId: sessionId, turnId: input.runId, eventLogRef: logWriter.path, events };
+      return {
+        runId: input.runId,
+        threadId: sessionId,
+        turnId: input.runId,
+        eventLogRef: logWriter.path,
+        events,
+      };
     } catch (error) {
-      if (controller.signal.aborted && cancelled) emit({ type: "cancelled", cleanupPolicy: "preserve" });
+      if (controller.signal.aborted && cancelled)
+        emit({ type: "cancelled", cleanupPolicy: "preserve" });
       else emit({ type: "failed", error: claudeSpawnError(error) });
-      return { runId: input.runId, threadId: sessionId, turnId: input.runId, eventLogRef: logWriter.path, events };
+      return {
+        runId: input.runId,
+        threadId: sessionId,
+        turnId: input.runId,
+        eventLogRef: logWriter.path,
+        events,
+      };
     } finally {
       clearTimeout(timeout);
       for (const resolveApproval of approvals.values()) resolveApproval("cancel");
@@ -229,7 +286,10 @@ export class ClaudeRuntimeAdapter implements RuntimeAdapter {
   }
 
   /* Legacy stream-json implementation retained below temporarily for normalization compatibility. */
-  private async runWithLegacyCli(input: RuntimeRunInput, callbacks: RuntimeCallbacks): Promise<RuntimeRunResult> {
+  private async runWithLegacyCli(
+    input: RuntimeRunInput,
+    callbacks: RuntimeCallbacks,
+  ): Promise<RuntimeRunResult> {
     const args = [
       "-p",
       "--output-format",
@@ -366,9 +426,17 @@ function claudePath(input: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+function resultReportToolName(): string {
+  return `mcp__${APP_TOOL_SERVER}__${RESULT_REPORT_TOOL}`;
+}
+
 function allowedTools(input: RuntimeRunInput): string[] {
-  if (input.conversational) return [];
-  const tools = ["Read", "Glob", "Grep"];
+  const skillTools = [
+    ...(input.skills ? ["Skill"] : []),
+    ...(input.resultReporting ? [resultReportToolName()] : []),
+  ];
+  if (input.conversational) return skillTools;
+  const tools = ["Read", "Glob", "Grep", ...skillTools];
   if (input.writable) tools.push("Edit", "Write", "NotebookEdit");
   tools.push("Bash");
   if (input.browser) tools.push("WebFetch", "WebSearch");
@@ -433,7 +501,9 @@ function claudeSpawnError(error: unknown): string {
  * 비어 있어도) 모델이 이미지를 직접 볼 수 있는 유일한 경로다. 이미지가 없으면 기존 문자열 prompt
  * 경로를 그대로 유지해 회귀 위험을 줄인다.
  */
-async function buildClaudePrompt(input: RuntimeRunInput): Promise<string | AsyncIterable<SDKUserMessage>> {
+async function buildClaudePrompt(
+  input: RuntimeRunInput,
+): Promise<string | AsyncIterable<SDKUserMessage>> {
   const images = (input.attachments ?? []).filter(isVisionAttachment);
   if (images.length === 0) return input.prompt;
 

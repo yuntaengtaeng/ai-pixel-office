@@ -9,7 +9,8 @@ export type RealtimeEvent = {
     | "approval.requested"
     | "run.progress"
     | "session.limit_warning"
-    | "session.limit_reached";
+    | "session.limit_reached"
+    | "lead.updated";
   workspaceId: string;
   data: Record<string, unknown>;
   createdAt: string;

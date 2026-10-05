@@ -39,7 +39,7 @@ const Root = styled.div`
   h1,
   h2 {
     padding-bottom: ${({ theme }) => theme.space.x2};
-    border-bottom: 2px solid ${({ theme }) => theme.colors.border.subtle};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
   }
 
   p {
@@ -101,9 +101,9 @@ const Root = styled.div`
     margin: ${({ theme }) => `${theme.space.x4} 0`};
     padding: ${({ theme }) => theme.space.x4};
     overflow: auto;
-    border: 2px solid ${({ theme }) => theme.colors.border.strong};
+    border: 1px solid ${({ theme }) => theme.colors.border.strong};
     background: ${({ theme }) => theme.colors.brand.primaryDark};
-    color: ${({ theme }) => theme.colors.text.inverse};
+    color: ${({ theme }) => theme.colors.text.primary};
     line-height: 1.55;
   }
   pre code {
@@ -130,7 +130,7 @@ const Root = styled.div`
   hr {
     margin: ${({ theme }) => `${theme.space.x6} 0`};
     border: 0;
-    border-top: 2px dashed ${({ theme }) => theme.colors.border.default};
+    border-top: 1px dashed ${({ theme }) => theme.colors.border.default};
   }
 `;
 

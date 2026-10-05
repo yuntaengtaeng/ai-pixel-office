@@ -23,6 +23,6 @@ export const SegmentedControl = styled.div`
   button[aria-pressed="true"] {
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     color: ${({ theme }) => theme.colors.text.primary};
-    box-shadow: 2px 2px 0 ${({ theme }) => theme.colors.shadow.default};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.shadow.default};
   }
 `;

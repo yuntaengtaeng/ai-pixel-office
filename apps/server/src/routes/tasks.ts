@@ -1,26 +1,21 @@
 import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
 import { z } from "zod";
-import { parseCreateTask, parseUpdateTask, type MessageAttachment, type TaskStatus } from "@ai-pixel-office/domain";
+import {
+  parseCreateTask,
+  parseUpdateTask,
+  TASK_STATUSES,
+  type MessageAttachment,
+} from "@ai-pixel-office/domain";
 import type { Repository } from "../repository/index.ts";
 import { data, notFound } from "./app-types.ts";
 import { removeAttachmentFiles } from "./attachments.ts";
 
 const idParams = z.object({ id: z.string() });
-const taskStatuses = [
-  "todo",
-  "working",
-  "needs_review",
-  "needs_input",
-  "blocked",
-  "done",
-  "failed",
-] as const satisfies readonly TaskStatus[];
 const listQuery = z.object({
   workspaceId: z.string().optional(),
-  status: z.enum(taskStatuses).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
   origin: z.enum(["office", "chat"]).optional(),
 });
-const workflowBody = z.object({ agentIds: z.array(z.string()) });
 const attachmentIds = z.array(z.string()).optional().default([]);
 const runBody = z.object({ attachmentIds }).optional().default({ attachmentIds: [] });
 const feedbackBody = z.object({ feedback: z.string(), attachmentIds });
@@ -30,6 +25,23 @@ const resumeBody = z.object({
   message: z.string().min(1),
   attachmentIds,
 });
+
+/** 화면에 보내는 첨부 정보 (서버 저장 경로 제외) */
+type PublicAttachment = Omit<MessageAttachment, "storagePath">;
+
+function publicAttachment(attachment: MessageAttachment): PublicAttachment {
+  return {
+    id: attachment.id,
+    workspaceId: attachment.workspaceId,
+    taskId: attachment.taskId,
+    ...(attachment.runId ? { runId: attachment.runId } : {}),
+    name: attachment.name,
+    mediaType: attachment.mediaType,
+    size: attachment.size,
+    source: attachment.source,
+    createdAt: attachment.createdAt,
+  };
+}
 
 export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get("", { schema: { querystring: listQuery } }, async (request, reply) =>
@@ -46,17 +58,6 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post("", async (request, reply) =>
     data(reply, 201, await app.repository.createTask(parseCreateTask(request.body))),
-  );
-
-  app.put(
-    "/:id/workflow",
-    { schema: { params: idParams, body: workflowBody } },
-    async (request, reply) =>
-      data(
-        reply,
-        200,
-        await app.repository.setTaskWorkflow(request.params.id, request.body.agentIds),
-      ),
   );
 
   app.post("/:id/run", { schema: { params: idParams, body: runBody } }, async (request, reply) =>
@@ -93,6 +94,26 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
           request.body.attachmentIds,
         ),
       ),
+  );
+
+  app.get("/:id/workspace", { schema: { params: idParams } }, async (request, reply) =>
+    data(reply, 200, await app.orchestrator.requestWorkspaceChanges(request.params.id)),
+  );
+
+  app.get(
+    "/:id/workspace/diff",
+    { schema: { params: idParams, querystring: z.object({ path: z.string().min(1) }) } },
+    async (request, reply) =>
+      data(reply, 200, {
+        diff: await app.orchestrator.requestWorkspaceFileDiff(
+          request.params.id,
+          request.query.path,
+        ),
+      }),
+  );
+
+  app.post("/:id/realign", { schema: { params: idParams } }, async (request, reply) =>
+    data(reply, 200, await app.orchestrator.realignRequest(request.params.id)),
   );
 
   app.post("/:id/approve", { schema: { params: idParams } }, async (request, reply) =>
@@ -158,16 +179,14 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
     for (const run of runs) {
       progressByRun[run.id] = await app.repository.listRunProgress(run.id, 50);
     }
-    const attachmentsByRun: Record<string, Array<Omit<MessageAttachment, "storagePath">>> = {};
+    const attachmentsByRun: Record<string, PublicAttachment[]> = {};
     for (const attachment of app.repository.listAttachmentsByTask(request.params.id)) {
-      if (!attachment.runId) continue;
-      const { storagePath: _storagePath, ...publicAttachment } = attachment;
-      (attachmentsByRun[attachment.runId] ??= []).push(publicAttachment);
+      if (attachment.runId)
+        (attachmentsByRun[attachment.runId] ??= []).push(publicAttachment(attachment));
     }
     return data(reply, 200, {
       ...task,
       runs,
-      workflow: await app.repository.listWorkflowSteps(task.id),
       reviews: await app.repository.listReviews(request.params.id),
       progress: runs[0] ? await app.repository.listRunProgress(runs[0].id) : [],
       progressByRun,
@@ -184,11 +203,14 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 
   app.delete("/:id", { schema: { params: idParams } }, async (request, reply) => {
+    const task = await app.repository.getTask(request.params.id);
     const attachmentPaths = app.repository
       .listAttachmentsByTask(request.params.id)
       .map((attachment) => attachment.storagePath);
+    await app.orchestrator.discardTaskWorkspace(request.params.id);
     await app.repository.deleteTask(request.params.id);
     await removeAttachmentFiles(app.generalWorkingDirectory, attachmentPaths);
+    if (task?.projectId) await app.orchestrator.resumeQueuedRequests(task.projectId);
     return reply.status(204).send();
   });
 };

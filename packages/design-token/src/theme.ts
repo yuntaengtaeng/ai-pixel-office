@@ -1,6 +1,6 @@
 import { color } from "./color.ts";
 import { space } from "./space.ts";
-import { shadow } from "./shadow.ts";
+import { floatingShadow, shadow } from "./shadow.ts";
 import { fontFamily, fontSize, fontWeight, lineHeight } from "./typography.ts";
 import { duration, easing } from "./animation.ts";
 import { breakpoints, mediaQuery } from "./breakpoint.ts";
@@ -11,6 +11,7 @@ export const officeTheme = {
   colors: color,
   space,
   shadow,
+  floatingShadow,
   typography: { fontFamily, fontSize, fontWeight, lineHeight },
   animation: { duration, easing },
   breakpoints,

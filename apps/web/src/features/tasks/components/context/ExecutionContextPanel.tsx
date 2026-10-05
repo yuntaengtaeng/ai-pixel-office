@@ -215,7 +215,9 @@ export function ExecutionContextPanel({
               <WorkingDirectoryRow path={workingDirectory} />
               <SummaryRow
                 label="프로젝트 지침"
-                detail={instructionFileCount ? `${instructionFileCount}개 파일` : "설정된 지침 없음"}
+                detail={
+                  instructionFileCount ? `${instructionFileCount}개 파일` : "설정된 지침 없음"
+                }
                 value={String(instructionFileCount)}
               />
               <SummaryRow

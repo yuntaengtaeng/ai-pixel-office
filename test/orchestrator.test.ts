@@ -39,9 +39,11 @@ class ApprovalRuntime implements RuntimeAdapter {
     });
     const events: CodexSpikeResult["events"] = [];
     if (decision === "accept") {
+      const changed = { type: "files_changed", paths: ["checkout.tsx"] } as const;
       const complete = { type: "completed", result: { summary: "Reviewed" } } as const;
+      callbacks.onEvent(changed);
       callbacks.onEvent(complete);
-      events.push(complete);
+      events.push(changed, complete);
     } else {
       const cancelled = { type: "cancelled", cleanupPolicy: "preserve" } as const;
       callbacks.onEvent(cancelled);
@@ -146,6 +148,11 @@ test("runs task through approval, review, and approval persistence", async () =>
   const repository = new Repository(openDatabase(":memory:"));
   try {
     const workspace = await repository.createWorkspace({ name: "Studio" });
+    const project = await repository.createProjectDirectory({
+      workspaceId: workspace.id,
+      name: "Checkout",
+      path: process.cwd(),
+    });
     const agent = await repository.createAgent({
       workspaceId: workspace.id,
       name: "Reviewer",
@@ -158,6 +165,7 @@ test("runs task through approval, review, and approval persistence", async () =>
       workspaceId: workspace.id,
       title: "Review checkout",
       assigneeAgentId: agent.id,
+      projectId: project.id,
     });
     const orchestrator = new Orchestrator(repository, new ApprovalRuntime(), new EventBus(), {
       generalWorkingDirectory,
@@ -218,8 +226,7 @@ test("reopens a completed Task from the selected Run and preserves its origin", 
     });
 
     const originalRun = await orchestrator.startTask(task.id);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
-    await orchestrator.approveTask(task.id);
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
 
     const resumedRun = await orchestrator.resumeTaskSession(
       task.id,
@@ -229,7 +236,7 @@ test("reopens a completed Task from the selected Run and preserves its origin", 
     assert.equal(resumedRun.resumedFromRunId, originalRun.id);
     assert.equal((await repository.getRun(resumedRun.id))?.resumedFromRunId, originalRun.id);
     assert.deepEqual(resumedThreadIds, [undefined, "original-session"]);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
   } finally {
     repository.close();
   }
@@ -264,7 +271,7 @@ test("retries a failed task without creating a replacement task", async () => {
     assert.equal((await repository.getTask(task.id))?.status, "needs_input");
 
     await orchestrator.resolveApproval(run.id, "approval-1", "accept");
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
   } finally {
     repository.close();
   }
@@ -314,7 +321,7 @@ test("reserves exactly one run when the same task starts concurrently", async ()
     assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
     assert.equal(results.filter((result) => result.status === "rejected").length, 1);
     assert.equal((await repository.listRuns(task.id)).length, 1);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
   } finally {
     repository.close();
   }
@@ -547,67 +554,6 @@ test("rejects a run reservation when the assignee changes after agent preparatio
   }
 });
 
-test("rejects a non-workflow reservation when workflow is configured concurrently", async () => {
-  const repository = new Repository(openDatabase(":memory:"));
-  try {
-    const workspace = await repository.createWorkspace({ name: "Studio" });
-    const agents = await Promise.all(
-      ["First", "Second"].map((name) =>
-        repository.createAgent({
-          workspaceId: workspace.id,
-          name,
-          role: "Build",
-          model: "codex",
-          skillIds: [],
-          permissions: { fileRead: true, terminal: true },
-        }),
-      ),
-    );
-    const task = await repository.createTask({
-      workspaceId: workspace.id,
-      title: "Keep workflow stable",
-      assigneeAgentId: agents[0]!.id,
-    });
-    const originalListRuns = repository.listRuns.bind(repository);
-    let resumeReservation!: () => void;
-    const reservationPaused = new Promise<void>((resolve) => {
-      resumeReservation = resolve;
-    });
-    let runCheckReached!: () => void;
-    const runCheckPaused = new Promise<void>((resolve) => {
-      runCheckReached = resolve;
-    });
-    let pauseNextRunCheck = true;
-    repository.listRuns = async (taskId) => {
-      const runs = await originalListRuns(taskId);
-      if (pauseNextRunCheck) {
-        pauseNextRunCheck = false;
-        runCheckReached();
-        await reservationPaused;
-      }
-      return runs;
-    };
-    const orchestrator = new Orchestrator(repository, new ApprovalRuntime(), new EventBus(), {
-      generalWorkingDirectory,
-    });
-
-    const start = orchestrator.startTask(task.id);
-    await runCheckPaused;
-    await repository.setTaskWorkflow(
-      task.id,
-      agents.map((agent) => agent.id),
-    );
-    resumeReservation();
-
-    await assert.rejects(start, /실행 예약 중 Task Workflow가 변경되었습니다/);
-    assert.equal((await repository.listWorkflowSteps(task.id)).length, 2);
-    assert.equal((await repository.getTask(task.id))?.status, "todo");
-    assert.equal((await originalListRuns(task.id)).length, 0);
-  } finally {
-    repository.close();
-  }
-});
-
 test("rolls back retry reservation when activity persistence fails", async () => {
   const database = openDatabase(":memory:");
   const repository = new Repository(database);
@@ -621,35 +567,22 @@ test("rolls back retry reservation when activity persistence fails", async () =>
       skillIds: [],
       permissions: { fileRead: true, terminal: true },
     });
-    const failedAgent = await repository.createAgent({
-      workspaceId: workspace.id,
-      name: "Developer",
-      role: "Build",
-      model: "codex",
-      skillIds: [],
-      permissions: { fileRead: true, terminal: true },
-    });
     const task = await repository.createTask({
       workspaceId: workspace.id,
       title: "Retry atomically",
       assigneeAgentId: firstAgent.id,
     });
-    const steps = await repository.setTaskWorkflow(task.id, [firstAgent.id, failedAgent.id]);
     await repository.transitionTask(task.id, "working");
     const failedRun = await repository.createRun({
       id: "failed-run",
       taskId: task.id,
-      agentId: failedAgent.id,
+      agentId: firstAgent.id,
       runtime: "codex",
       scopeType: "general",
       workingDirectory: generalWorkingDirectory,
       cleanupPolicy: "preserve",
     });
     await repository.updateRun(failedRun.id, { status: "failed", error: "failed" });
-    await repository.updateWorkflowStep(steps[1]!.id, {
-      status: "failed",
-      runId: failedRun.id,
-    });
     await repository.transitionTask(task.id, "failed");
     database.exec(`CREATE TRIGGER fail_task_started BEFORE INSERT ON activity_logs
       WHEN NEW.type = 'task_started' BEGIN SELECT RAISE(ABORT, 'injected activity failure'); END`);
@@ -661,8 +594,6 @@ test("rolls back retry reservation when activity persistence fails", async () =>
 
     assert.equal((await repository.getTask(task.id))?.status, "failed");
     assert.equal((await repository.getTask(task.id))?.assigneeAgentId, firstAgent.id);
-    assert.equal((await repository.listWorkflowSteps(task.id))[1]?.status, "failed");
-    assert.equal((await repository.listWorkflowSteps(task.id))[1]?.runId, failedRun.id);
     assert.equal((await repository.listRuns(task.id)).length, 1);
   } finally {
     repository.close();
@@ -766,7 +697,7 @@ test("routes a Claude agent through the runtime contract", async () => {
       generalWorkingDirectory,
     });
     await orchestrator.startTask(task.id);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
     assert.equal(selectedRuntime, "claude");
     assert.equal(selectedDirectory, generalWorkingDirectory);
     assert.equal((await repository.latestRun(task.id))?.scopeType, "general");
@@ -820,7 +751,7 @@ test("uses only the selected project folder for a project-scoped run", async () 
       generalWorkingDirectory,
     });
     await orchestrator.startTask(task.id);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
     assert.equal(selectedDirectory, process.cwd());
     assert.equal((await repository.latestRun(task.id))?.scopeType, "project");
     assert.equal((await repository.latestRun(task.id))?.scopeProjectId, project.id);
@@ -990,83 +921,9 @@ test("runs a conversational agent in its project folder without file or terminal
       generalWorkingDirectory: "Z:\\invalid-chat-fallback",
     });
     await orchestrator.startTask(task.id);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
     assert.equal(conversational, true);
     assert.equal(selectedDirectory, process.cwd());
-  } finally {
-    repository.close();
-  }
-});
-
-test("runs sequential agents and hands each result to the next step", async () => {
-  const repository = new Repository(openDatabase(":memory:"));
-  const prompts: string[] = [];
-  let call = 0;
-  const runtime: RuntimeAdapter = {
-    async run(input, callbacks) {
-      prompts.push(input.prompt);
-      call += 1;
-      const completed = {
-        type: "completed",
-        result: { summary: `step-${call}-result` },
-      } as const;
-      callbacks.onEvent({ type: "started", threadId: `thread-${call}` });
-      callbacks.onEvent(completed);
-      return {
-        runId: input.runId,
-        threadId: `thread-${call}`,
-        turnId: input.runId,
-        events: [completed],
-      };
-    },
-    cancel: () => false,
-    resolveApproval: () => false,
-  };
-  try {
-    const workspace = await repository.createWorkspace({ name: "Studio" });
-    const reviewer = await repository.createAgent({
-      workspaceId: workspace.id,
-      name: "UI Reviewer",
-      role: "Analyze UI",
-      model: "codex",
-      skillIds: [],
-      permissions: { fileRead: true, terminal: true },
-    });
-    const developer = await repository.createAgent({
-      workspaceId: workspace.id,
-      name: "Frontend Developer",
-      role: "Implement UI",
-      model: "claude",
-      skillIds: [],
-      permissions: { fileRead: true, terminal: true },
-    });
-    const task = await repository.createTask({
-      workspaceId: workspace.id,
-      title: "Improve checkout",
-      description: "Preserve the existing payment flow and add regression coverage.",
-      assigneeAgentId: reviewer.id,
-    });
-    await repository.setTaskWorkflow(task.id, [reviewer.id, developer.id]);
-
-    const orchestrator = new Orchestrator(repository, runtime, new EventBus(), {
-      generalWorkingDirectory,
-      concurrentRunLimit: 1,
-    });
-    await orchestrator.startTask(task.id);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
-
-    assert.equal((await repository.listRuns(task.id)).length, 2);
-    assert.deepEqual(
-      (await repository.listWorkflowSteps(task.id)).map((step) => step.status),
-      ["completed", "completed"],
-    );
-    assert.match(prompts[1] ?? "", /step-1-result/);
-    assert.match(
-      prompts[0] ?? "",
-      /Preserve the existing payment flow and add regression coverage/,
-    );
-    assert.equal((await repository.getTask(task.id))?.assigneeAgentId, developer.id);
-    assert.equal((await repository.getTask(task.id))?.result?.summary, "step-2-result");
   } finally {
     repository.close();
   }
@@ -1163,7 +1020,7 @@ test("warns before the session limit and extends the existing runtime session", 
     assert.ok(published.includes("session.limit_reached"));
 
     await orchestrator.extendTaskSession(task.id);
-    await waitFor(async () => (await repository.getTask(task.id))?.status === "needs_review");
+    await waitFor(async () => (await repository.getTask(task.id))?.status === "done");
     assert.equal((await repository.getTask(task.id))?.result?.summary, "이어하기 완료");
     assert.equal(resumedThreads[1], "session-1");
     assert.match(prompts[1] ?? "", /SAME WORK SESSION CONTINUATION/);

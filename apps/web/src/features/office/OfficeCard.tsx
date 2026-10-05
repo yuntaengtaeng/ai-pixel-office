@@ -15,7 +15,7 @@ export const OfficeLoading = styled.div`
   display: grid;
   min-height: 360px;
   place-items: center;
-  border: 3px solid ${({ theme }) => theme.colors.border.strong};
+  border: 1px solid ${({ theme }) => theme.colors.border.strong};
   background: ${({ theme }) => theme.colors.background.surfaceMuted};
   color: ${({ theme }) => theme.colors.text.secondary};
   font-family: ${({ theme }) => theme.typography.fontFamily.mono};

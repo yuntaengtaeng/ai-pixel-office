@@ -34,7 +34,7 @@ const Styled = {
       cursor: pointer;
 
       &.selected {
-        border: 2px solid ${({ theme }) => theme.colors.border.positive};
+        border: 1px solid ${({ theme }) => theme.colors.border.positive};
         background: ${({ theme }) => theme.colors.background.positiveSubtle};
         color: ${({ theme }) => theme.colors.text.positive};
       }

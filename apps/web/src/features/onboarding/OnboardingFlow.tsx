@@ -64,7 +64,7 @@ const Content = styled.div`
 const OnboardingTitle = styled.header`
   display: grid;
   gap: ${({ theme }) => theme.space.x2};
-  color: ${({ theme }) => theme.colors.text.inverse};
+  color: ${({ theme }) => theme.colors.text.primary};
   span {
     color: ${({ theme }) => theme.colors.semantic.warning};
     font-family: ${({ theme }) => theme.typography.fontFamily.mono};
@@ -94,8 +94,8 @@ const StepNav = styled.ol`
     grid-template-columns: 24px 1fr;
     align-items: center;
     gap: ${({ theme }) => theme.space.x2};
-    border: 2px solid transparent;
-    color: ${({ theme }) => theme.colors.text.inverse};
+    border: 1px solid transparent;
+    color: ${({ theme }) => theme.colors.text.primary};
     opacity: 0.72;
     font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   }
@@ -106,14 +106,14 @@ const StepNav = styled.ol`
     padding: 2px;
   }
   li[data-complete="true"] {
-    color: ${({ theme }) => theme.colors.text.inverse};
+    color: ${({ theme }) => theme.colors.text.primary};
     opacity: 1;
   }
   li[aria-current="step"] {
     background: ${({ theme }) => theme.colors.background.surfaceMuted};
     color: ${({ theme }) => theme.colors.text.primary};
     border-color: ${({ theme }) => theme.colors.border.strong};
-    box-shadow: 4px 4px 0 ${({ theme }) => theme.colors.shadow.default};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.shadow.default};
     opacity: 1;
   }
   @media ${mediaQuery.md} {
@@ -215,7 +215,7 @@ const PetChoices = styled.div`
     display: flex;
     align-items: center;
     gap: ${({ theme }) => theme.space.x3};
-    border: 2px solid ${({ theme }) => theme.colors.border.subtle};
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
     background: ${({ theme }) => theme.colors.background.surfaceRaised};
     text-align: left;
     cursor: pointer;
@@ -223,7 +223,7 @@ const PetChoices = styled.div`
   button[aria-checked="true"] {
     border-color: ${({ theme }) => theme.colors.border.positive};
     background: ${({ theme }) => theme.colors.background.positiveSubtle};
-    box-shadow: 3px 3px 0 ${({ theme }) => theme.colors.shadow.positive};
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.shadow.positive};
   }
   button span {
     display: grid;

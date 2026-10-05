@@ -22,6 +22,15 @@ export const STATUS: Record<TaskStatus, { label: string; icon: string; color: st
   failed: { label: "실패", icon: "×", color: colors.status.failed },
 };
 
+/** 기안서 상태 표시 (같은 프로젝트 폴더가 비기를 기다리는 순서 대기 포함) */
+export const REQUEST_STATE: Record<
+  TaskStatus | "queued",
+  { label: string; icon: string; color: string }
+> = {
+  ...STATUS,
+  queued: { label: "순서 대기", icon: "…", color: colors.status.queued },
+};
+
 export const PRIORITY_COLORS: Record<NonNullable<Task["priority"]>, string> = colors.priority;
 
 export const PERMISSIONS: Array<{ key: keyof AgentPermissions; label: string }> = [

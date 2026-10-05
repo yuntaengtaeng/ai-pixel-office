@@ -1,22 +1,25 @@
 import type {
   Agent,
+  AgentModel,
   AgentRun,
   AgentRunStatus,
   AgentTaskTemplate,
   Project,
   RunUsage,
-  Skill,
   Task,
   TaskResult,
   TaskStatus,
-  TaskWorkflowStep,
-  WorkflowPreset,
-  WorkflowStepStatus,
   Workspace,
 } from "@ai-pixel-office/domain";
+import { isResultFormat } from "@ai-pixel-office/domain";
 import type { AppDatabase } from "../database.ts";
 
 export type Row = Record<string, unknown>;
+
+/** 저장된 runtime 이름 (알 수 없는 값이면 없음) */
+export function agentModelOf(value: unknown): AgentModel | undefined {
+  return value === "claude" || value === "codex" ? value : undefined;
+}
 
 export function now(): string {
   return new Date().toISOString();
@@ -55,22 +58,13 @@ export function projectFrom(row: Row): Project {
     status: row.status as Project["status"],
     figmaUrl: optional(row.figma_url),
     path: optional(row.working_directory),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
-  };
-}
-
-export function skillFrom(row: Row): Skill {
-  return {
-    id: String(row.id),
-    workspaceId: optional(row.workspace_id),
-    name: String(row.name),
-    category: String(row.category),
-    description: String(row.description),
-    instructions: String(row.instructions),
-    tools: json(row.tools_json, []),
-    requiredPermissions: json(row.required_permissions_json, []),
-    outputSchema: json<Record<string, unknown> | undefined>(row.output_schema_json, undefined),
+    memo: optional(row.memo),
+    verificationCommands: json<string[]>(row.verification_commands_json, []),
+    setupCommand: optional(row.setup_command),
+    copyFiles: json<string[]>(row.copy_files_json, []),
+    defaultAgentId: optional(row.default_agent_id),
+    previewUrl: optional(row.preview_url),
+    leadRuntime: agentModelOf(row.lead_runtime),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -90,34 +84,15 @@ export function taskFrom(row: Row): Task {
     workingDirectory: optional(row.working_directory),
     result: json<TaskResult | undefined>(row.result_json, undefined),
     origin: (row.origin === "chat" ? "chat" : "office") as Task["origin"],
+    resultFormat: isResultFormat(row.result_format) ? row.result_format : undefined,
+    ...(row.modifies_files === 0 ? { modifiesFiles: false } : {}),
+    planId: optional(row.plan_id),
+    ...(row.waits_for_json ? { waitsFor: json<string[]>(row.waits_for_json, []) } : {}),
+    ...(Number(row.review_before_next ?? 0) === 1 ? { reviewBeforeNext: true } : {}),
+    queuedBehind: optional(row.queued_behind),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     completedAt: optional(row.completed_at),
-  };
-}
-
-export function workflowStepFrom(row: Row): TaskWorkflowStep {
-  return {
-    id: String(row.id),
-    taskId: String(row.task_id),
-    agentId: String(row.agent_id),
-    position: Number(row.position),
-    status: row.status as WorkflowStepStatus,
-    runId: optional(row.run_id),
-    result: json<TaskResult | undefined>(row.result_json, undefined),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
-  };
-}
-
-export function workflowPresetFrom(row: Row): WorkflowPreset {
-  return {
-    id: String(row.id),
-    workspaceId: String(row.workspace_id),
-    name: String(row.name),
-    agentIds: json<string[]>(row.agent_ids_json, []),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
   };
 }
 
@@ -179,6 +154,7 @@ export function agentFrom(database: AppDatabase, row: Row): Agent {
     permissions: json(row.permissions_json, {}),
     systemPrompt: optional(row.system_prompt),
     workingDirectory: optional(row.working_directory),
+    sourceTeam: optional(row.source_team),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };

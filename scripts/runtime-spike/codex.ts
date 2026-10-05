@@ -36,6 +36,8 @@ export type CodexSpikeOptions = {
   prompt: string;
   attachments?: CodexAttachment[];
   cwd?: string;
+  /** app-server가 추가로 읽을 Skill 폴더 경로 */
+  skillRoots?: string[];
   model?: string;
   reasoningEffort?: ReasoningEffort;
   resumeThreadId?: string;
@@ -124,6 +126,9 @@ export async function runCodexSpike(options: CodexSpikeOptions): Promise<CodexSp
     if (options.signal?.aborted) throw new Error("Run cancelled before start");
     client.start();
     await client.initialize();
+    if (options.skillRoots?.length) {
+      await client.request("skills/extraRoots/set", { extraRoots: options.skillRoots });
+    }
 
     if (options.resumeThreadId) {
       const resumed = await client.request<ThreadStartResult>("thread/resume", {

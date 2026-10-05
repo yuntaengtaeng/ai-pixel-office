@@ -31,7 +31,7 @@ const Styled = {
     grid-column: 1 / -1;
     margin: 0;
     padding: ${({ theme }) => theme.space.x3};
-    border: 2px solid ${({ theme }) => theme.colors.feedback.info.border};
+    border: 1px solid ${({ theme }) => theme.colors.feedback.info.border};
     background: ${({ theme }) => theme.colors.feedback.info.background};
     color: ${({ theme }) => theme.colors.text.primary};
     font-size: ${({ theme }) => theme.typography.fontSize.compact};

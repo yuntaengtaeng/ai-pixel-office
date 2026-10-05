@@ -12,6 +12,12 @@ export type AgentEvent =
       details?: Record<string, unknown>;
     }
   | { type: "artifact_created"; artifact: { name: string; type: string; path?: string } }
+  /** 셸 명령 실행이 끝남 (exitCode는 runtime이 알려줄 때만) */
+  | { type: "command_finished"; command: string; succeeded: boolean; exitCode?: number }
+  /** 파일 쓰기·수정 도구가 성공함 */
+  | { type: "files_changed"; paths: string[] }
+  /** 앱 보고 도구로 결과를 제출함 */
+  | { type: "result_reported"; result: unknown }
   | {
       type: "usage_updated";
       usage: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number };

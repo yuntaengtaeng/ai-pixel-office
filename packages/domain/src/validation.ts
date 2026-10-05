@@ -6,12 +6,12 @@ import type {
   CreateSkillInput,
   CreateTaskInput,
   CreateWorkspaceInput,
-  ToolBinding,
+  ResultFormat,
   UpdateAgentInput,
-  UpdateSkillInput,
   UpdateTaskInput,
   UpdateWorkspaceInput,
 } from "./entities.ts";
+import { isResultFormat, RESULT_FORMATS } from "./entities.ts";
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -81,19 +81,6 @@ function permissions(value: unknown): AgentPermissions {
   return result;
 }
 
-function tools(value: unknown): ToolBinding[] {
-  if (!Array.isArray(value)) throw new DomainError("INVALID_FIELD", "tools must be an array");
-  return value.map((entry, index) => {
-    const item = object(entry);
-    return {
-      name: string(item.name, `tools[${index}].name`) as string,
-      ...(item.config && typeof item.config === "object" && !Array.isArray(item.config)
-        ? { config: item.config as Record<string, unknown> }
-        : {}),
-    };
-  });
-}
-
 export function parseCreateWorkspace(value: unknown): CreateWorkspaceInput {
   const body = object(value);
   return {
@@ -158,6 +145,9 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
   };
 }
 
+/** 스킬 폴더 이름 규칙(Agent Skills 표준): 소문자, 숫자, `-`, 64자 이하 */
+export const SKILL_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
 export function parseCreateSkill(value: unknown): CreateSkillInput {
   const body = object(value);
   const requiredPermissions = stringArray(body.requiredPermissions ?? [], "requiredPermissions");
@@ -166,46 +156,32 @@ export function parseCreateSkill(value: unknown): CreateSkillInput {
       throw new DomainError("INVALID_FIELD", `Unknown required permission: ${permission}`);
     }
   }
+  const id = optionalString(body.id, "id");
+  if (id !== undefined && !SKILL_ID_PATTERN.test(id)) {
+    throw new DomainError(
+      "INVALID_FIELD",
+      "id must use lowercase letters, numbers and hyphens (max 64 characters)",
+    );
+  }
   return {
-    workspaceId: optionalString(body.workspaceId, "workspaceId"),
-    name: string(body.name, "name") as string,
+    ...(id ? { id } : {}),
+    title: string(body.title ?? body.name, "title") as string,
     category: string(body.category, "category") as string,
     description: string(body.description, "description") as string,
     instructions: string(body.instructions, "instructions") as string,
-    tools: tools(body.tools ?? []),
     requiredPermissions: requiredPermissions as CreateSkillInput["requiredPermissions"],
-    ...(body.outputSchema &&
-    typeof body.outputSchema === "object" &&
-    !Array.isArray(body.outputSchema)
-      ? { outputSchema: body.outputSchema as Record<string, unknown> }
-      : {}),
   };
 }
 
-export function parseUpdateSkill(value: unknown): UpdateSkillInput {
-  const body = object(value);
-  const createLike = parseCreateSkill({
-    name: body.name ?? "placeholder",
-    category: body.category ?? "placeholder",
-    description: body.description ?? "placeholder",
-    instructions: body.instructions ?? "placeholder",
-    tools: body.tools ?? [],
-    requiredPermissions: body.requiredPermissions ?? [],
-    outputSchema: body.outputSchema,
-  });
-  const result: UpdateSkillInput = {};
-  for (const key of [
-    "name",
-    "category",
-    "description",
-    "instructions",
-    "tools",
-    "requiredPermissions",
-    "outputSchema",
-  ] as const) {
-    if (body[key] !== undefined) Object.assign(result, { [key]: createLike[key] });
+function optionalResultFormat(value: unknown): ResultFormat | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isResultFormat(value)) {
+    throw new DomainError(
+      "INVALID_FIELD",
+      `resultFormat must be one of ${RESULT_FORMATS.join(", ")}`,
+    );
   }
-  return result;
+  return value;
 }
 
 export function parseCreateTask(value: unknown): CreateTaskInput {
@@ -231,6 +207,7 @@ export function parseCreateTask(value: unknown): CreateTaskInput {
     priority,
     projectId: optionalString(body.projectId, "projectId"),
     origin: (body.origin as CreateTaskInput["origin"]) ?? "office",
+    resultFormat: optionalResultFormat(body.resultFormat),
   };
 }
 

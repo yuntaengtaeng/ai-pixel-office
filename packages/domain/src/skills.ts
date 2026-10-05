@@ -27,16 +27,17 @@ export function assertSkillsRunnable(agent: Agent, skills: Skill[]): void {
   }
 }
 
+/** Agent 실행 지침 생성 (스킬은 본문 대신 id와 설명 목록만 포함) */
 export function compileAgentInstructions(agent: Agent, skills: Skill[], task: Task): string {
   assertSkillsRunnable(agent, skills);
-  const skillSections = skills
-    .map(
-      (skill) =>
-        `SKILL: ${skill.name.toUpperCase()}\n${skill.instructions.trim()}\n\nEXPECTED TOOLS\n${
-          skill.tools.map((tool) => `- ${tool.name}`).join("\n") || "- none"
-        }`,
-    )
-    .join("\n\n");
+  const skillSections =
+    skills.length > 0
+      ? [
+          "SKILLS",
+          "Use these skills when they apply. Load a skill before following it.",
+          ...skills.map((skill) => `- ${skill.id}: ${skill.description}`),
+        ].join("\n")
+      : "";
 
   return [
     "SYSTEM",

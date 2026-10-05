@@ -12,30 +12,32 @@ import {
   OFFICE_STATUS_GROUP_META,
   officeStatusGroup,
 } from "./utils/agentOfficeState.ts";
-import {
-  OFFICE_WIDTH,
-  desk,
-  hash,
-  officeLayout,
-  petGraphic,
-  roomBackground,
-} from "./utils/canvasScene.ts";
+import { OFFICE_PALETTE } from "./utils/officePalette.ts";
+import { desk, hash, petGraphic, roomBackground } from "./utils/canvasScene.ts";
+import { OFFICE_WIDTH, officeFloorPlan, planSeats, type Point } from "./utils/officeFloorPlan.ts";
+import { corridorPath, startWalk } from "./utils/petWalk.ts";
+import { loadCanvasFonts } from "./utils/canvasFonts.ts";
+
+/** 캔버스 내부 해상도 배율 (화면에 맞춰 줄여도 글자 획이 남는 최소 2배) */
+const MIN_RENDER_RESOLUTION = 2;
+const MAX_RENDER_RESOLUTION = 3;
+/** 자리 좌표에서 펫을 그리는 위치까지 올라가는 거리 */
+const PET_RISE_FROM_SEAT = 70;
 
 const Office = styled.div`
   position: relative;
   width: 100%;
   aspect-ratio: 760 / 420;
   overflow: hidden;
-  background: #ead8bd;
-  border: 3px solid ${({ theme }) => theme.colors.border.strong};
-  box-shadow: inset 0 0 0 3px #f8e9ce;
+  background: ${OFFICE_PALETTE.floor};
+  border: 1px solid ${({ theme }) => theme.colors.border.strong};
   line-height: 0;
 `;
 
 const Stage = styled.div`
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, #f2dfbf 0 30%, #9f6d4e 30% 32%, #d6aa76 32% 100%);
+  background: ${OFFICE_PALETTE.floor};
 `;
 
 const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
@@ -46,8 +48,8 @@ const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
   place-content: center;
   justify-items: center;
   gap: ${({ theme }) => theme.space.x3};
-  color: #6f5c4c;
-  background: linear-gradient(to bottom, #f2dfbf 0 30%, #9f6d4e 30% 32%, #d6aa76 32% 100%);
+  color: ${OFFICE_PALETTE.label};
+  background: ${OFFICE_PALETTE.floor};
   font-family: ${({ theme }) => theme.typography.fontFamily.mono};
   font-size: ${({ theme }) => theme.typography.fontSize.compact};
   font-weight: ${({ theme }) => theme.typography.fontWeight.black};
@@ -63,10 +65,10 @@ const BootState = styled.div<{ $hidden: boolean; $error: boolean }>`
   > span {
     width: 42px;
     padding: ${({ theme }) => `${theme.space.x2} 0`};
-    border: 2px solid ${({ theme }) => theme.colors.border.strong};
-    background: #f8e9ce;
-    box-shadow: 3px 3px 0 #9f6d4e;
-    color: ${({ $error }) => ($error ? "#9b403d" : "#4e8874")};
+    border: 1px solid ${({ theme }) => theme.colors.border.strong};
+    background: ${OFFICE_PALETTE.furniture};
+    box-shadow: 0 0 0 1px ${OFFICE_PALETTE.furnitureLine};
+    color: ${({ $error }) => ($error ? OFFICE_PALETTE.error : OFFICE_PALETTE.working)};
     text-align: center;
     letter-spacing: 3px;
   }
@@ -86,7 +88,7 @@ const EmptyLabel = styled.div`
   left: 50%;
   top: 59%;
   transform: translate(-50%, -50%);
-  color: #705b4e;
+  color: ${OFFICE_PALETTE.label};
   font-size: clamp(11px, 1.6vw, 18px);
   font-weight: ${({ theme }) => theme.typography.fontWeight.black};
 `;
@@ -148,14 +150,32 @@ const Styled = {
   AccessibleDot,
 };
 
+type WalkingLabel = { element: HTMLElement; pet: AnimatedPet; target: Point };
+
+/** 걷는 동안 이름표를 펫 위치에 맞춰 옮기고, 도착한 펫의 이름표는 제자리로 돌림 */
+function followWalkingPets(labels: WalkingLabel[], scale: number): void {
+  for (let index = labels.length - 1; index >= 0; index -= 1) {
+    const { element, pet, target } = labels[index]!;
+    if (pet.walk) {
+      element.style.translate = `${(pet.baseX - target.x) * scale}px ${(pet.baseY - target.y) * scale}px`;
+      continue;
+    }
+    element.style.translate = "";
+    labels.splice(index, 1);
+  }
+}
+
 export function PixelOffice({
   agents,
   tasks,
   onQuickAssign,
   onOpenTask,
+  deskLabels = {},
 }: {
   agents: Agent[];
   tasks: Task[];
+  /** 내 자리로 온 동료가 들고 있는 서류 이름 (동료 id별) */
+  deskLabels?: Record<string, string>;
   onQuickAssign?: (
     agentId: string,
     title: string,
@@ -165,25 +185,31 @@ export function PixelOffice({
   onOpenTask?: (taskId: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const labelLayer = useRef<HTMLDivElement>(null);
   const [canvasState, setCanvasState] = useState<"loading" | "ready" | "error">("loading");
   const [now, setNow] = useState(() => Date.now());
-  const { positions, height: roomHeight } = useMemo(
-    () => officeLayout(agents.length),
-    [agents.length],
-  );
+  const plan = useMemo(() => officeFloorPlan(agents.length), [agents.length]);
+  const roomHeight = plan.height;
   const sceneCharacters = agents.map((agent) => {
     const { latestTask, status } = agentOfficeState(agent, tasks);
     const recentlyDone =
       latestTask?.status === "done" && now - new Date(latestTask.updatedAt).getTime() < 15_000;
     return { agent, status: recentlyDone ? ("done" as const) : status };
   });
+  const seats = planSeats(
+    sceneCharacters.map(({ status }) => status),
+    plan,
+  );
+  const seatsRef = useRef(seats);
+  const previousSeats = useRef(new Map<string, Point>());
   const sceneCharactersRef = useRef(sceneCharacters);
   const sceneSignature = sceneCharacters
     .map(({ agent, status }) => `${agent.id}:${agent.avatarId}:${agent.model}:${status}`)
     .join("|");
   useEffect(() => {
     sceneCharactersRef.current = sceneCharacters;
-  }, [sceneCharacters]);
+    seatsRef.current = seats;
+  }, [sceneCharacters, seats]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -199,17 +225,21 @@ export function PixelOffice({
     let motionPreference: MediaQueryList | undefined;
     let updateMotionPreference: ((event: MediaQueryListEvent) => void) | undefined;
     const characters = sceneCharactersRef.current;
+    const walkingLabels: WalkingLabel[] = [];
 
     void (async () => {
       const app = new Application();
       try {
         await app.init({
           width: OFFICE_WIDTH,
-          height: roomHeight,
+          height: plan.height,
           antialias: false,
           autoDensity: true,
-          resolution: Math.min(window.devicePixelRatio || 1, 2),
-          backgroundColor: "#ead8bd",
+          resolution: Math.min(
+            Math.max(window.devicePixelRatio || 1, MIN_RENDER_RESOLUTION),
+            MAX_RENDER_RESOLUTION,
+          ),
+          backgroundColor: OFFICE_PALETTE.floor,
         });
       } catch (error) {
         if (!disposed) {
@@ -224,17 +254,23 @@ export function PixelOffice({
       }
       application = app;
       app.canvas.className = "office-canvas";
-      app.stage.addChild(roomBackground(roomHeight));
+      await loadCanvasFonts();
+      if (disposed) {
+        app.destroy(true, { children: true });
+        return;
+      }
+      app.stage.addChild(roomBackground(plan));
 
       const textures = new Map<string, Texture>();
       await Promise.all(
         characters.map(async ({ agent }) => {
           const petId = getPet(agent.avatarId, hash(agent.id)).id;
           try {
-            textures.set(
-              petId,
-              await Assets.load(getPetSpriteUrl(agent.avatarId ?? "", hash(agent.id))),
+            const texture = await Assets.load<Texture>(
+              getPetSpriteUrl(agent.avatarId ?? "", hash(agent.id)),
             );
+            texture.source.scaleMode = "nearest";
+            textures.set(petId, texture);
           } catch {
             // 이미지 에셋이 없는 펫은 기존 절차적 렌더러로 표시
           }
@@ -245,27 +281,46 @@ export function PixelOffice({
         return;
       }
 
-      positions.forEach(([x, y], index) =>
-        app.stage.addChild(desk(x, y, characters[index]?.agent.model)),
+      plan.desks.forEach((point, index) =>
+        app.stage.addChild(desk(point.x, point.y, characters[index]?.agent.model)),
       );
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
       const animated: AnimatedPet[] = [];
       characters.forEach(({ agent, status }, index) => {
-        const [deskX, deskY] = positions[index]!;
+        const seat = seatsRef.current[index]!;
+        const target = { x: seat.x, y: seat.y - PET_RISE_FROM_SEAT };
+        const previous = previousSeats.current.get(agent.id);
+        const moved = previous && (previous.x !== target.x || previous.y !== target.y);
+        const walk =
+          moved && !prefersReducedMotion
+            ? startWalk(
+                corridorPath(previous, target, plan.aisleY - PET_RISE_FROM_SEAT),
+                performance.now(),
+              )
+            : undefined;
+        previousSeats.current.set(agent.id, target);
         const item = new Container();
         const pet = petGraphic(agent, textures.get(getPet(agent.avatarId, hash(agent.id)).id));
         pet.position.set(37, -4);
         item.addChild(pet);
-        item.position.set(deskX!, deskY! - 70);
+        const start = walk ? walk.path[0]! : target;
+        item.position.set(start.x, start.y);
         app.stage.addChild(item);
-        animated.push({
+        const character: AnimatedPet = {
+          walk,
           item,
-          baseX: item.x,
-          baseY: item.y,
+          baseX: start.x,
+          baseY: start.y,
           status,
           phase: index * 0.7,
           petId: agent.avatarId,
-        });
+        };
+        animated.push(character);
+        const label = labelLayer.current?.querySelector<HTMLElement>(
+          `[data-agent-id="${agent.id}"]`,
+        );
+        if (walk && label) walkingLabels.push({ element: label, pet: character, target });
       });
 
       motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -277,7 +332,9 @@ export function PixelOffice({
       animation = (ticker) => {
         if (reduceMotion) return;
         const time = performance.now() / 350;
-        for (const character of animated) animatePet(character, time, ticker.deltaTime);
+        const nowMs = performance.now();
+        for (const character of animated) animatePet(character, time, ticker.deltaTime, nowMs);
+        followWalkingPets(walkingLabels, element.clientWidth / OFFICE_WIDTH);
       };
       app.ticker.add(animation);
       app.render();
@@ -292,11 +349,12 @@ export function PixelOffice({
         application.stop();
         application.destroy(true, { children: true });
       }
+      for (const { element: label } of walkingLabels) label.style.translate = "";
       if (motionPreference && updateMotionPreference)
         motionPreference.removeEventListener("change", updateMotionPreference);
       element.replaceChildren();
     };
-  }, [positions, roomHeight, sceneSignature]);
+  }, [plan, sceneSignature]);
 
   const labels = agents.map((agent, index) => {
     const { latestTask, status } = agentOfficeState(agent, tasks);
@@ -306,8 +364,10 @@ export function PixelOffice({
     const recentlyDone =
       latestTask?.status === "done" && now - new Date(latestTask.updatedAt).getTime() < 15_000;
     const cycleSecond = Math.floor(now / 1_000) + (Math.abs(hash(agent.id)) % 13);
-    const message = petMessage({ petId: agent.avatarId, status, recentlyDone, cycleSecond });
-    const [x, y] = positions[index]!;
+    const message =
+      deskLabels[agent.id] ??
+      petMessage({ petId: agent.avatarId, status, recentlyDone, cycleSecond });
+    const { x, y } = seats[index]!;
     return {
       agent,
       message,
@@ -337,7 +397,7 @@ export function PixelOffice({
             ? "픽셀 오피스를 불러오지 못했습니다."
             : "픽셀 오피스를 준비하는 중..."}
         </Styled.BootState>
-        <Styled.LabelLayer $ready={canvasState === "ready"}>
+        <Styled.LabelLayer ref={labelLayer} $ready={canvasState === "ready"}>
           {labels.map(({ agent, message, tasks: agentTasks, status, left, top }) => (
             <AgentQuickAssign
               key={agent.id}

@@ -27,15 +27,6 @@ const Styled = {
     display: grid;
     gap: ${({ theme }) => theme.space.x1};
   `,
-  AgentLabel: styled.small`
-    color: ${({ theme }) => theme.colors.text.muted};
-    font-size: ${({ theme }) => theme.typography.fontSize.xs};
-    font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-
-    span {
-      font-weight: ${({ theme }) => theme.typography.fontWeight.regular};
-    }
-  `,
   Bubble: styled.div<{
     $from: "user" | "agent";
     $failed?: boolean;
@@ -45,16 +36,12 @@ const Styled = {
     min-width: 0;
     max-width: ${({ $from }) => ($from === "user" ? "78%" : "100%")};
     padding: ${({ $from, $emphasize, theme }) =>
-      $from === "user"
-        ? `${theme.space.x2} ${theme.space.x4}`
-        : $emphasize
-          ? theme.space.x3
-          : "0"};
+      $from === "user" ? `${theme.space.x2} ${theme.space.x4}` : $emphasize ? theme.space.x3 : "0"};
     border: ${({ $failed, $emphasize, theme }) =>
       $failed
         ? `1px solid ${theme.colors.border.negative}`
         : $emphasize
-          ? `2px solid ${theme.colors.border.positive}`
+          ? `1px solid ${theme.colors.border.positive}`
           : "0"};
     border-radius: ${({ $from, theme }) => ($from === "user" ? theme.radius.xl : "0")};
     background: ${({ $from, $failed, $emphasize, theme }) =>
@@ -109,23 +96,17 @@ const Styled = {
   `,
 };
 
-/**
- * Task 전용 대화 스레드. Chat의 MessageThread와 시각적으로 닮았지만 별도 컴포넌트로 소유한다 —
- * 순차 협업(Workflow)에서는 run마다 담당 에이전트가 달라져 발신자 라벨이 필요한데, 이건 Chat의
- * 1:1 대화에는 없는 요구라 공유 컴포넌트에 조건부로 얹기보다 Task가 직접 소유하는 편이 낫다.
- */
+/** 기안서 대화 스레드 (요청, 동료의 결과, 실패, 진행 중 표시) */
 export function TaskConversationThread({
   runs,
   agents,
   attachmentsByRun,
-  showAgentLabels,
   activeRunStatus,
   emphasizeLastAgentBubble,
 }: {
   runs: AgentRun[];
   agents: Agent[];
   attachmentsByRun: Record<string, Array<Omit<MessageAttachment, "storagePath">>>;
-  showAgentLabels?: boolean;
   activeRunStatus?: "queued" | "running" | "waiting";
   emphasizeLastAgentBubble?: boolean;
 }) {
@@ -152,12 +133,6 @@ export function TaskConversationThread({
               <Styled.Row $from="agent">
                 <PetPreview petId={runAgent?.avatarId ?? ""} size={28} />
                 <Styled.AgentColumn>
-                  {showAgentLabels && (
-                    <Styled.AgentLabel>
-                      {runAgent?.name ?? "에이전트"}
-                      {runAgent?.role && <span> · {runAgent.role}</span>}
-                    </Styled.AgentLabel>
-                  )}
                   <Styled.Bubble
                     $from="agent"
                     $markdown
@@ -172,12 +147,6 @@ export function TaskConversationThread({
               <Styled.Row $from="agent">
                 <PetPreview petId={runAgent?.avatarId ?? ""} size={28} />
                 <Styled.AgentColumn>
-                  {showAgentLabels && (
-                    <Styled.AgentLabel>
-                      {runAgent?.name ?? "에이전트"}
-                      {runAgent?.role && <span> · {runAgent.role}</span>}
-                    </Styled.AgentLabel>
-                  )}
                   <Styled.Bubble $from="agent" $failed>
                     {run.error || "실행이 예기치 않게 종료되었어요"}
                   </Styled.Bubble>
@@ -191,12 +160,6 @@ export function TaskConversationThread({
         <Styled.Row $from="agent">
           <PetPreview petId={pendingAgent?.avatarId ?? ""} size={28} />
           <Styled.AgentColumn>
-            {showAgentLabels && (
-              <Styled.AgentLabel>
-                {chronological.length}단계 · {pendingAgent?.name ?? "에이전트"}
-                {pendingAgent?.role && <span> · {pendingAgent.role}</span>}
-              </Styled.AgentLabel>
-            )}
             <Styled.Pending>
               <Styled.Dots aria-hidden="true">
                 <span />

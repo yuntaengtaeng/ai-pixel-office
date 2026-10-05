@@ -1,6 +1,9 @@
+/** `serif`는 서류 제목과 도장, `pixel`은 동료 이름표용 */
 export const fontFamily = {
-  base: 'Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, sans-serif',
-  mono: 'Consolas, Menlo, "Liberation Mono", monospace',
+  base: '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
+  serif: '"Noto Serif KR", AppleMyungjo, Batang, "Nanum Myeongjo", serif',
+  mono: '"SF Mono", Consolas, Menlo, "Liberation Mono", monospace',
+  pixel: '"SF Mono", Consolas, Menlo, monospace',
 } as const;
 
 /**

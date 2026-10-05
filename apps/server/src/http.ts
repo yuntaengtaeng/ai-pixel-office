@@ -6,10 +6,12 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { DomainError } from "@ai-pixel-office/domain";
 import { EventBus } from "./events.ts";
+import { isLoopbackHost } from "./loopback-host.ts";
 import { Orchestrator } from "./orchestrator.ts";
 import { Repository } from "./repository/index.ts";
 import { KnowledgeDocumentStore } from "./knowledge-documents.ts";
 import type { SkillDraft } from "./skill-draft.ts";
+import { SkillLibrary } from "./skill-library.ts";
 import type { ColleagueFit } from "./colleague-fit.ts";
 import type { AgentModel } from "@ai-pixel-office/domain";
 import { activityRoutes } from "./routes/activities.ts";
@@ -18,15 +20,16 @@ import "./routes/app-types.ts";
 import { performanceRoutes } from "./routes/performance.ts";
 import { petUnlockRoutes } from "./routes/pet-unlocks.ts";
 import { projectRoutes } from "./routes/projects.ts";
+import { leadPlanRoutes, projectLeadRoutes } from "./routes/lead.ts";
 import { runRoutes } from "./routes/runs.ts";
 import { skillRoutes } from "./routes/skills.ts";
 import { systemRoutes } from "./routes/system.ts";
 import { taskRoutes } from "./routes/tasks.ts";
-import { workflowPresetRoutes } from "./routes/workflow-presets.ts";
 import { workspaceRoutes } from "./routes/workspaces.ts";
 import { knowledgeDocumentRoutes } from "./routes/knowledge-documents.ts";
 import { attachmentRoutes } from "./routes/attachments.ts";
 import { storageRoutes } from "./routes/storage.ts";
+import { teamRoutes } from "./routes/teams.ts";
 
 export type AppDependencies = {
   repository: Repository;
@@ -37,6 +40,9 @@ export type AppDependencies = {
   knowledgeDocuments?: KnowledgeDocumentStore;
   corsOrigin?: string;
   staticRoot?: string;
+  skillLibrary?: SkillLibrary;
+  /** bundled Team 패키지 폴더 (없으면 Team 목록이 비어 있음) */
+  bundledTeamsDirectory?: string;
   skillDraftGenerator?: (brief: string) => Promise<SkillDraft>;
   colleagueFitGenerator?: (intent: string, runtime: AgentModel) => Promise<ColleagueFit>;
 };
@@ -65,12 +71,25 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
       new KnowledgeDocumentStore(dependencies.generalWorkingDirectory),
   );
   app.decorate("corsOrigin", corsOrigin);
+  app.decorate(
+    "skillLibrary",
+    dependencies.skillLibrary ??
+      new SkillLibrary(join(dependencies.generalWorkingDirectory, ".library")),
+  );
+  app.decorate("bundledTeamsDirectory", dependencies.bundledTeamsDirectory ?? "");
   if (dependencies.skillDraftGenerator) {
     app.decorate("skillDraftGenerator", dependencies.skillDraftGenerator);
   }
   if (dependencies.colleagueFitGenerator)
     app.decorate("colleagueFitGenerator", dependencies.colleagueFitGenerator);
 
+  app.addHook("onRequest", async (request, reply) => {
+    if (!isLoopbackHost(request.headers.host)) {
+      await reply
+        .status(403)
+        .send({ error: { code: "HOST_NOT_ALLOWED", message: "Only local requests are allowed" } });
+    }
+  });
   void app.register(cors, {
     origin: corsOrigin,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -117,10 +136,12 @@ export function createHttpServer(dependencies: AppDependencies): FastifyInstance
   void app.register(systemRoutes);
   void app.register(workspaceRoutes, { prefix: "/api/workspaces" });
   void app.register(projectRoutes, { prefix: "/api/projects" });
+  void app.register(projectLeadRoutes, { prefix: "/api/projects" });
+  void app.register(leadPlanRoutes, { prefix: "/api/lead-plans" });
   void app.register(skillRoutes, { prefix: "/api/skills" });
+  void app.register(teamRoutes, { prefix: "/api/teams" });
   void app.register(agentRoutes, { prefix: "/api/agents" });
   void app.register(taskRoutes, { prefix: "/api/tasks" });
-  void app.register(workflowPresetRoutes, { prefix: "/api/workflow-presets" });
   void app.register(runRoutes, { prefix: "/api/runs" });
   void app.register(activityRoutes, { prefix: "/api/activities" });
   void app.register(performanceRoutes, { prefix: "/api/performance" });

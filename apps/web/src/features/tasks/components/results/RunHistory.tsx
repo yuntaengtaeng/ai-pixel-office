@@ -130,7 +130,7 @@ const Styled = {
       dd {
         margin: 0;
         overflow-wrap: anywhere;
-        font-family: monospace;
+        font-family: ${({ theme }) => theme.typography.fontFamily.mono};
       }
     }
 
@@ -163,8 +163,8 @@ const Styled = {
       padding: ${({ theme }) => theme.space.x3};
       overflow: auto;
       border: 1px solid ${({ theme }) => theme.colors.border.negative};
-      background: ${({ theme }) => theme.colors.semantic.negative};
-      color: ${({ theme }) => theme.colors.text.inverse};
+      background: ${({ theme }) => theme.colors.background.negativeSubtle};
+      color: ${({ theme }) => theme.colors.text.negative};
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       font-family: ${({ theme }) => theme.typography.fontFamily.mono};

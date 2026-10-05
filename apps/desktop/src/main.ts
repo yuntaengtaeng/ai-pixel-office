@@ -29,6 +29,8 @@ function startPackagedServer(): Promise<string> {
       PIXEL_OFFICE_DATABASE_PATH: join(app.getPath("userData"), "ai-pixel-office.sqlite"),
       PIXEL_OFFICE_GENERAL_WORKING_DIRECTORY: join(app.getPath("userData"), "general"),
       PIXEL_OFFICE_RUNTIME_LOG_DIRECTORY: join(app.getPath("userData"), "runtime-logs"),
+      PIXEL_OFFICE_LIBRARY_DIRECTORY: join(app.getPath("userData"), "library"),
+      PIXEL_OFFICE_BUNDLED_TEAMS_DIRECTORY: join(process.resourcesPath, "teams"),
       PIXEL_OFFICE_STATIC_ROOT: join(process.resourcesPath, "web"),
     },
     stdio: ["ignore", "pipe", "pipe", "ipc"],
